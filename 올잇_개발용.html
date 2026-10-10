@@ -1,0 +1,2404 @@
+<!DOCTYPE html>
+<!--
+  올잇 All IT — 개발용 최종본 (단일 HTML, Tailwind CDN + 바닐라 JS)
+
+  ■ 구조
+    - 모바일 프레임(390x844) 안에 화면(<section class="screen" data-screen="...">)을 쌓고, go('이름')으로 전환합니다.
+    - 화면 순서: splash → login → tutorial → username → birth → character → contacts → home → memory(추억상자·동네 마을)
+                 → schedule → register → listening → profile → myinfo → mycontacts
+    - 추억상자·동네 마을은 Shadow DOM(<template id="memTpl">, #memoryHost)로 분리돼 있고 window.__appBridge / window.__memory 로 앱과 통신합니다.
+    - 상태(state, schedules, contacts, 일기, 동네 글)는 모두 메모리에만 있어 새로고침하면 초기화됩니다.
+
+  ■ 설정 값 (스크립트 안에서 검색)
+    VOICE_TEST_MODE       true: 항상 가짜 음성 / false: 실제 마이크(안 되면 가짜 음성으로 대체)
+    SAMPLE_VOICES, CHAT_SAMPLES   가짜 음성 예시 문장
+    SUGGEST_AFTER_DAYS, SUGGEST_SNOOZE_MS   연락처 전화 제안(기본 7일 / 다음에 하면 24시간)
+    MAX_CONTACTS          주요 연락처 최대 인원(5)
+    TUT_STEPS             처음 사용 안내(튜토리얼) 단계
+    TALKS, chatReply()    캐릭터 말·대화 응답(현재는 키워드 규칙)
+
+  ■ 서비스 연동 시 교체할 곳 (TODO)
+    1. 로그인       : $$('.login-btn') 클릭 핸들러 → 카카오/네이버/구글 OAuth 연동, 사용자 이름은 로그인 결과 사용
+    2. 저장         : state / schedules / 일기(DIARY) / 동네 글(FEED) → 서버 API 또는 localStorage
+    3. 음성 인식    : startListening()·startChat() (Web Speech API, ko-KR, https 또는 localhost에서만 동작)
+    4. 알림 전화    : 등록 일정 시각 확인 setInterval → 앱을 닫아도 오려면 서버 푸시/서비스 워커 필요
+    5. 연락처       : addFlow() — Contact Picker API 지원 기기는 전화번호부, 아니면 직접 입력
+    6. 캐릭터 대화  : chatReply() 를 AI 대화 API 호출로 교체
+    7. 동네 마을    : FEED 데이터와 공감/삭제 → 서버 연동
+-->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>올잇 All IT</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Pretendard', 'system-ui', 'sans-serif'] },
+          colors: {
+            ink: '#000000',
+            charcoal: '#3A3434',
+            brand: '#FF7A0E',
+            accent: '#FEAB41',
+            cream: '#FBF2E9',
+          },
+          // 디자인 시스템 타이포그래피
+          fontSize: {
+            h1: ['27px', { lineHeight: '36px', fontWeight: '700' }],
+            h2: ['20px', { lineHeight: '28px', fontWeight: '700' }],
+            s1: ['18px', { lineHeight: '26px', fontWeight: '700' }],
+            s2: ['16px', { lineHeight: '24px', fontWeight: '700' }],
+            b1: ['14px', { lineHeight: '20px', fontWeight: '500' }],
+            b2: ['10px', { lineHeight: '14px', fontWeight: '500' }],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { font-family: 'Pretendard', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    button { font-family: inherit; }
+
+    /* 화면 전환 */
+    .screen { position: absolute; inset: 0; display: flex; flex-direction: column; opacity: 0; visibility: hidden;
+      transform: translateX(28px); transition: opacity .35s ease, transform .35s ease, visibility 0s linear .35s; }
+    .screen.active { opacity: 1; visibility: visible; transform: none; transition: opacity .35s ease, transform .35s ease; }
+    .screen.past { transform: translateX(-28px); }
+
+    /* 공통 버튼 */
+    .btn { width: 100%; height: 56px; border-radius: 9999px; font-size: 16px; font-weight: 700; transition: transform .15s, background-color .15s, opacity .15s; user-select: none; }
+    .btn:not([disabled]):active { transform: scale(.96); }
+    .btn-primary { background: #FF7A0E; color: #fff; box-shadow: 0 6px 16px rgba(255,122,14,.3); }
+    .btn-primary:not([disabled]):active { background: rgba(255,122,14,.8); }
+    .btn-primary[disabled] { background: rgba(58,52,52,.25); box-shadow: none; cursor: not-allowed; }
+    .btn-ghost { background: #fff; color: #3A3434; border: 2px solid rgba(58,52,52,.2); }
+    .btn-ghost:active { background: #FBF2E9; }
+
+    /* Ripple */
+    .ripple-host { position: relative; overflow: hidden; }
+    .ripple { position: absolute; border-radius: 9999px; transform: scale(0); background: rgba(255,255,255,.5); animation: ripple .6s ease-out forwards; pointer-events: none; }
+    .rp-dark .ripple { background: rgba(255,122,14,.25); }
+    @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+
+    @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    .float { animation: float 3s ease-in-out infinite; }
+    @keyframes pulse-s { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+    .pulse-s { animation: pulse-s 1.4s ease-in-out infinite; }
+
+    .chip { height: 56px; border-radius: 16px; border: 2px solid rgba(58,52,52,.15); background: #fff; font-weight: 700; font-size: 16px; color: #3A3434; transition: all .15s; }
+    .chip:active { transform: scale(.96); }
+    .chip.on { background: #FF7A0E; border-color: #FF7A0E; color: #fff; }
+
+    .num-input { height: 72px; width: 100%; text-align: center; border-radius: 16px; border: 2px solid rgba(58,52,52,.15); background: #fff;
+      font-size: 27px; font-weight: 700; color: #3A3434; outline: none; transition: border-color .2s, box-shadow .2s; }
+    .num-input::placeholder { color: rgba(58,52,52,.2); }
+    .num-input:focus { border-color: #FF7A0E; box-shadow: 0 0 0 3px rgba(255,122,14,.2); }
+
+    #carousel { scroll-snap-type: x mandatory; scrollbar-width: none; }
+    #carousel::-webkit-scrollbar { display: none; }
+    .ccard { scroll-snap-align: center; flex: 0 0 180px; height: 240px; border-radius: 24px; background: #fff; border: 3px solid transparent;
+      transition: transform .25s, opacity .25s, border-color .25s, box-shadow .25s; transform: scale(.9); opacity: .65; overflow: hidden; }
+    .ccard.on { transform: scale(1); opacity: 1; border-color: #FF7A0E; box-shadow: 0 10px 24px rgba(255,122,14,.25); }
+
+    .num-input.sm { height: 56px; font-size: 20px; }
+    #decadeRow::-webkit-scrollbar { display: none; }
+    .btn-ghost[disabled] { opacity: .45; cursor: not-allowed; }
+    .sw { position: relative; width: 52px; height: 30px; flex-shrink: 0; border-radius: 9999px; background: rgba(58,52,52,.25); transition: background-color .2s; }
+    .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 9999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+    .sw[aria-checked="true"] { background: #FF7A0E; }
+    .sw[aria-checked="true"]::after { transform: translateX(22px); }
+    .wv { width: 3px; border-radius: 2px; background: #3A3434; opacity: .55; }
+    .listening .wv { animation: wave .9s ease-in-out infinite; opacity: .8; }
+    @keyframes wave { 0%,100% { transform: scaleY(.4); } 50% { transform: scaleY(1); } }
+    @keyframes blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+    .caret { display: inline-block; width: 3px; height: 1em; margin-left: 4px; vertical-align: -3px; background: #000; animation: blink 1s steps(1) infinite; }
+    #frame { transition: background-color .3s, color .3s; }
+    #delBg { transition: opacity .25s; }
+    #delDlg { transition: opacity .25s, transform .25s; }
+    #sheet { transition: transform .35s ease; }
+    #sheetBg { transition: opacity .35s; }
+    #toast { transition: opacity .25s, transform .25s; }
+  </style>
+</head>
+<body class="min-h-screen bg-[#E9E1D8] flex items-center justify-center p-4">
+
+  <!-- 캐릭터 SVG 심볼 -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="ch-cat" viewBox="0 0 160 160">
+        <ellipse cx="80" cy="150" rx="42" ry="6" fill="#3A3434" opacity=".12"/>
+        <path d="M122 126c22 2 30-18 18-30" fill="none" stroke="#FF7A0E" stroke-width="10" stroke-linecap="round"/>
+        <ellipse cx="80" cy="120" rx="40" ry="30" fill="#FF7A0E"/>
+        <ellipse cx="80" cy="126" rx="24" ry="20" fill="#FFFFFF"/>
+        <ellipse cx="60" cy="146" rx="11" ry="6" fill="#FEAB41"/>
+        <ellipse cx="100" cy="146" rx="11" ry="6" fill="#FEAB41"/>
+        <path d="M30 56 34 14 66 36Z" fill="#FF7A0E" stroke="#FF7A0E" stroke-width="6" stroke-linejoin="round"/>
+        <path d="M130 56 126 14 94 36Z" fill="#FF7A0E" stroke="#FF7A0E" stroke-width="6" stroke-linejoin="round"/>
+        <path d="M39 44 41 26 55 36Z" fill="#FEAB41"/>
+        <path d="M121 44 119 26 105 36Z" fill="#FEAB41"/>
+        <ellipse cx="80" cy="74" rx="52" ry="44" fill="#FF7A0E"/>
+        <path d="M80 32v12M68 34l2 10M92 34l-2 10" stroke="#FEAB41" stroke-width="5" stroke-linecap="round"/>
+        <ellipse cx="42" cy="86" rx="9" ry="6" fill="#FEAB41" opacity=".8"/>
+        <ellipse cx="118" cy="86" rx="9" ry="6" fill="#FEAB41" opacity=".8"/>
+        <ellipse cx="58" cy="74" rx="6" ry="8" fill="#3A3434"/>
+        <ellipse cx="102" cy="74" rx="6" ry="8" fill="#3A3434"/>
+        <circle cx="60" cy="71" r="2.2" fill="#fff"/>
+        <circle cx="104" cy="71" r="2.2" fill="#fff"/>
+        <path d="M75 86h10l-5 6Z" fill="#3A3434" stroke="#3A3434" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M80 92v3c-4 5-10 4-12 0M80 95c4 5 10 4 12 0" fill="none" stroke="#3A3434" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M26 80 8 76M26 88 8 90M134 80l18-4M134 88l18 2" stroke="#3A3434" stroke-width="2" stroke-linecap="round" opacity=".6"/>
+      </symbol>
+
+      <symbol id="ch-girl" viewBox="0 0 160 160">
+        <ellipse cx="80" cy="150" rx="42" ry="6" fill="#3A3434" opacity=".12"/>
+        <path d="M112 34c30-8 44 24 30 54-5 10-13 5-9-5 6-16 2-30-18-30Z" fill="#3A3434"/>
+        <path d="M54 110c0-16 52-16 52 0l10 38H44Z" fill="#FF7A0E"/>
+        <rect x="70" y="100" width="20" height="14" rx="6" fill="#FFE3C4"/>
+        <ellipse cx="46" cy="126" rx="7" ry="13" fill="#FFE3C4" transform="rotate(14 46 126)"/>
+        <ellipse cx="114" cy="126" rx="7" ry="13" fill="#FFE3C4" transform="rotate(-14 114 126)"/>
+        <ellipse cx="80" cy="70" rx="46" ry="42" fill="#FFE3C4"/>
+        <path d="M32 72c0-32 20-52 48-52s48 20 48 52c-10-20-28-28-48-28S42 52 32 72Z" fill="#3A3434"/>
+        <circle cx="122" cy="46" r="6" fill="#FEAB41"/>
+        <ellipse cx="62" cy="78" rx="5" ry="7" fill="#3A3434"/>
+        <ellipse cx="98" cy="78" rx="5" ry="7" fill="#3A3434"/>
+        <circle cx="64" cy="75" r="1.8" fill="#fff"/><circle cx="100" cy="75" r="1.8" fill="#fff"/>
+        <ellipse cx="50" cy="90" rx="8" ry="5" fill="#FEAB41" opacity=".7"/>
+        <ellipse cx="110" cy="90" rx="8" ry="5" fill="#FEAB41" opacity=".7"/>
+        <path d="M72 94c4 6 12 6 16 0" fill="none" stroke="#3A3434" stroke-width="2.6" stroke-linecap="round"/>
+      </symbol>
+
+      <symbol id="ch-bear" viewBox="0 0 160 160">
+        <ellipse cx="80" cy="150" rx="42" ry="6" fill="#3A3434" opacity=".12"/>
+        <ellipse cx="80" cy="124" rx="38" ry="28" fill="#FEAB41"/>
+        <ellipse cx="80" cy="128" rx="22" ry="18" fill="#FBF2E9"/>
+        <ellipse cx="58" cy="148" rx="12" ry="6" fill="#FF7A0E"/>
+        <ellipse cx="102" cy="148" rx="12" ry="6" fill="#FF7A0E"/>
+        <circle cx="36" cy="36" r="17" fill="#FEAB41"/><circle cx="36" cy="36" r="8" fill="#FBF2E9"/>
+        <circle cx="124" cy="36" r="17" fill="#FEAB41"/><circle cx="124" cy="36" r="8" fill="#FBF2E9"/>
+        <ellipse cx="80" cy="72" rx="50" ry="44" fill="#FEAB41"/>
+        <ellipse cx="80" cy="88" rx="22" ry="16" fill="#FBF2E9"/>
+        <ellipse cx="80" cy="82" rx="7" ry="5" fill="#3A3434"/>
+        <path d="M80 87v4c-3 4-8 3-10 0M80 91c3 4 8 3 10 0" fill="none" stroke="#3A3434" stroke-width="2.2" stroke-linecap="round"/>
+        <ellipse cx="56" cy="68" rx="5.500" ry="7" fill="#3A3434"/>
+        <ellipse cx="104" cy="68" rx="5.500" ry="7" fill="#3A3434"/>
+        <circle cx="58" cy="65" r="2" fill="#fff"/><circle cx="106" cy="65" r="2" fill="#fff"/>
+        <ellipse cx="40" cy="84" rx="8" ry="5" fill="#FF7A0E" opacity=".45"/>
+        <ellipse cx="120" cy="84" rx="8" ry="5" fill="#FF7A0E" opacity=".45"/>
+      </symbol>
+
+      <symbol id="ch-boy" viewBox="0 0 160 160">
+        <ellipse cx="80" cy="150" rx="42" ry="6" fill="#3A3434" opacity=".12"/>
+        <path d="M54 110c0-16 52-16 52 0l10 38H44Z" fill="#FEAB41"/>
+        <rect x="70" y="100" width="20" height="14" rx="6" fill="#FFE3C4"/>
+        <ellipse cx="46" cy="126" rx="7" ry="13" fill="#FFE3C4" transform="rotate(14 46 126)"/>
+        <ellipse cx="114" cy="126" rx="7" ry="13" fill="#FFE3C4" transform="rotate(-14 114 126)"/>
+        <ellipse cx="80" cy="70" rx="46" ry="42" fill="#FFE3C4"/>
+        <path d="M33 68c-3-34 20-50 47-50s50 16 47 50c-5-14-12-20-24-23l-9 9-9-9c-17 0-42 4-52 23Z" fill="#3A3434"/>
+        <ellipse cx="62" cy="80" rx="5" ry="7" fill="#3A3434"/>
+        <ellipse cx="98" cy="80" rx="5" ry="7" fill="#3A3434"/>
+        <circle cx="64" cy="77" r="1.8" fill="#fff"/><circle cx="100" cy="77" r="1.8" fill="#fff"/>
+        <ellipse cx="50" cy="92" rx="8" ry="5" fill="#FF7A0E" opacity=".35"/>
+        <ellipse cx="110" cy="92" rx="8" ry="5" fill="#FF7A0E" opacity=".35"/>
+        <path d="M70 94c5 7 15 7 20 0" fill="none" stroke="#3A3434" stroke-width="2.6" stroke-linecap="round"/>
+      </symbol>
+
+      <symbol id="ch-dog" viewBox="0 0 160 160">
+        <ellipse cx="80" cy="150" rx="42" ry="6" fill="#3A3434" opacity=".12"/>
+        <path d="M118 122c18-6 26-22 18-34" fill="none" stroke="#FEAB41" stroke-width="10" stroke-linecap="round"/>
+        <ellipse cx="80" cy="122" rx="38" ry="28" fill="#FFE3C4"/>
+        <ellipse cx="80" cy="128" rx="22" ry="18" fill="#FFFFFF"/>
+        <ellipse cx="60" cy="147" rx="12" ry="6" fill="#FEAB41"/>
+        <ellipse cx="100" cy="147" rx="12" ry="6" fill="#FEAB41"/>
+        <path d="M34 40c-18 4-24 30-14 50 6 10 18 2 18-8 0-16 2-30-4-42Z" fill="#FEAB41"/>
+        <path d="M126 40c18 4 24 30 14 50-6 10-18 2-18-8 0-16-2-30 4-42Z" fill="#FEAB41"/>
+        <ellipse cx="80" cy="72" rx="48" ry="42" fill="#FFE3C4"/>
+        <ellipse cx="58" cy="66" rx="14" ry="13" fill="#FEAB41" opacity=".8"/>
+        <ellipse cx="80" cy="90" rx="24" ry="17" fill="#FFFFFF"/>
+        <ellipse cx="80" cy="82" rx="8" ry="6" fill="#3A3434"/>
+        <path d="M80 88v6c-4 5-10 4-12 0M80 94c4 5 10 4 12 0" fill="none" stroke="#3A3434" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M74 98h12v8c0 4-12 4-12 0Z" fill="#FF7A0E"/>
+        <ellipse cx="60" cy="68" rx="5.500" ry="7" fill="#3A3434"/>
+        <ellipse cx="100" cy="68" rx="5.500" ry="7" fill="#3A3434"/>
+        <circle cx="62" cy="65" r="2" fill="#fff"/><circle cx="102" cy="65" r="2" fill="#fff"/>
+      </symbol>
+
+      <symbol id="ch-rabbit" viewBox="0 0 160 160">
+        <ellipse cx="80" cy="150" rx="42" ry="6" fill="#3A3434" opacity=".12"/>
+        <ellipse cx="80" cy="122" rx="38" ry="28" fill="#FBF2E9" stroke="#EBD9C4" stroke-width="3"/>
+        <ellipse cx="80" cy="128" rx="22" ry="18" fill="#FFFFFF"/>
+        <ellipse cx="60" cy="147" rx="12" ry="6" fill="#FEAB41"/>
+        <ellipse cx="100" cy="147" rx="12" ry="6" fill="#FEAB41"/>
+        <ellipse cx="58" cy="40" rx="13" ry="28" fill="#FBF2E9" stroke="#EBD9C4" stroke-width="3" transform="rotate(-8 58 40)"/>
+        <ellipse cx="102" cy="40" rx="13" ry="28" fill="#FBF2E9" stroke="#EBD9C4" stroke-width="3" transform="rotate(8 102 40)"/>
+        <ellipse cx="58" cy="42" rx="6" ry="19" fill="#FEAB41" opacity=".55" transform="rotate(-8 58 42)"/>
+        <ellipse cx="102" cy="42" rx="6" ry="19" fill="#FEAB41" opacity=".55" transform="rotate(8 102 42)"/>
+        <ellipse cx="80" cy="78" rx="48" ry="40" fill="#FBF2E9" stroke="#EBD9C4" stroke-width="3"/>
+        <ellipse cx="60" cy="74" rx="5.500" ry="7.500" fill="#3A3434"/>
+        <ellipse cx="100" cy="74" rx="5.500" ry="7.500" fill="#3A3434"/>
+        <circle cx="62" cy="71" r="2" fill="#fff"/><circle cx="102" cy="71" r="2" fill="#fff"/>
+        <ellipse cx="44" cy="90" rx="8" ry="5" fill="#FEAB41" opacity=".7"/>
+        <ellipse cx="116" cy="90" rx="8" ry="5" fill="#FEAB41" opacity=".7"/>
+        <path d="M75 86h10l-5 5Z" fill="#FF7A0E"/>
+        <path d="M80 91v3c-3 4-8 3-10 0M80 94c3 4 8 3 10 0" fill="none" stroke="#3A3434" stroke-width="2.2" stroke-linecap="round"/>
+      </symbol>
+
+      <symbol id="ch-frog" viewBox="0 0 160 160">
+        <ellipse cx="80" cy="150" rx="42" ry="6" fill="#3A3434" opacity=".12"/>
+        <ellipse cx="80" cy="122" rx="40" ry="28" fill="#FF7A0E"/>
+        <ellipse cx="80" cy="128" rx="24" ry="18" fill="#FBF2E9"/>
+        <ellipse cx="54" cy="147" rx="15" ry="6" fill="#E5640A"/>
+        <ellipse cx="106" cy="147" rx="15" ry="6" fill="#E5640A"/>
+        <ellipse cx="80" cy="82" rx="54" ry="40" fill="#FF7A0E"/>
+        <circle cx="52" cy="46" r="22" fill="#FF7A0E"/>
+        <circle cx="108" cy="46" r="22" fill="#FF7A0E"/>
+        <circle cx="52" cy="46" r="14" fill="#FFFFFF"/>
+        <circle cx="108" cy="46" r="14" fill="#FFFFFF"/>
+        <circle cx="54" cy="48" r="7" fill="#3A3434"/>
+        <circle cx="106" cy="48" r="7" fill="#3A3434"/>
+        <circle cx="56" cy="45" r="2.200" fill="#fff"/><circle cx="108" cy="45" r="2.200" fill="#fff"/>
+        <ellipse cx="42" cy="92" rx="9" ry="6" fill="#FEAB41" opacity=".95"/>
+        <ellipse cx="118" cy="92" rx="9" ry="6" fill="#FEAB41" opacity=".95"/>
+        <circle cx="72" cy="78" r="2" fill="#3A3434" opacity=".6"/><circle cx="88" cy="78" r="2" fill="#3A3434" opacity=".6"/>
+        <path d="M54 92c14 14 38 14 52 0" fill="none" stroke="#3A3434" stroke-width="3" stroke-linecap="round"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- 모바일 프레임 -->
+  <main id="frame" class="relative w-[390px] h-[844px] max-w-full overflow-hidden rounded-[40px] shadow-2xl bg-cream text-charcoal flex flex-col">
+
+    <!-- 상태바 -->
+    <div class="h-11 px-7 flex items-center justify-between text-b2 shrink-0 z-20">
+      <span>9:41</span>
+      <span class="flex items-center gap-1.5">
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><rect x="0" y="6" width="2" height="4" rx=".5"/><rect x="4" y="4" width="2" height="6" rx=".5"/><rect x="8" y="2" width="2" height="8" rx=".5"/><rect x="12" y="0" width="2" height="10" rx=".5"/></svg>
+        <svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="currentColor"><rect x=".5" y=".5" width="18" height="9" rx="2.5"/><rect x="2" y="2" width="15" height="6" rx="1.5" fill="currentColor" stroke="none"/><rect x="20" y="3" width="1.5" height="4" rx=".5" fill="currentColor" stroke="none"/></svg>
+      </span>
+    </div>
+
+    <div id="stage" class="relative flex-1 min-h-0">
+
+      <!-- ① 스플래시 -->
+      <section class="screen active items-center justify-center" data-screen="splash">
+        <div class="pulse-s w-52 h-52 rounded-full bg-white shadow-[0_12px_32px_rgba(255,122,14,.25)] flex items-center justify-center">
+          <svg width="140" height="140"><use href="#ch-cat"/></svg>
+        </div>
+      </section>
+
+      <!-- ② 로그인 -->
+      <section class="screen" data-screen="login">
+        <div class="flex-1 flex flex-col items-center justify-center px-6 min-h-0">
+          <div id="loginChar" class="float cursor-pointer" aria-label="서비스 캐릭터">
+            <svg width="190" height="190"><use href="#ch-cat"/></svg>
+          </div>
+          <h1 class="mt-6 text-h1 text-ink text-center">[올잇 All IT]</h1>
+          <p class="mt-3 text-s2 text-charcoal/80 text-center">매일 안부를 묻고<br />기억을 챙겨주는 <span class="text-brand">AI 짝꿍</span></p>
+        </div>
+
+        <div class="shrink-0 px-5 pb-10">
+          <div class="space-y-3">
+            <button type="button" data-provider="카카오톡"
+              class="login-btn ripple-host relative w-full h-14 rounded-2xl bg-accent text-ink text-s2 flex items-center justify-center transition duration-150 active:scale-[.96] active:bg-opacity-80 select-none">
+              <span class="absolute left-5 w-7 h-7 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.8 5.3 4.6 6.7L5.600 21.500c-.1.3.2.5.5.3l4.300-2.900c.5.1 1 .1 1.600.1 5.500 0 10-3.600 10-8S17.500 3 12 3Z"/></svg>
+              </span>
+              카카오톡으로 시작하기
+            </button>
+            <button type="button" data-provider="네이버"
+              class="login-btn ripple-host relative w-full h-14 rounded-2xl bg-brand text-white text-s2 flex items-center justify-center transition duration-150 active:scale-[.96] active:bg-opacity-80 select-none">
+              <span class="absolute left-5 w-7 h-7 rounded-md bg-white text-brand flex items-center justify-center text-s2 font-extrabold leading-none">N</span>
+              네이버로 시작하기
+            </button>
+            <button type="button" data-provider="구글"
+              class="login-btn ripple-host rp-dark relative w-full h-14 rounded-2xl bg-white text-charcoal text-s2 border-2 border-brand flex items-center justify-center transition duration-150 active:scale-[.96] active:bg-cream select-none">
+              <span class="absolute left-5 w-7 h-7 flex items-center justify-center">
+                <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#FF7A0E" d="M21.800 12.200c0-.7-.1-1.300-.2-1.900H12v3.700h5.500c-.2 1.300-1 2.400-2.100 3.100v2.600h3.400c2-1.800 3-4.500 3-7.500Z"/><path fill="#3A3434" d="M12 22c2.700 0 5-.9 6.700-2.400l-3.300-2.600c-.9.600-2.100 1-3.400 1-2.600 0-4.800-1.800-5.600-4.100H3v2.600C4.700 19.800 8.100 22 12 22Z"/><path fill="#FEAB41" d="M6.400 14c-.2-.6-.3-1.300-.3-2s.1-1.400.3-2V7.400H3C2.400 8.700 2 10.300 2 12s.4 3.300 1 4.600L6.400 14Z"/><path fill="#FF7A0E" d="M12 5.900c1.500 0 2.800.5 3.800 1.500l2.900-2.900C17 2.900 14.700 2 12 2 8.100 2 4.700 4.200 3 7.400L6.400 10C7.200 7.700 9.400 5.900 12 5.900Z"/></svg>
+              </span>
+              구글로 시작하기
+            </button>
+          </div>
+          <p class="mt-6 text-b1 text-center text-charcoal/70">한 번 로그인하면 계속 유지돼요</p>
+          <div class="mt-5 text-center">
+            <button type="button" id="signupBtn" class="text-b1 text-charcoal underline underline-offset-4 px-3 py-1 rounded-lg active:text-brand active:bg-white/60 transition">회원가입</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ③ 튜토리얼 1/4 -->
+      <section class="screen" data-screen="tutorial">
+        <header class="px-6 pt-3 h-12 flex items-center"><span class="text-s2 text-ink">1 / 5</span></header>
+        <div class="flex-1 min-h-0 px-6 flex flex-col">
+          <div class="flex justify-center mt-2"><svg width="190" height="190" class="float"><use href="#ch-cat"/></svg></div>
+          <h2 class="mt-4 text-h1 text-ink">매일 <span class="text-brand">캐릭터</span>가<br />짝꿍이 되어 드려요😊</h2>
+          <p class="mt-3 text-b1 text-charcoal/60">아침, 점심, 저녁에 전화로 안부를 묻고 이야기를 들어드려요</p>
+          <ul id="tutList" class="mt-6 space-y-3"></ul>
+        </div>
+        <div class="px-5 pb-8 pt-3 shrink-0"><button type="button" class="btn btn-primary ripple-host" data-go="username">다음</button></div>
+      </section>
+
+      <!-- ③-2 사용자 이름 2/5 -->
+      <section class="screen" data-screen="username">
+        <header class="px-5 pt-3 h-12 flex items-center gap-3">
+          <button type="button" data-back="tutorial" aria-label="뒤로" class="p-1 -m-1 active:scale-90 transition"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+          <span class="text-s2 text-ink">회원 정보 2 / 5</span>
+        </header>
+        <div class="flex-1 min-h-0 px-5 overflow-y-auto">
+          <h2 class="mt-5 text-h1 text-ink">이름을 알려 주세요</h2>
+          <p class="mt-3 text-b1 text-charcoal/60">짝꿍이 어르신의 이름을 다정하게 불러 드려요</p>
+          <label class="block mt-8">
+            <span class="block mb-2 text-s2 text-charcoal/60">이름</span>
+            <input id="unameInput" maxlength="10" placeholder="이름을 입력해 주세요" autocomplete="off"
+              class="w-full h-[72px] px-5 rounded-2xl border-2 border-charcoal/15 bg-white text-h2 text-ink outline-none transition focus:border-brand focus:shadow-[0_0_0_3px_rgba(255,122,14,.2)] placeholder:text-charcoal/30 placeholder:font-medium" />
+          </label>
+          <div id="unameHello" class="mt-4 rounded-2xl bg-white px-5 py-4 text-s2 text-charcoal/50">이름을 입력해 주세요</div>
+        </div>
+        <div class="px-5 pb-8 pt-3 shrink-0"><button type="button" id="unameNext" class="btn btn-primary ripple-host" disabled>다음</button></div>
+      </section>
+
+      <!-- ④ 생년월일 3/5 -->
+      <section class="screen" data-screen="birth">
+        <header class="px-5 pt-3 h-12 flex items-center gap-3">
+          <button type="button" data-back="username" aria-label="뒤로" class="p-1 -m-1 active:scale-90 transition"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+          <span class="text-s2 text-ink">회원 정보 3 / 5</span>
+        </header>
+        <div class="flex-1 min-h-0 px-5 overflow-y-auto">
+          <h2 class="mt-5 text-h1 text-ink">생년월일을 알려 주세요</h2>
+          <div class="mt-6 grid grid-cols-[1.25fr_1fr_1fr] gap-3">
+            <label class="block"><span class="block mb-2 text-s2 text-charcoal/60">연도</span><input id="by" class="num-input" inputmode="numeric" maxlength="4" placeholder="1948" autocomplete="off" /></label>
+            <label class="block"><span class="block mb-2 text-s2 text-charcoal/60">월</span><input id="bm" class="num-input" inputmode="numeric" maxlength="2" placeholder="3" autocomplete="off" /></label>
+            <label class="block"><span class="block mb-2 text-s2 text-charcoal/60">일</span><input id="bd" class="num-input" inputmode="numeric" maxlength="2" placeholder="15" autocomplete="off" /></label>
+          </div>
+          <div id="birthSummary" class="mt-4 rounded-2xl bg-white px-5 py-4 text-s2 text-charcoal/50">생년월일을 입력해 주세요</div>
+
+          <p class="mt-7 text-s2 text-charcoal/60">연도를 눌러 빠르게 고르기</p>
+          <div class="mt-3 flex items-center gap-2">
+            <button type="button" id="decPrev" data-decmove="-1" aria-label="이전 연대" class="w-9 h-14 shrink-0 rounded-xl bg-white border-2 border-charcoal/15 flex items-center justify-center text-brand transition active:scale-90 active:bg-cream disabled:opacity-30"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+            <div id="decadeRow" class="flex-1 min-w-0 flex gap-3 overflow-x-auto relative" style="scrollbar-width:none"></div>
+            <button type="button" id="decNext" data-decmove="1" aria-label="다음 연대" class="w-9 h-14 shrink-0 rounded-xl bg-white border-2 border-charcoal/15 flex items-center justify-center text-brand transition active:scale-90 active:bg-cream disabled:opacity-30"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+          </div>
+          <div id="yearGrid" class="mt-3 grid grid-cols-5 gap-2"></div>
+        </div>
+        <div class="px-5 pb-8 pt-3 shrink-0"><button type="button" id="birthNext" class="btn btn-primary ripple-host" disabled>다음</button></div>
+      </section>
+
+      <!-- ⑤ 캐릭터 3/4 -->
+      <section class="screen" data-screen="character">
+        <header class="px-5 pt-3 h-12 flex items-center gap-3">
+          <button type="button" data-back="birth" aria-label="뒤로" class="p-1 -m-1 active:scale-90 transition"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+          <span class="text-s2 text-ink">캐릭터 4 / 5</span>
+        </header>
+        <div class="flex-1 min-h-0 flex flex-col">
+          <h2 class="mt-5 px-5 text-h1 text-ink">캐릭터를 골라주세요</h2>
+          <div id="carousel" class="mt-5 flex gap-4 overflow-x-auto px-[105px] py-3">
+            <button type="button" class="ccard" data-i="0" aria-label="여자아이 캐릭터"><svg viewBox="0 0 160 160" width="100%" height="100%"><use href="#ch-girl"/></svg></button>
+            <button type="button" class="ccard" data-i="1" aria-label="남자아이 캐릭터"><svg viewBox="0 0 160 160" width="100%" height="100%"><use href="#ch-boy"/></svg></button>
+            <button type="button" class="ccard" data-i="2" aria-label="고양이 캐릭터"><svg viewBox="0 0 160 160" width="100%" height="100%"><use href="#ch-cat"/></svg></button>
+            <button type="button" class="ccard" data-i="3" aria-label="강아지 캐릭터"><svg viewBox="0 0 160 160" width="100%" height="100%"><use href="#ch-dog"/></svg></button>
+            <button type="button" class="ccard" data-i="4" aria-label="토끼 캐릭터"><svg viewBox="0 0 160 160" width="100%" height="100%"><use href="#ch-rabbit"/></svg></button>
+            <button type="button" class="ccard" data-i="5" aria-label="곰 캐릭터"><svg viewBox="0 0 160 160" width="100%" height="100%"><use href="#ch-bear"/></svg></button>
+            <button type="button" class="ccard" data-i="6" aria-label="개구리 캐릭터"><svg viewBox="0 0 160 160" width="100%" height="100%"><use href="#ch-frog"/></svg></button>
+          </div>
+
+          <div class="px-5 mt-4">
+            <p class="text-s2 text-charcoal/60">이름</p>
+            <div class="mt-2 h-14 rounded-2xl bg-white pl-5 pr-2 flex items-center gap-2">
+              <input id="nameInput" maxlength="8" placeholder="이름을 지어주세요" class="flex-1 min-w-0 bg-transparent outline-none text-s2 text-ink placeholder:text-charcoal/40 placeholder:font-medium" />
+              <span id="nameShown" class="hidden flex-1 min-w-0 truncate text-h2 text-ink"></span>
+              <button type="button" id="nameBtn" class="ripple-host rp-dark shrink-0 h-10 px-4 rounded-xl bg-brand text-white text-b1 font-bold transition active:scale-95 disabled:bg-charcoal/15 disabled:text-charcoal/50" disabled>만들기</button>
+            </div>
+          </div>
+        </div>
+        <div class="px-5 pb-8 pt-3 shrink-0"><button type="button" id="charNext" class="btn btn-primary ripple-host" disabled>시작하기</button></div>
+      </section>
+
+      <!-- ⑥ 연락할 사람 (마지막 단계) -->
+      <section class="screen" data-screen="contacts">
+        <header class="px-5 pt-3 h-12 flex items-center gap-3">
+          <button type="button" data-back="character" aria-label="뒤로" class="p-1 -m-1 active:scale-90 transition"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+          <span class="text-s2 text-ink">마지막 단계</span>
+        </header>
+        <div class="flex-1 min-h-0 px-5 overflow-y-auto">
+          <h2 class="mt-5 text-h1 text-ink">자주 연락하고 싶은<br />사람을 알려 주세요</h2>
+          <p id="contactSub" class="mt-3 text-b1 text-charcoal/60"></p>
+          <ul id="contactList" class="mt-6 space-y-3"></ul>
+          <button type="button" id="addContact" class="ripple-host rp-dark mt-3 w-full h-16 rounded-2xl border-2 border-dashed border-brand/60 bg-white/50 text-s2 text-brand transition active:scale-[.97]">+ 연락처 추가하기</button>
+          <p id="contactCount" class="mt-3 text-b1 font-bold text-charcoal/60"></p>
+        </div>
+        <div class="px-5 pb-8 pt-3 shrink-0 space-y-3">
+          <button type="button" id="contactDone" class="btn btn-primary ripple-host" disabled>시작하기</button>
+          <button type="button" id="contactLater" class="btn btn-ghost ripple-host rp-dark">나중에 할게요</button>
+        </div>
+      </section>
+
+      <!-- ⑥-2 홈 -->
+      <section class="screen" data-screen="home">
+        <div class="flex-1 min-h-0 flex flex-col px-5">
+          <div class="flex justify-end pt-2">
+            <button type="button" data-go="profile" class="ripple-host rp-dark h-10 px-5 rounded-full border-2 border-charcoal/25 bg-white text-b1 font-bold text-charcoal transition active:scale-95">마이페이지</button>
+          </div>
+          <h2 id="homeGreet" role="status" aria-live="polite" class="mt-3 h-[108px] overflow-hidden text-h1 text-ink break-keep"></h2>
+
+          <div class="flex-1 min-h-0 flex items-center justify-center">
+            <button type="button" id="homeChar" class="float" aria-label="내 짝꿍 캐릭터">
+              <svg viewBox="0 0 160 160" width="200" height="200"><use id="homeCharUse" href="#ch-cat"/></svg>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <h3 class="text-s1 text-ink">오늘 꼭 챙길 일</h3>
+            <button type="button" data-go="schedule" class="flex items-center gap-0.5 pl-1 py-1 text-b1 font-bold text-charcoal/60 active:text-brand transition">일정 전체<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+          </div>
+          <div id="taskGrid" class="mt-3 grid grid-cols-2 gap-3"></div>
+
+          <button type="button" id="recBtn" class="btn btn-primary ripple-host mt-5 mb-4 flex items-center justify-center gap-2">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg><span id="recLabel">말로 기록하기</span>
+          </button>
+        </div>
+        <div data-nav="home"></div>
+      </section>
+
+      <!-- ⑥-2b 추억 상자 · 동네 마을 -->
+      <section class="screen" data-screen="memory">
+        <div id="memoryHost" class="relative flex-1 min-h-0"></div>
+      </section>
+
+      <!-- ⑥-3 일정 -->
+      <section class="screen" data-screen="schedule">
+        <div class="flex-1 min-h-0 px-5 overflow-y-auto pb-4">
+          <h2 class="mt-1 h-12 flex items-center justify-center text-h1 text-ink">일정</h2>
+          <div id="nextCard" class="mt-4 w-full text-left rounded-3xl bg-white p-5 shadow-[0_8px_24px_rgba(58,52,52,.06)]"></div>
+          <h3 class="mt-6 text-s2 text-ink">복약 시간</h3>
+          <ul id="medList" class="mt-3 space-y-3"></ul>
+          <h3 class="mt-6 text-s2 text-ink">등록된 일정</h3>
+          <ul id="evList" class="mt-3 space-y-3"></ul>
+        </div>
+        <div class="px-5 pb-3 pt-2 shrink-0">
+          <button type="button" id="addSched" class="btn btn-primary ripple-host flex items-center justify-center gap-2">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>일정 추가하기
+          </button>
+        </div>
+        <div data-nav="schedule"></div>
+      </section>
+
+      <!-- ⑥-4 일정 등록하기 -->
+      <section class="screen" data-screen="register">
+        <header class="relative mt-1 h-12 px-5 flex items-center justify-center">
+          <button type="button" id="regBack" aria-label="뒤로" class="absolute left-5 p-1 -m-1 active:scale-90 transition"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+          <h2 class="text-h1 text-ink">일정 등록하기</h2>
+        </header>
+        <div class="flex-1 min-h-0 px-5 overflow-y-auto">
+          <div class="mt-3 rounded-3xl bg-white p-4 shadow-[0_8px_24px_rgba(58,52,52,.06)]">
+            <p class="text-b1 font-bold text-charcoal/60">이렇게 알아들었어요</p>
+            <div id="parsedBody"></div>
+            <div class="mt-4 flex items-center justify-between gap-3">
+              <span id="callLabel" class="text-b1 font-bold text-charcoal/70 truncate"></span>
+              <button type="button" id="regCall" role="switch" class="sw" aria-checked="true" aria-label="전화로 알려주기"></button>
+            </div>
+          </div>
+          <div class="mt-4">
+            <label for="regText" class="block text-s2 text-ink">말하거나 글로 적어 주세요</label>
+            <textarea id="regText" rows="2" maxlength="80" placeholder="예) 내일 오전 10시에 병원 가" class="mt-2 w-full resize-none rounded-2xl border-2 border-charcoal/15 bg-white px-4 py-3 text-s2 font-medium text-ink outline-none transition focus:border-brand focus:shadow-[0_0_0_3px_rgba(255,122,14,.2)] placeholder:text-charcoal/30"></textarea>
+          </div>
+          <div id="micBlock" class="mt-4 flex flex-col items-center">
+            <button type="button" id="regMic" aria-label="말하기" class="ripple-host rp-dark w-[88px] h-[88px] rounded-full bg-brand/25 flex items-center justify-center transition active:scale-95">
+              <span class="w-[68px] h-[68px] rounded-full bg-brand text-white flex items-center justify-center shadow-md shadow-brand/30"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg></span>
+            </button>
+            <p class="mt-2 mb-3 text-s2 text-ink">눌러서 말해 주세요</p>
+          </div>
+        </div>
+        <div class="px-5 pb-3 pt-2 shrink-0 space-y-3">
+          <button type="button" id="regSave" class="btn btn-primary ripple-host" disabled>이대로 등록하기</button>
+          <button type="button" id="regAgain" class="btn btn-ghost ripple-host rp-dark" disabled>다시 말하기</button>
+        </div>
+        <div data-nav="register"></div>
+      </section>
+
+      <!-- ⑥-5 음성 입력 중 -->
+      <section class="screen" data-screen="listening">
+        <header class="relative mt-1 h-12 px-5 flex items-center justify-center">
+          <button type="button" id="lsBack" aria-label="뒤로" class="absolute left-5 p-1 -m-1 active:scale-90 transition"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+          <h2 class="text-h1 text-ink">일정 등록하기</h2>
+        </header>
+        <div class="flex-1 min-h-0 px-6 pb-8 flex flex-col items-center justify-end text-center">
+          <div class="float mb-4"><svg viewBox="0 0 160 160" width="170" height="170" aria-label="내 짝꿍 캐릭터"><use id="lsChar" href="#ch-cat"/></svg></div>
+          <p class="text-s2 text-ink">듣고 있어요!</p>
+          <p id="liveText" class="mt-5 text-h1 text-ink break-keep min-h-[108px]"></p>
+        </div>
+        <div id="lsWrap" class="shrink-0 pb-8 px-4 flex items-center justify-center gap-3">
+          <div id="waveL" class="flex-1 flex items-center justify-end gap-[6px] h-[110px]"></div>
+          <button type="button" id="lsMic" aria-label="말하기 끝내기" class="shrink-0 w-[104px] h-[104px] rounded-full bg-brand/25 flex items-center justify-center transition active:scale-95">
+            <span class="w-[80px] h-[80px] rounded-full bg-brand text-white flex items-center justify-center shadow-md shadow-brand/30"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg></span>
+          </button>
+          <div id="waveR" class="flex-1 flex items-center justify-start gap-[6px] h-[110px]"></div>
+        </div>
+        <div data-nav="listening"></div>
+      </section>
+
+      <!-- ⑦ 내 정보 -->
+      <section class="screen" data-screen="profile">
+        <div class="flex-1 min-h-0 px-5 overflow-y-auto">
+          <div class="relative mt-1 h-12 flex items-center justify-center">
+            <button type="button" data-back="home" aria-label="뒤로" class="absolute left-0 p-1 -m-1 active:scale-90 transition"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+            <h2 class="text-h1 text-ink">내 정보</h2>
+          </div>
+
+          <div id="profCard" class="mt-8 rounded-3xl bg-white p-5 flex items-center gap-4 shadow-[0_8px_24px_rgba(58,52,52,.06)]">
+            <div class="w-[72px] h-[72px] rounded-full bg-cream overflow-hidden shrink-0"><svg id="profAvatar" viewBox="0 0 160 160" width="100%" height="100%"><use href="#ch-cat"/></svg></div>
+            <div class="min-w-0">
+              <p class="text-s1 truncate"><span id="profName"></span><span id="profNim" class="text-ink"> 님</span></p>
+              <p class="mt-1 text-b1 text-charcoal/60 truncate">함께하는 짝꿍: <span id="profChar" class="font-bold text-brand"></span></p>
+            </div>
+          </div>
+
+          <div id="settingsCard" class="mt-6 rounded-3xl bg-white p-5 shadow-[0_8px_24px_rgba(58,52,52,.06)]">
+            <p class="text-s1 text-ink">환경설정</p>
+            <div class="mt-4 space-y-3">
+              <button type="button" data-go="myinfo" class="ripple-host rp-dark w-full h-14 rounded-full bg-cream px-5 flex items-center justify-between text-s2 text-ink transition active:scale-[.97]">회원정보 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+              <button type="button" data-go="mycontacts" class="ripple-host rp-dark w-full h-14 rounded-full bg-cream px-5 flex items-center justify-between text-s2 text-ink transition active:scale-[.97]">주요 연락처 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ⑧ 회원정보 -->
+      <section class="screen" data-screen="myinfo">
+        <header class="px-5 pt-3 h-12 flex items-center gap-3">
+          <button type="button" data-back="profile" aria-label="뒤로" class="p-1 -m-1 active:scale-90 transition"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+          <span class="text-s2 text-ink">회원정보</span>
+        </header>
+        <div class="flex-1 min-h-0 px-5 overflow-y-auto pb-6">
+          <h2 class="mt-5 text-h1 text-ink">회원정보</h2>
+
+          <div class="mt-6 rounded-3xl bg-white divide-y divide-charcoal/10 shadow-[0_8px_24px_rgba(58,52,52,.06)]">
+            <div class="px-5 py-4">
+              <span class="text-b1 text-charcoal/60">이름</span>
+              <div class="mt-2 h-12 rounded-xl bg-cream pl-4 pr-2 flex items-center gap-2">
+                <input id="miNameInput" maxlength="10" placeholder="이름을 입력해 주세요" class="flex-1 min-w-0 bg-transparent outline-none text-s2 text-ink placeholder:text-charcoal/40 placeholder:font-medium" />
+                <span id="miNameShown" class="hidden flex-1 min-w-0 truncate text-s2 text-ink"></span>
+                <button type="button" id="miNameBtn" class="ripple-host rp-dark shrink-0 h-9 px-4 rounded-lg bg-brand text-white text-b1 font-bold transition active:scale-95 disabled:bg-charcoal/15 disabled:text-charcoal/50" disabled>저장</button>
+              </div>
+            </div>
+            <div class="flex items-center justify-between px-5 h-16"><span class="text-b1 text-charcoal/60">로그인 방식</span><span id="miProvider" class="text-s2 text-ink"></span></div>
+            <div class="px-5 py-4">
+              <span class="text-b1 text-charcoal/60">함께하는 짝꿍</span>
+              <div class="mt-2 h-12 rounded-xl bg-cream pl-4 pr-2 flex items-center gap-2">
+                <input id="miCharInput" maxlength="8" placeholder="이름을 지어주세요" autocomplete="off" class="flex-1 min-w-0 bg-transparent outline-none text-s2 text-ink placeholder:text-charcoal/40 placeholder:font-medium" />
+                <span id="miCharShown" class="hidden flex-1 min-w-0 truncate text-s2 text-brand"></span>
+                <button type="button" id="miCharBtn" class="ripple-host rp-dark shrink-0 h-9 px-4 rounded-lg bg-brand text-white text-b1 font-bold transition active:scale-95 disabled:bg-charcoal/15 disabled:text-charcoal/50" disabled>저장</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 rounded-3xl bg-white p-5 shadow-[0_8px_24px_rgba(58,52,52,.06)]">
+            <p class="text-s1 text-ink">생년월일</p>
+            <div class="mt-4 grid grid-cols-[1.25fr_1fr_1fr] gap-3">
+              <input id="miY" class="num-input sm" inputmode="numeric" maxlength="4" placeholder="1948" autocomplete="off" aria-label="연도" />
+              <input id="miM" class="num-input sm" inputmode="numeric" maxlength="2" placeholder="3" autocomplete="off" aria-label="월" />
+              <input id="miD" class="num-input sm" inputmode="numeric" maxlength="2" placeholder="15" autocomplete="off" aria-label="일" />
+            </div>
+            <p id="miSummary" class="mt-3 text-b1 text-charcoal/50">생년월일을 입력해 주세요</p>
+            <button type="button" id="miSave" class="btn btn-primary ripple-host mt-4" disabled>저장하기</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ⑨ 주요 연락처 -->
+      <section class="screen" data-screen="mycontacts">
+        <header class="px-5 pt-3 h-12 flex items-center gap-3">
+          <button type="button" data-back="profile" aria-label="뒤로" class="p-1 -m-1 active:scale-90 transition"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+          <span class="text-s2 text-ink">주요 연락처</span>
+        </header>
+        <div class="flex-1 min-h-0 px-5 overflow-y-auto pb-6">
+          <h2 class="mt-5 text-h1 text-ink">주요 연락처</h2>
+          <p class="mt-3 text-b1 text-charcoal/60">자주 연락하고 싶은 사람을 관리해요</p>
+          <ul id="mcList" class="mt-6 space-y-3"></ul>
+          <button type="button" id="mcAdd" class="ripple-host rp-dark mt-3 w-full h-16 rounded-2xl border-2 border-dashed border-brand/60 bg-white/50 text-s2 text-brand transition active:scale-[.97]">+ 연락처 추가하기</button>
+          <p id="mcCount" class="mt-3 text-b1 font-bold text-charcoal/60"></p>
+        </div>
+      </section>
+    </div>
+
+    <!-- 연락처 선택 시트 -->
+    <div id="sheetBg" class="absolute inset-0 z-30 bg-black/40 opacity-0 pointer-events-none"></div>
+    <div id="sheet" class="absolute left-0 right-0 bottom-0 z-40 translate-y-full bg-white rounded-t-[28px] px-5 pt-3 pb-8 max-h-[80%] flex flex-col">
+      <div class="mx-auto w-10 h-1.5 rounded-full bg-charcoal/20"></div>
+      <h3 class="mt-4 text-h2 text-ink">연락처 추가</h3>
+      <p class="mt-1 text-b1 text-charcoal/60">연락하고 싶은 사람의 이름과 전화번호를 적어 주세요</p>
+      <form id="contactForm" class="mt-5 space-y-3" novalidate>
+        <input id="cName" maxlength="10" placeholder="이름 (예: 영희 언니)" autocomplete="off"
+          class="w-full h-14 px-5 rounded-2xl border-2 border-charcoal/15 bg-white text-s2 text-ink outline-none transition focus:border-brand focus:shadow-[0_0_0_3px_rgba(255,122,14,.2)] placeholder:text-charcoal/30 placeholder:font-medium" />
+        <input id="cPhone" inputmode="tel" maxlength="13" placeholder="전화번호 (예: 010-1234-5678)" autocomplete="off"
+          class="w-full h-14 px-5 rounded-2xl border-2 border-charcoal/15 bg-white text-s2 text-ink outline-none transition focus:border-brand focus:shadow-[0_0_0_3px_rgba(255,122,14,.2)] placeholder:text-charcoal/30 placeholder:font-medium" />
+        <button type="submit" id="contactAddBtn" class="btn btn-primary ripple-host mt-1" disabled>추가하기</button>
+      </form>
+    </div>
+
+    <!-- 앱 사용 안내(튜토리얼) -->
+    <div id="tutLayer" class="absolute inset-0 z-[85] hidden" role="dialog" aria-modal="true" aria-label="앱 사용 안내" style="opacity:0;transition:opacity .3s">
+      <svg id="tutSvg" class="absolute inset-0 h-full w-full" aria-hidden="true"></svg>
+      <div id="tutTexts" class="pointer-events-none absolute inset-0"></div>
+      <button type="button" id="tutClose" aria-label="안내 닫기" class="absolute right-4 top-2 flex h-12 w-12 items-center justify-center text-white transition active:scale-90">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+      <button type="button" id="tutNext" class="absolute bottom-[24px] left-1/2 h-12 -translate-x-1/2 whitespace-nowrap rounded-full bg-white px-7 text-s2 text-ink shadow-lg transition active:scale-95">넘어가기</button>
+    </div>
+
+    <!-- 캐릭터 전화 팝업 (화면 전체) -->
+    <div id="callModal" role="dialog" aria-modal="true" aria-label="캐릭터 전화" class="absolute inset-0 z-[80] flex flex-col opacity-0 pointer-events-none text-white" style="background:#2B2626;transition:opacity .3s">
+      <div class="flex-1 min-h-0 flex flex-col items-center px-6 pt-14 text-center">
+        <p id="callHead" class="text-b1 font-bold text-white/50"></p>
+        <h2 id="callName" class="mt-4 text-[40px] leading-[48px] font-bold"></h2>
+        <p id="callSub" class="mt-2 text-s2 text-white/50"></p>
+        <div class="mt-4 float"><svg viewBox="0 0 160 160" width="200" height="200"><use id="callUse" href="#ch-cat"/></svg></div>
+        <div id="callBubble" class="mt-5 w-full rounded-3xl bg-white/95 text-charcoal px-5 py-5 text-s2 font-medium leading-snug break-keep"></div>
+        <button type="button" id="callLater" class="ripple-host mt-6 h-12 px-6 rounded-full border-2 border-white/80 text-b1 font-bold text-white transition active:scale-95">10분 뒤에 다시 걸어줘</button>
+      </div>
+      <div id="callBtns" class="shrink-0 px-12 pb-14 flex items-start justify-between">
+        <button type="button" id="callReject" class="flex flex-col items-center gap-3 text-b1 font-bold text-white">
+          <span class="w-[88px] h-[88px] rounded-full bg-white/90 text-charcoal flex items-center justify-center transition active:scale-90"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>거절</button>
+        <button type="button" id="callAccept" class="flex flex-col items-center gap-3 text-b1 font-bold text-white">
+          <span class="w-[88px] h-[88px] rounded-full bg-brand text-white flex items-center justify-center transition active:scale-90"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.920v3a2 2 0 0 1-2.180 2 19.790 19.790 0 0 1-8.630-3.070 19.500 19.500 0 0 1-6-6 19.790 19.790 0 0 1-3.070-8.670A2 2 0 0 1 4.110 2h3a2 2 0 0 1 2 1.720 12.840 12.840 0 0 0 .7 2.810 2 2 0 0 1-.45 2.110L8.090 9.910a16 16 0 0 0 6 6l1.270-1.270a2 2 0 0 1 2.110-.45 12.840 12.840 0 0 0 2.810.7A2 2 0 0 1 22 16.920Z"/></svg></span>받기</button>
+      </div>
+      <div id="callEndWrap" class="hidden shrink-0 pb-14 flex flex-col items-center text-b1 font-bold text-white">
+        <button type="button" id="callEnd" class="flex flex-col items-center gap-3">
+          <span class="w-[88px] h-[88px] rounded-full flex items-center justify-center text-white transition active:scale-90" style="background:#EF6B6B"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(135deg)"><path d="M22 16.920v3a2 2 0 0 1-2.180 2 19.790 19.790 0 0 1-8.630-3.070 19.500 19.500 0 0 1-6-6 19.790 19.790 0 0 1-3.070-8.670A2 2 0 0 1 4.110 2h3a2 2 0 0 1 2 1.720 12.840 12.840 0 0 0 .7 2.810 2 2 0 0 1-.45 2.110L8.090 9.910a16 16 0 0 0 6 6l1.270-1.270a2 2 0 0 1 2.110-.45 12.840 12.840 0 0 0 2.810.7A2 2 0 0 1 22 16.920Z"/></svg></span>끊기</button>
+      </div>
+    </div>
+
+    <!-- 연락처 전화 제안 팝업 -->
+    <div id="suggestBg" class="absolute inset-0 z-[72] bg-black/60 opacity-0 pointer-events-none" style="transition:opacity .25s"></div>
+    <div id="suggestDlg" role="dialog" aria-modal="true" aria-labelledby="suggestTitle" class="absolute left-5 right-5 top-1/2 z-[73] -translate-y-1/2 scale-95 opacity-0 pointer-events-none rounded-[28px] bg-white px-6 pb-6 pt-8 text-center shadow-2xl" style="transition:opacity .25s,transform .25s">
+      <div id="suggestAvatar" class="mx-auto flex h-[94px] w-[94px] items-center justify-center rounded-full bg-accent/50 text-[38px] font-bold text-charcoal"></div>
+      <h3 id="suggestTitle" class="mt-5 text-h1 text-ink"></h3>
+      <p id="suggestDesc" class="mt-3 text-b1 text-charcoal/60 break-keep"></p>
+      <div class="mt-6 space-y-3">
+        <button type="button" id="suggestCall" class="btn btn-primary ripple-host flex items-center justify-center gap-2">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.920v3a2 2 0 0 1-2.180 2 19.790 19.790 0 0 1-8.630-3.070 19.500 19.500 0 0 1-6-6 19.790 19.790 0 0 1-3.070-8.670A2 2 0 0 1 4.110 2h3a2 2 0 0 1 2 1.720 12.840 12.840 0 0 0 .7 2.810 2 2 0 0 1-.45 2.110L8.090 9.910a16 16 0 0 0 6 6l1.270-1.270a2 2 0 0 1 2.110-.45 12.840 12.840 0 0 0 2.810.7A2 2 0 0 1 22 16.920Z"/></svg>전화하기
+        </button>
+        <button type="button" id="suggestLater" class="btn btn-ghost ripple-host rp-dark">다음에 할게요</button>
+      </div>
+    </div>
+
+    <!-- 일정 삭제 확인 -->
+    <div id="delBg" class="absolute inset-0 z-[60] bg-black/60 opacity-0 pointer-events-none"></div>
+    <div id="delDlg" role="dialog" aria-modal="true" aria-labelledby="delTitle" class="absolute left-5 right-5 top-1/2 z-[70] -translate-y-1/2 scale-95 opacity-0 pointer-events-none rounded-3xl bg-white p-6 shadow-2xl">
+      <h3 id="delTitle" class="text-h2 text-ink text-center">일정 삭제</h3>
+      <p class="mt-2 text-s2 font-medium text-charcoal/70 text-center">이 일정을 삭제할까요?</p>
+      <div class="mt-6 grid grid-cols-2 gap-3">
+        <button type="button" id="delNo" class="h-12 w-full rounded-full bg-cream text-s2 text-charcoal transition active:scale-95">취소하기</button>
+        <button type="button" id="delYes" class="h-12 w-full rounded-full text-s2 text-white transition active:scale-95" style="background:#EF6B6B">삭제하기</button>
+      </div>
+    </div>
+
+    <!-- 토스트 -->
+    <div id="toast" role="status" aria-live="polite"
+      class="pointer-events-none absolute left-1/2 bottom-[168px] z-[90] -translate-x-1/2 translate-y-3 opacity-0 px-5 py-3 rounded-full bg-charcoal text-white text-b1 whitespace-nowrap shadow-lg"></div>
+
+    <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 rounded-full bg-charcoal/30 z-50 pointer-events-none"></div>
+  </main>
+
+<template id="memTpl">
+<style>
+:host { --orange: #FF7A0E; --orange-sub: #FEAB41; --bg: #FBF2E9; --ink: #000000; --ink-2: #3A3434; --card: #FFFFFF; --line: #EADBCB; --muted: #8A7D74; --orange-tint: #FFE7D1; --soft: #F1E4D6;
+  --font: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --h1: 700 27px/1.3 var(--font); --h2: 700 20px/1.4 var(--font); --s1: 700 18px/1.5 var(--font); --s2: 700 16px/1.5 var(--font); --b1: 500 14px/1.6 var(--font); --b2: 500 10px/1.4 var(--font);
+  --r-lg: 24px; --r-md: 18px; --tap: 56px; color-scheme: light; font-family: var(--font); color: var(--ink); }
+*, *::before, *::after { box-sizing: border-box; }
+h1, h2, h3, p, blockquote, article { margin: 0; }
+svg { display: block; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.app { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
+
+.top { padding: 6px 20px 0; background: var(--bg); }
+.titlebar { position: relative; height: 56px; display: flex; align-items: center; justify-content: center; }
+.titlebar h1 { margin: 0; font: var(--h1); letter-spacing: -0.5px; }
+.back { position: absolute; left: -8px; top: 50%; transform: translateY(-50%); width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; }
+.back:active { background: var(--orange-tint); }
+.back svg { width: 28px; height: 28px; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; margin-top: 14px; position: relative; }
+.tabs::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--line); border-radius: 2px; }
+.tab { height: var(--tap); font: var(--s1); color: var(--muted); position: relative; z-index: 1; }
+.tab[aria-selected="true"] { color: var(--ink); }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--ink-2); border-radius: 2px; }
+
+.content { flex: 1; overflow-y: auto; padding: 22px 20px 120px; display: flex; flex-direction: column; gap: 22px; }
+.view-in { animation: rise .28s ease-out; }
+@keyframes rise { from { opacity: .4; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.speak { display: flex; align-items: center; gap: 22px; width: 100%; min-height: 104px; padding: 18px 22px; background: var(--orange); color: #fff; border-radius: var(--r-lg); box-shadow: 0 8px 18px -8px rgba(255, 122, 14, .7); text-align: left; }
+.speak:active { transform: scale(.98); }
+.speak .mic-disc { flex: none; width: 68px; height: 68px; border-radius: 50%; background: #fff; display: grid; place-items: center; color: var(--orange); }
+.speak .mic-disc svg { width: 34px; height: 34px; }
+.speak strong { font: var(--h2); display: block; }
+.speak span { font: var(--b1); opacity: .92; }
+.section-label { font: var(--s2); color: var(--ink-2); margin: 0 0 -12px; }
+.card { background: var(--card); border-radius: var(--r-lg); padding: 20px; border: 1px solid var(--line); }
+
+.pick-q { display: flex; gap: 12px; align-items: flex-start; }
+.avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--soft); display: grid; place-items: center; overflow: hidden; }
+.avatar svg { width: 46px; height: 46px; }
+.bubble { background: var(--bg); border-radius: 4px 20px 20px 20px; padding: 14px 16px; font: var(--s1); color: var(--ink); text-wrap: pretty; min-width: 0; }
+.row-btns { display: flex; gap: 10px; margin-top: 16px; }
+.btn { min-height: var(--tap); border-radius: 999px; padding: 0 20px; font: var(--s2); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-primary { background: var(--orange); color: #fff; flex: 1; }
+.btn-primary:active { background: #E96A00; }
+.btn-dark { background: var(--ink-2); color: #fff; flex: 1; }
+.btn-dark:active { background: #000; }
+.btn-ghost { background: var(--card); color: var(--ink-2); border: 2px solid var(--line); }
+.btn-ghost:active { background: var(--orange-tint); }
+.btn-block { width: 100%; font: var(--s1); min-height: 60px; }
+.btn-done { width: 100%; height: auto; min-height: 0; aspect-ratio: 609 / 104; padding: 0; border-radius: 999px; font: var(--s1); flex: none; }
+.btn[disabled] { background: #E4D8CC; color: #9B8F86; box-shadow: none; cursor: not-allowed; }
+
+.today { background: var(--card); }
+.today .eyebrow { font: var(--b1); color: var(--ink-2); display: flex; justify-content: space-between; }
+.today blockquote { margin: 8px 0 16px; font: var(--h2); color: var(--ink); text-wrap: balance; }
+.btn-share { background: var(--ink-2); color: #FFFFFF; }
+.btn-share:active { background: #000; }
+.btn-share.done { background: var(--card); color: var(--orange); border: 2px solid var(--orange); }
+
+.writer { background: var(--card); border: 2px solid var(--line); border-radius: var(--r-lg); padding: 18px; display: flex; flex-direction: column; gap: 12px; transition: border-color .2s; }
+.writer.listening { border-color: var(--orange); }
+.writer label { font: var(--s2); color: var(--ink-2); }
+.writer textarea { width: 100%; min-height: 150px; resize: none; border: 0; background: transparent; font: 500 18px/1.65 var(--font); color: var(--ink); padding: 0; }
+.writer textarea::placeholder { color: #B4A79C; }
+.writer textarea:focus { outline: none; }
+.writer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.status { font: var(--b1); color: var(--muted); min-width: 0; }
+.status.on { color: var(--orange); font-weight: 700; }
+.wave { display: inline-flex; gap: 3px; align-items: center; height: 20px; vertical-align: middle; margin-right: 6px; }
+.wave i { width: 4px; border-radius: 2px; background: var(--orange); animation: wave 0.9s ease-in-out infinite; }
+.wave i:nth-child(2) { animation-delay: .15s } .wave i:nth-child(3) { animation-delay: .3s } .wave i:nth-child(4) { animation-delay: .45s }
+@keyframes wave { 0%,100% { height: 5px } 50% { height: 20px } }
+.mic-btn { flex: none; width: 76px; height: 76px; border-radius: 50%; background: var(--ink-2); color: #fff; display: grid; place-items: center; position: relative; }
+.mic-btn svg { width: 36px; height: 36px; }
+.mic-btn.on { background: var(--orange); }
+.mic-btn.on::before { content: ""; position: absolute; inset: -8px; border-radius: 50%; border: 3px solid var(--orange-sub); animation: pulse 1.2s ease-out infinite; }
+@keyframes pulse { from { transform: scale(.9); opacity: 1 } to { transform: scale(1.25); opacity: 0 } }
+.topic-q { display: flex; gap: 12px; align-items: flex-start; }
+
+.chips-card .lead { font: var(--s1); margin: 0 0 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.chip { min-height: var(--tap); padding: 0 22px; border-radius: 999px; background: var(--bg); border: 2px solid var(--line); font: var(--s2); color: var(--ink-2); }
+.chip[aria-pressed="true"] { background: var(--ink-2); border-color: var(--ink-2); color: #fff; }
+
+.year-row { display: flex; justify-content: flex-end; }
+.year { font: var(--s2); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 8px 20px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.months { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: -6px; }
+.month { min-height: var(--tap); border-radius: 16px; font: var(--s1); color: var(--muted); }
+.month[aria-pressed="true"] { background: var(--orange); color: var(--ink); }
+.count { font: var(--b1); color: var(--ink-2); margin: 0 0 -10px; }
+.count b { color: var(--ink); }
+.entries { display: flex; flex-direction: column; gap: 12px; }
+.entry { display: grid; grid-template-columns: 76px 1fr 24px; align-items: center; width: 100%; min-height: 96px; padding: 14px 12px 14px 0; text-align: left; background: var(--card); border: 2px solid var(--line); border-radius: var(--r-lg); }
+.entry:active { border-color: var(--orange-sub); background: #FFFBF6; }
+.entry .day { text-align: center; border-right: 2px solid var(--line); align-self: stretch; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; color: var(--ink); }
+.day b { font: 800 30px/1 var(--font); letter-spacing: -1px; }
+.day small { font: var(--s2); margin-left: 1px; color: var(--ink-2); }
+.entry .summary { padding-left: 16px; font: var(--s2); color: var(--ink); text-wrap: pretty; min-width: 0; }
+.entry svg { width: 22px; height: 22px; color: var(--muted); }
+
+.detail-head { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; }
+.detail-head .back { position: static; transform: none; }
+.detail-head .when { text-align: center; color: var(--ink); font-variant-numeric: tabular-nums; }
+.detail-head .when b { font: 800 34px/1 var(--font); }
+.detail-head .when small { font: var(--s1); color: var(--ink-2); }
+.detail-head .when span { display: block; font: var(--b1); color: var(--muted); margin-top: 4px; }
+.paper { padding: 26px 24px 30px; }
+.paper h2 { margin: 0 0 16px; font: var(--h2); text-wrap: balance; }
+.paper p { margin: 0; font: 500 17px/2 var(--font); color: var(--ink-2); white-space: pre-line; }
+.placeholder { text-align: center; padding: 40px 10px; font: var(--s2); color: var(--ink-2); }
+
+.nav { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--card); border-top: 1px solid var(--line); padding: 8px 6px 14px; }
+.nav button { min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font: 700 13px/1 var(--font); color: var(--muted); border-radius: 14px; position: relative; }
+.nav svg { width: 30px; height: 30px; }
+.nav button[aria-current="page"] { color: var(--orange); }
+.nav button[aria-current="page"] svg { stroke-width: 2.4; }
+.nav .dot { position: absolute; top: 8px; left: calc(50% + 10px); width: 10px; height: 10px; border-radius: 50%; background: var(--orange); border: 2px solid var(--card); }
+
+.toast { position: absolute; left: 20px; right: 20px; bottom: 104px; background: var(--ink-2); color: #fff; border-radius: 18px; padding: 16px 18px; font: var(--s2); display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 24px -8px rgba(0,0,0,.4); opacity: 0; transform: translateY(12px); pointer-events: none; transition: opacity .25s, transform .25s; }
+.toast.show { opacity: 1; transform: none; }
+.toast svg { flex: none; width: 24px; height: 24px; color: var(--orange-sub); }
+
+.feed { display: flex; flex-direction: column; gap: 16px; }
+.post { background: var(--card); border: 2px solid var(--line); border-radius: var(--r-lg); padding: 18px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+.post.mine { border-color: var(--orange); }
+.post.fresh { animation: drop .5s ease-out; }
+@keyframes drop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+.post-head { display: flex; align-items: center; gap: 12px; }
+.post-head .who { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.post-head .name { font: var(--s1); color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+.post-head time { font: var(--b1); color: var(--muted); }
+.face { flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--soft); color: var(--ink-2); display: grid; place-items: center; font: 800 20px/1 var(--font); }
+.mine-tag { font: 700 13px/1 var(--font); color: #fff; background: var(--orange); border-radius: 999px; padding: 5px 9px; }
+.post-text { margin: 0; font: var(--s1); color: var(--ink); text-wrap: pretty; overflow-wrap: anywhere; }
+.reacts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.react { min-height: 46px; border-radius: 999px; background: var(--bg); border: 2px solid var(--line); font: var(--s2); color: var(--ink-2); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-variant-numeric: tabular-nums; padding: 0 6px; }
+.react b { font-weight: 800; }
+.react[aria-pressed="true"] { background: var(--ink-2); border-color: var(--ink-2); color: #fff; }
+.react.pop b { animation: pop .35s ease-out; display: inline-block; }
+@keyframes pop { 40% { transform: scale(1.5); } }
+.del { margin-left: auto; flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; background: var(--bg); border: 2px solid var(--line); font: 700 14px/1 var(--font); color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.del:active { background: var(--orange-tint); }
+.del svg { width: 18px; height: 18px; }
+.dlg-bg { position: absolute; inset: 0; background: rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 20; }
+.dlg-bg.show { opacity: 1; pointer-events: auto; }
+.dlg { position: absolute; left: 20px; right: 20px; top: 50%; transform: translateY(-50%) scale(.95); opacity: 0; pointer-events: none; background: #fff; border-radius: 24px; padding: 24px; z-index: 21; transition: opacity .25s, transform .25s; box-shadow: 0 20px 40px -10px rgba(0,0,0,.4); }
+.dlg.show { opacity: 1; transform: translateY(-50%) scale(1); pointer-events: auto; }
+.dlg h3 { font: var(--h2); text-align: center; }
+.dlg p { font: var(--s2); color: #6b605a; text-align: center; margin-top: 8px; }
+.dlg-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+.dlg-btns .btn { width: 100%; padding: 0; }
+.sharefx { position: absolute; inset: 0; z-index: 30; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; text-align: center; color: #fff; opacity: 0; pointer-events: none; transition: opacity .3s; }
+.sharefx.show { opacity: 1; pointer-events: auto; }
+.sharefx p { font: var(--h1); }
+.feed-note { font: var(--b1); color: var(--muted); text-align: center; margin: 4px 0 0; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="app" id="app">
+  <div class="top">
+    <div class="titlebar">
+      <h1 id="pageTitle">추억상자</h1>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tabA"></button>
+      <button class="tab" role="tab" id="tabB"></button>
+    </div>
+  </div>
+
+  <main class="content" id="content" role="tabpanel"></main>
+
+  <div class="dlg-bg" id="dlgBg"></div>
+  <div class="dlg" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <h3 id="dlgTitle">게시글 삭제</h3>
+    <p>내가 올린 글을 삭제할까요?</p>
+    <div class="dlg-btns">
+      <button class="btn btn-ghost" id="dlgNo">취소하기</button>
+      <button class="btn" id="dlgYes" style="background:#EF6B6B;color:#fff">삭제하기</button>
+    </div>
+  </div>
+
+  <div class="sharefx" id="shareFx" role="status" aria-live="polite"><p>오늘의 한 줄이<br />공유되었어요!</p></div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M7.5 12.5l3 3 6-6"/></svg>
+    <span id="toastText"></span>
+  </div>
+
+  <nav class="nav" aria-label="하단 메뉴">
+    <button data-nav="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10H3z"/></svg>홈</button>
+    <button data-nav="box" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M5 18a2 2 0 0 1 2-2h12"/><path d="M9 8h6"/></svg>추억 상자</button>
+    <button data-nav="town"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="8" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0"/><path d="M11 20a5.5 5.5 0 0 1 11 0"/></svg>동네 마을</button>
+    <button data-nav="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4"/><circle cx="8" cy="14" r=".6" fill="currentColor"/><circle cx="12" cy="14" r=".6" fill="currentColor"/><circle cx="16" cy="14" r=".6" fill="currentColor"/></svg>일정</button>
+  </nav>
+</div>
+</template>
+
+  <script>
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+      // 새로고침/뒤로가기 시 브라우저가 이전 입력값을 복원하지 않도록 항상 빈 상태로 시작
+      ['regText', 'miCharInput', 'cName', 'cPhone', 'unameInput', 'nameInput', 'by', 'bm', 'bd', 'miY', 'miM', 'miD', 'miNameInput'].forEach(function (id) {
+        var el = $(id);
+        el.setAttribute('autocomplete', 'off');
+        el.value = '';
+      });
+      window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
+
+      var ORDER = ['splash', 'login', 'tutorial', 'username', 'birth', 'character', 'contacts', 'home', 'memory', 'schedule', 'register', 'listening', 'profile', 'myinfo', 'mycontacts'];
+      var DECADES = [1920, 1930, 1940, 1950, 1960, 1970, 1980];
+      var state = {
+        decade: 1940,
+        charIdx: 0,
+        charName: '',
+        nameSet: false,
+        contacts: [],
+        provider: '',
+        userName: ''
+      };
+      var CHARS = ['ch-girl', 'ch-boy', 'ch-cat', 'ch-dog', 'ch-rabbit', 'ch-bear', 'ch-frog'];
+      var MAX_CONTACTS = 5;
+
+
+      /* ---------- 화면 전환 ---------- */
+      var current = 'splash';
+      var frame = $('frame');
+      function go(name) {
+        var idx = ORDER.indexOf(name);
+        $$('.screen').forEach(function (s) {
+          var i = ORDER.indexOf(s.dataset.screen);
+          s.classList.toggle('active', i === idx);
+          s.classList.toggle('past', i < idx);
+        });
+        current = name;
+        toast.style.opacity = '0'; // 이전 화면의 안내 문구가 다음 화면에 남지 않게
+        if (name === 'username') setTimeout(function () { if (current === 'username') $('unameInput').focus(); }, 420);
+        if (name === 'character') initCarousel();
+        if (name === 'contacts') renderContacts();
+        if (name !== 'listening' && listening) cancelListening();
+        if (name !== 'home' && chatActive) stopChat();
+        if (name !== 'home') { clearTimeout(talkTimer); talkAnswer = null; }
+        if (name === 'schedule') renderSchedule();
+        if (name === 'register') renderRegister();
+        if (name === 'home') { renderHome(); setTimeout(maybeSuggest, 700); }
+        if (name === 'profile') renderProfile();
+        if (name === 'myinfo') renderMyInfo();
+        if (name === 'mycontacts') renderContacts();
+      }
+      document.addEventListener('click', function (e) {
+        var g = e.target.closest('[data-go]');
+        if (g) go(g.dataset.go);
+        var mm = e.target.closest('[data-memory]');
+        if (mm) { go('memory'); if (window.__memory) window.__memory.open(mm.dataset.memory); }
+        var b = e.target.closest('[data-back]');
+        if (b) go(b.dataset.back);
+        var s = e.target.closest('[data-soon]');
+        if (s) showToast(s.dataset.soon + ' 화면은 준비 중이에요');
+      });
+
+      /* ---------- 토스트 ---------- */
+      var toast = $('toast'), toastTimer;
+      function showToast(text) {
+        toast.textContent = text;
+        toast.style.opacity = '1';
+        toast.style.transform = 'translate(-50%, 0)';
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translate(-50%, 12px)';
+        }, 1800);
+      }
+
+      /* ---------- Ripple (위임) ---------- */
+      document.addEventListener('pointerdown', function (e) {
+        var btn = e.target.closest('.ripple-host');
+        if (!btn || btn.disabled) return;
+        var rect = btn.getBoundingClientRect();
+        var size = Math.max(rect.width, rect.height);
+        var r = document.createElement('span');
+        r.className = 'ripple';
+        r.style.width = r.style.height = size + 'px';
+        r.style.left = (e.clientX - rect.left - size / 2) + 'px';
+        r.style.top = (e.clientY - rect.top - size / 2) + 'px';
+        btn.appendChild(r);
+        r.addEventListener('animationend', function () { r.remove(); });
+      });
+
+      /* ---------- 한글 조사 ---------- */
+      function iga(word) {
+        var c = word.charCodeAt(word.length - 1);
+        if (c < 0xAC00 || c > 0xD7A3) return '이';
+        return (c - 0xAC00) % 28 === 0 ? '가' : '이';
+      }
+
+      /* ============ ① 스플래시 → 로그인 ============ */
+      setTimeout(function () { if (current === 'splash') go('login'); }, 1600);
+
+      /* ============ ② 로그인 ============ */
+      var busy = false;
+      $$('.login-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (busy) return;
+          busy = true;
+          state.provider = btn.dataset.provider;
+          showToast(btn.dataset.provider + ' 로그인 중이에요...');
+          setTimeout(function () { busy = false; resetOnboarding(); go('tutorial'); }, 800);
+        });
+      });
+      $('signupBtn').addEventListener('click', function () {
+        state.provider = '회원가입';
+        showToast('회원가입을 시작해요');
+        setTimeout(function () { resetOnboarding(); go('tutorial'); }, 700);
+      });
+      $('loginChar').addEventListener('click', function () {
+        this.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12) rotate(-4deg)' }, { transform: 'scale(1)' }], { duration: 350 });
+      });
+
+      /* ============ ③ 튜토리얼 ============ */
+      var TUT = [
+        ['말벗', '매일 안부 전화'],
+        ['기억', '일정과 하루를 챙겨 드려요'],
+        ['연락', '그리운 사람과 이어 드려요']
+      ];
+      var tutIdx = 0;
+      function renderTut() {
+        $('tutList').innerHTML = TUT.map(function (t, i) {
+          var on = i === tutIdx;
+          return '<li><button type="button" data-t="' + i + '" class="w-full flex items-center gap-3 text-left transition">' +
+            '<span class="w-7 h-7 rounded-full flex items-center justify-center text-b1 font-bold text-white transition ' + (on ? 'bg-brand' : 'bg-charcoal/40') + '">' + (i + 1) + '</span>' +
+            '<span class="text-s2 transition ' + (on ? 'text-ink' : 'text-charcoal/50') + '">' + t[0] + ' : ' + t[1] + '</span></button></li>';
+        }).join('');
+      }
+      $('tutList').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-t]');
+        if (b) { tutIdx = +b.dataset.t; renderTut(); }
+      });
+      renderTut();
+      setInterval(function () {
+        if (current !== 'tutorial') return;
+        tutIdx = (tutIdx + 1) % TUT.length;
+        renderTut();
+      }, 2600);
+
+      /* ============ ③-2 사용자 이름 ============ */
+      var unameInput = $('unameInput');
+      function renderUname() {
+        var v = unameInput.value.trim();
+        var box = $('unameHello');
+        if (v) { box.textContent = v + ' 님, 반가워요!'; box.className = 'mt-4 rounded-2xl bg-white px-5 py-4 text-s2 text-ink'; }
+        else { box.textContent = '이름을 입력해 주세요'; box.className = 'mt-4 rounded-2xl bg-white px-5 py-4 text-s2 text-charcoal/50'; }
+        $('unameNext').disabled = !v;
+      }
+      function submitUname() {
+        var v = unameInput.value.trim();
+        if (!v) return;
+        state.userName = v;
+        go('birth');
+      }
+      unameInput.addEventListener('input', renderUname);
+      unameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitUname(); });
+      $('unameNext').addEventListener('click', submitUname);
+      renderUname();
+
+      /* ============ ④ 생년월일 ============ */
+      var by = $('by'), bm = $('bm'), bd = $('bd');
+      var NOW = new Date();
+
+      function digits(el) { el.value = el.value.replace(/\D/g, ''); }
+      function daysIn(y, m) { return new Date(y, m, 0).getDate(); }
+      function isValid(ys, ms, ds) {
+        var y = +ys, m = +ms, d = +ds;
+        if (ys.length !== 4 || y < 1900 || y > NOW.getFullYear()) return false;
+        if (!(m >= 1 && m <= 12)) return false;
+        if (!(d >= 1 && d <= daysIn(y, m))) return false;
+        return new Date(y, m - 1, d) <= NOW;
+      }
+      function calcAge(ys, ms, ds) {
+        var y = +ys, m = +ms, d = +ds;
+        var a = NOW.getFullYear() - y;
+        if (NOW.getMonth() + 1 < m || (NOW.getMonth() + 1 === m && NOW.getDate() < d)) a--;
+        return a;
+      }
+      function birthValid() { return isValid(by.value, bm.value, bd.value); }
+      function age() { return calcAge(by.value, bm.value, bd.value); }
+      var shownDecade = null;
+      // 연도가 바뀐 경우에만 연대를 맞춘다 (연대 칩을 직접 누른 선택은 덮어쓰지 않음)
+      function syncDecadeFromYear() {
+        var y = +by.value;
+        if (by.value.length === 4 && y >= 1920 && y < 1990) state.decade = Math.floor(y / 10) * 10;
+      }
+      function renderBirth() {
+        var sum = $('birthSummary');
+        var ok = birthValid();
+        if (ok) {
+          sum.textContent = by.value + '년 ' + (+bm.value) + '월 ' + (+bd.value) + '일 / 만 ' + age() + '세';
+          sum.className = 'mt-4 rounded-2xl bg-white px-5 py-4 text-s2 text-ink';
+        } else {
+          var parts = [];
+          if (by.value) parts.push(by.value + '년');
+          if (bm.value) parts.push((+bm.value) + '월');
+          if (bd.value) parts.push((+bd.value) + '일');
+          var full = by.value.length === 4 && bm.value && bd.value;
+          sum.textContent = full ? '올바른 날짜가 아니에요. 다시 확인해 주세요' : (parts.length ? parts.join(' ') : '생년월일을 입력해 주세요');
+          sum.className = 'mt-4 rounded-2xl bg-white px-5 py-4 text-s2 ' + (full ? 'text-brand' : 'text-charcoal/50');
+        }
+        $('birthNext').disabled = !ok;
+
+        var y = +by.value;
+        var row = $('decadeRow');
+        if (!row.children.length) {
+          row.innerHTML = DECADES.map(function (dc) {
+            return '<button type="button" class="chip" style="flex:0 0 calc((100% - 24px) / 3)" data-dec="' + dc + '">' + dc + '년대</button>';
+          }).join('');
+        }
+        $$('.chip', row).forEach(function (c) { c.classList.toggle('on', +c.dataset.dec === state.decade); });
+        if (state.decade !== shownDecade) {
+          var act = row.querySelector('.on');
+          row.scrollTo({ left: act.offsetLeft - (row.clientWidth - act.offsetWidth) / 2, behavior: shownDecade === null ? 'auto' : 'smooth' });
+          shownDecade = state.decade;
+        }
+        updateArrows();
+        var html = '';
+        for (var i = 0; i < 10; i++) {
+          var yr = state.decade + i;
+          html += '<button type="button" class="chip' + (y === yr ? ' on' : '') + '" style="height:48px;border-radius:12px;font-size:15px" data-yr="' + yr + '">' + yr + '</button>';
+        }
+        $('yearGrid').innerHTML = html;
+      }
+      by.addEventListener('input', function () { digits(by); syncDecadeFromYear(); if (by.value.length === 4) bm.focus(); renderBirth(); });
+      bm.addEventListener('input', function () { digits(bm); if (bm.value.length === 2 || +bm.value > 1) bd.focus(); renderBirth(); });
+      bd.addEventListener('input', function () { digits(bd); renderBirth(); });
+      function updateArrows() {
+        var row = $('decadeRow');
+        $('decPrev').disabled = row.scrollLeft <= 1;
+        $('decNext').disabled = row.scrollLeft + row.clientWidth >= row.scrollWidth - 1;
+      }
+      document.addEventListener('click', function (e) {
+        var mv = e.target.closest('[data-decmove]');
+        if (!mv || mv.disabled) return;
+        var row = $('decadeRow');
+        var step = row.firstElementChild.offsetWidth + 12;
+        row.scrollBy({ left: (+mv.dataset.decmove > 0 ? 1 : -1) * step, behavior: 'smooth' });
+      });
+      $('decadeRow').addEventListener('scroll', updateArrows);
+      $('decadeRow').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-dec]');
+        if (b) { state.decade = +b.dataset.dec; renderBirth(); }
+      });
+      $('yearGrid').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-yr]');
+        if (!b) return;
+        by.value = b.dataset.yr;
+        syncDecadeFromYear();
+        renderBirth();
+      });
+      by.addEventListener('focus', function () { by.select(); });
+      $('birthNext').addEventListener('click', function () { go('character'); });
+      renderBirth();
+
+      /* ============ ⑤ 캐릭터 + 이름 ============ */
+      var carousel = $('carousel');
+      var cards = $$('.ccard');
+      var scrollTimer, initialized = false;
+
+      function centerOf(card) { return card.offsetLeft + card.offsetWidth / 2 - carousel.clientWidth / 2; }
+      function selectChar(i) {
+        state.charIdx = i;
+        cards.forEach(function (c, k) { c.classList.toggle('on', k === i); });
+      }
+      function initCarousel() {
+        if (initialized) return;
+        initialized = true;
+        carousel.scrollLeft = centerOf(cards[state.charIdx]);
+        selectChar(state.charIdx);
+      }
+      carousel.addEventListener('scroll', function () {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(function () {
+          var mid = carousel.scrollLeft + carousel.clientWidth / 2, best = 0, bd2 = 1e9;
+          cards.forEach(function (c, k) {
+            var d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
+            if (d < bd2) { bd2 = d; best = k; }
+          });
+          selectChar(best);
+        }, 60);
+      });
+      cards.forEach(function (c, k) {
+        c.addEventListener('click', function () {
+          selectChar(k);
+          carousel.scrollTo({ left: centerOf(c), behavior: 'smooth' });
+        });
+      });
+
+      var nameInput = $('nameInput'), nameShown = $('nameShown'), nameBtn = $('nameBtn');
+      function renderName() {
+        if (state.nameSet) {
+          nameInput.classList.add('hidden');
+          nameShown.classList.remove('hidden');
+          nameShown.textContent = state.charName;
+          nameBtn.textContent = '바꾸기';
+          nameBtn.disabled = false;
+        } else {
+          nameInput.classList.remove('hidden');
+          nameShown.classList.add('hidden');
+          nameBtn.textContent = '만들기';
+          nameBtn.disabled = nameInput.value.trim().length === 0;
+        }
+        $('charNext').disabled = !state.nameSet;
+      }
+      function setName(v) {
+        v = v.trim();
+        if (!v) return;
+        state.charName = v;
+        state.nameSet = true;
+        nameInput.value = v;
+        renderName();
+      }
+      nameInput.addEventListener('input', function () { renderName(); });
+      nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') setName(nameInput.value); });
+      nameBtn.addEventListener('click', function () {
+        if (state.nameSet) {
+          state.nameSet = false;
+          renderName();
+          nameInput.focus();
+          nameInput.select();
+        } else {
+          setName(nameInput.value);
+        }
+      });
+      $('charNext').addEventListener('click', function () { go('contacts'); });
+      renderName();
+
+      /* ============ ⑥ 연락할 사람 ============ */
+      function esc(t) { return String(t).replace(/[&<>"']/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]; }); }
+      function fmtPhone(v) {
+        var d = v.replace(/\D/g, '').slice(0, 11);
+        if (d.length < 4) return d;
+        if (d.length < 8) return d.slice(0, 3) + '-' + d.slice(3);
+        return d.slice(0, 3) + '-' + d.slice(3, d.length - 4) + '-' + d.slice(-4);
+      }
+      function renderContacts() {
+        $('contactSub').textContent = '연락이 뜸해지면 ' + state.charName + iga(state.charName) + ' 살짝 알려드려요';
+        $('contactList').innerHTML = state.contacts.map(function (c, i) {
+          return '<li class="h-[72px] rounded-2xl border-2 border-charcoal/15 bg-white pl-4 pr-3 flex items-center gap-4">' +
+            '<span class="w-11 h-11 rounded-full bg-accent/50 text-charcoal flex items-center justify-center text-s2">' + esc(c.name.charAt(0)) + '</span>' +
+            '<span class="flex-1 min-w-0"><span class="block truncate text-s1 text-ink">' + esc(c.name) + '</span><span class="block truncate text-b1 text-charcoal/60">' + esc(c.phone) + '</span></span>' +
+            '<button type="button" data-rm="' + i + '" class="h-10 px-4 rounded-full bg-cream text-b1 font-bold text-charcoal transition active:scale-90">빼기</button></li>';
+        }).join('');
+        $('contactCount').textContent = state.contacts.length + '명 골랐어요 - 최대 ' + MAX_CONTACTS + '명';
+        $('contactDone').disabled = state.contacts.length === 0;
+        $('addContact').classList.toggle('opacity-50', state.contacts.length >= MAX_CONTACTS);
+        $('mcList').innerHTML = state.contacts.length ? $('contactList').innerHTML :
+          '<li class="py-8 text-center text-b1 text-charcoal/50">아직 고른 사람이 없어요</li>';
+        $('mcCount').textContent = $('contactCount').textContent;
+        $('mcAdd').classList.toggle('opacity-50', state.contacts.length >= MAX_CONTACTS);
+      }
+      $('contactList').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-rm]');
+        if (!b) return;
+        state.contacts.splice(+b.dataset.rm, 1);
+        renderContacts();
+      });
+
+      $('mcList').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-rm]');
+        if (!b) return;
+        state.contacts.splice(+b.dataset.rm, 1);
+        renderContacts();
+      });
+      $('mcAdd').addEventListener('click', addFlow);
+
+      // 시트 (연락처 직접 추가)
+      var cName = $('cName'), cPhone = $('cPhone');
+      function renderAddBtn() {
+        $('contactAddBtn').disabled = !(cName.value.trim() && cPhone.value.replace(/\D/g, '').length >= 9);
+      }
+      function openSheet() {
+        if (state.contacts.length >= MAX_CONTACTS) { showToast('최대 ' + MAX_CONTACTS + '명까지 고를 수 있어요'); return; }
+        cName.value = ''; cPhone.value = ''; renderAddBtn();
+        $('sheet').style.transform = 'translateY(0)';
+        $('sheetBg').style.opacity = '1';
+        $('sheetBg').style.pointerEvents = 'auto';
+      }
+      function closeSheet() {
+        $('sheet').style.transform = '';
+        $('sheetBg').style.opacity = '0';
+        $('sheetBg').style.pointerEvents = 'none';
+        renderContacts();
+      }
+      cName.addEventListener('input', renderAddBtn);
+      cPhone.addEventListener('input', function () { cPhone.value = fmtPhone(cPhone.value); renderAddBtn(); });
+      $('contactForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var name = cName.value.trim(), phone = cPhone.value;
+        if ($('contactAddBtn').disabled) return;
+        if (state.contacts.some(function (c) { return c.phone === phone; })) { showToast('이미 추가된 번호예요'); return; }
+        state.contacts.push({ name: name, phone: phone, lastCall: Date.now(), snoozeUntil: 0 });
+        closeSheet();
+        showToast(name + ' 님을 추가했어요');
+      });
+      // 기기가 연락처 선택(Contact Picker)을 지원하면 실제 전화번호부에서 고르고, 아니면 직접 입력 시트를 연다
+      function addFlow() {
+        if (state.contacts.length >= MAX_CONTACTS) { showToast('최대 ' + MAX_CONTACTS + '명까지 고를 수 있어요'); return; }
+        if (navigator.contacts && navigator.contacts.select && window.isSecureContext) {
+          navigator.contacts.select(['name', 'tel'], { multiple: true }).then(function (picked) {
+            picked.forEach(function (c) {
+              var name = (c.name && c.name[0]) || '', phone = fmtPhone((c.tel && c.tel[0]) || '');
+              if (!name || !phone || state.contacts.length >= MAX_CONTACTS) return;
+              if (state.contacts.some(function (x) { return x.phone === phone; })) return;
+              state.contacts.push({ name: name, phone: phone, lastCall: Date.now(), snoozeUntil: 0 });
+            });
+            renderContacts();
+          }).catch(function () { /* 선택 취소 */ });
+        } else {
+          openSheet();
+        }
+      }
+      $('addContact').addEventListener('click', addFlow);
+      $('sheetBg').addEventListener('click', closeSheet);
+
+      $('contactDone').addEventListener('click', function () { go('home'); setTimeout(startTutorial, 600); });
+      $('contactLater').addEventListener('click', function () { go('home'); setTimeout(startTutorial, 600); });
+
+      /* ============ ⑧ 회원정보 ============ */
+      var miY = $('miY'), miM = $('miM'), miD = $('miD');
+      function renderMiSummary() {
+        var ok = isValid(miY.value, miM.value, miD.value);
+        var sum = $('miSummary');
+        if (ok) {
+          sum.textContent = miY.value + '년 ' + (+miM.value) + '월 ' + (+miD.value) + '일 / 만 ' + calcAge(miY.value, miM.value, miD.value) + '세';
+          sum.className = 'mt-3 text-b1 font-bold text-ink';
+        } else {
+          sum.textContent = '올바른 생년월일을 입력해 주세요';
+          sum.className = 'mt-3 text-b1 text-charcoal/50';
+        }
+        $('miSave').disabled = !ok;
+      }
+      var miCharEdit = false;
+      function renderMiChar() {
+        var inp = $('miCharInput'), shown = $('miCharShown'), btn = $('miCharBtn');
+        var editing = miCharEdit || !state.charName;
+        inp.classList.toggle('hidden', !editing);
+        shown.classList.toggle('hidden', editing);
+        shown.textContent = state.charName;
+        btn.textContent = editing ? '저장' : '바꾸기';
+        btn.disabled = editing && inp.value.trim().length === 0;
+      }
+      function saveMiChar() {
+        var v = $('miCharInput').value.trim();
+        if (!v) return;
+        state.charName = v; state.nameSet = true;
+        $('nameInput').value = v; renderName();
+        miCharEdit = false; renderMiChar();
+        showToast('짝꿍 이름을 바꿨어요');
+      }
+      $('miCharInput').addEventListener('input', renderMiChar);
+      $('miCharInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') saveMiChar(); });
+      $('miCharBtn').addEventListener('click', function () {
+        if (miCharEdit || !state.charName) { saveMiChar(); return; }
+        miCharEdit = true;
+        $('miCharInput').value = state.charName;
+        renderMiChar();
+        $('miCharInput').focus(); $('miCharInput').select();
+      });
+
+      var miNameSet = false;
+      function renderMiName() {
+        miNameSet = !!state.userName;
+        if (miNameSet) $('miNameInput').value = state.userName;
+        var inp = $('miNameInput'), shown = $('miNameShown'), btn = $('miNameBtn');
+        inp.classList.toggle('hidden', miNameSet);
+        shown.classList.toggle('hidden', !miNameSet);
+        if (miNameSet) { shown.textContent = state.userName; btn.textContent = '바꾸기'; btn.disabled = false; }
+        else { btn.textContent = '저장'; btn.disabled = inp.value.trim().length === 0; }
+      }
+      function saveMiName() {
+        var v = $('miNameInput').value.trim();
+        if (!v) return;
+        state.userName = v;
+        renderMiName();
+        showToast('이름을 저장했어요');
+      }
+      $('miNameInput').addEventListener('input', renderMiName);
+      $('miNameInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') saveMiName(); });
+      $('miNameBtn').addEventListener('click', function () {
+        if (miNameSet) {
+          state.userName = '';
+          renderMiName();
+          $('miNameInput').focus();
+          $('miNameInput').select();
+        } else {
+          saveMiName();
+        }
+      });
+      function renderMyInfo() {
+        renderMiName();
+        $('miProvider').textContent = state.provider || '-';
+        miCharEdit = false;
+        renderMiChar();
+        miY.value = by.value; miM.value = bm.value; miD.value = bd.value;
+        renderMiSummary();
+      }
+      [miY, miM, miD].forEach(function (el) {
+        el.addEventListener('input', function () { digits(el); renderMiSummary(); });
+      });
+      $('miSave').addEventListener('click', function () {
+        by.value = miY.value; bm.value = miM.value; bd.value = miD.value;
+        syncDecadeFromYear();
+        renderBirth();
+        showToast('저장했어요');
+      });
+
+      /* ============ ⑥-2 홈 ============ */
+      function greeting() {
+        var h = new Date().getHours();
+        return h < 11 ? '좋은 아침이에요!' : h < 17 ? '좋은 오후예요!' : '좋은 저녁이에요!';
+      }
+      function setGreet(html) { $('homeGreet').innerHTML = html; }
+      function renderGreet() {
+        var who = state.userName ? esc(state.userName) + ' 님' : '안녕하세요';
+        setGreet(who + ', ' + greeting() + '<br />오늘 기분은 어떠세요?');
+      }
+      function renderHome() {
+        renderGreet();
+        $('homeCharUse').setAttribute('href', '#' + CHARS[state.charIdx]);
+        renderTasks();
+      }
+      // 캐릭터를 누를 때마다 인사, 장난, 수수께끼, 목소리 듣고 싶다는 말 등을 번갈아 해요
+      var TALKS = [
+        { t: '오늘도 반가워요, {n}!' },
+        { t: '{n}, 보고 싶었어요! 목소리 들려주세요~' },
+        { t: '{n} 목소리가 듣고 싶어요!' },
+        { t: '아래 "말로 기록하기"를 눌러 이야기해 주세요!' },
+        { t: '조용하니까 심심해요. 말 좀 걸어 주세요!' },
+        { t: '간지러워요! 하하, 한 번 더 눌러 보세요~' },
+        { t: '쉿! 방금 간식 몰래 먹다 들켰어요!' },
+        { t: '눈 감고 하나, 둘, 셋! 까꿍!' },
+        { t: '거울 봤는데 제가 제일 귀엽더라고요!' },
+        { t: '배에서 꼬르륵 소리가 났어요. 같이 먹을까요?' },
+        { t: '물 한 잔 마시고 오세요. 기다릴게요!' },
+        { t: '어깨를 으쓱 올렸다 내려 볼까요? 하나, 둘, 셋!' },
+        { t: '창문 열고 하늘을 한 번 보세요!' },
+        { t: '{n}, 오늘 웃은 적 있으세요?' },
+        { t: '수수께끼! 먹을수록 커지는 건 뭘까요?', a: '정답은 "나이"예요! 하하' },
+        { t: '수수께끼! 다리가 넷인데 못 걷는 건?', a: '정답은 "의자"예요!' },
+        { t: '수수께끼! 눈이 둘인데 앞을 못 보는 건?', a: '정답은 "눈사람"이에요!' },
+        { t: '수수께끼! 아침엔 네 발, 낮엔 두 발, 저녁엔 세 발은?', a: '정답은 "사람"이에요! 지팡이를 짚으니까요.' }
+      ];
+      var talkOrder = [], talkPos = 0, talkAnswer = null, talkTimer = null;
+      function shuffleTalks() {
+        talkOrder = TALKS.map(function (_, i) { return i; });
+        for (var i = talkOrder.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var x = talkOrder[i]; talkOrder[i] = talkOrder[j]; talkOrder[j] = x; }
+        talkPos = 0;
+      }
+      // 캐릭터를 누르면 메인 텍스트가 캐릭터의 말로 바뀌고, 잠시 뒤 처음 인사로 돌아와요
+      function sayBubble(text, ms) {
+        setGreet(esc(text));
+        clearTimeout(talkTimer);
+        talkTimer = setTimeout(function () { talkAnswer = null; renderGreet(); }, ms);
+      }
+      $('homeChar').addEventListener('click', function () {
+        this.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.1) rotate(-4deg)' }, { transform: 'scale(1)' }], { duration: 350 });
+        var n = state.userName ? state.userName + ' 님' : '여기요';
+        if (talkAnswer) { var ans = talkAnswer; talkAnswer = null; sayBubble(ans, 6000); return; }
+        if (talkPos >= talkOrder.length) shuffleTalks();
+        var item = TALKS[talkOrder[talkPos++]];
+        sayBubble(item.t.replace(/\{n\}/g, n), item.a ? 14000 : 6000);
+        if (item.a) talkAnswer = item.a.replace(/\{n\}/g, n);
+      });
+      shuffleTalks();
+      /* 말로 기록하기: 말을 걸면 캐릭터가 메인 글자 자리에서 대답해 줘요 */
+      var chatActive = false, chatRec = null, chatTimer = null, chatBuf = '', chatSimIdx = 0, chatUsingSim = false;
+      var CHAT_SAMPLES = ['오늘 아침에 약 먹었어', '요즘 무릎이 좀 아파', '손녀가 보고 싶네', '오늘 날씨가 참 좋더라', '점심에 비빔밥 먹었어'];
+      function chatShow(t, caret) { setGreet(esc(t) + (caret ? '<span class="caret"></span>' : '')); }
+      function chatButton(on) {
+        var b = $('recBtn');
+        b.classList.toggle('animate-pulse', on);
+        b.style.background = on ? '#3A3434' : '';
+        $('recLabel').textContent = on ? '듣고 있어요... 눌러서 끝내기' : '말로 기록하기';
+      }
+      function chatReply(said) {
+        var n = state.userName ? state.userName + ' 님' : '어르신';
+        var rules = [
+          [/안\s*먹|못\s*먹|깜빡/, '아이고, 약은 꼭 챙겨 드세요. 제가 옆에서 지켜볼게요!'],
+          [/약/, '약 잘 챙겨 드셨네요! 정말 잘하셨어요!'],
+          [/아프|아파|쑤시|결리|무릎|허리|어지러/, '많이 불편하시겠어요. 무리하지 말고 푹 쉬세요.'],
+          [/힘들|외로|우울|쓸쓸|걱정/, '제가 곁에 있을게요. 이야기해 줘서 고마워요.'],
+          [/보고\s*싶|보고싶|그립|그리워/, '그리운 마음이 크시군요. 연락 한번 해 볼까요?'],
+          [/날씨|비가|눈이|춥|덥|바람/, '날씨 이야기네요! 나가실 땐 따뜻하게 챙기세요.'],
+          [/밥|먹었|점심|저녁|아침|국|반찬/, '맛있게 드셨네요! 오늘 메뉴가 궁금해요.'],
+          [/잠|잤|피곤|졸려/, '푹 주무시는 게 제일이에요. 오늘은 일찍 쉬세요.'],
+          [/웃|좋았|기뻐|즐거|재밌|행복/, '와, 듣기만 해도 저도 기뻐요! 또 들려주세요~']
+        ];
+        for (var i = 0; i < rules.length; i++) if (rules[i][0].test(said)) return rules[i][1];
+        return n + ', 이야기해 줘서 고마워요. 더 들려주실래요?';
+      }
+      function chatSim() {
+        var phrase = CHAT_SAMPLES[chatSimIdx++ % CHAT_SAMPLES.length], i = 0;
+        clearTimeout(chatTimer);
+        function tick() {
+          if (!chatActive) return;
+          i++; chatBuf = phrase.slice(0, i); chatShow(chatBuf, true);
+          chatTimer = setTimeout(i < phrase.length ? tick : finishChat, i < phrase.length ? 90 : 800);
+        }
+        chatTimer = setTimeout(tick, 700);
+      }
+      function chatFallback() {
+        if (chatUsingSim || !chatActive) return;
+        chatUsingSim = true;
+        try { if (chatRec) chatRec.abort(); } catch (err) { /* noop */ }
+        showToast('마이크를 쓸 수 없어 테스트 음성으로 보여드려요');
+        chatSim();
+      }
+      function startChat() {
+        chatActive = true; chatBuf = ''; chatUsingSim = false;
+        clearTimeout(talkTimer); clearTimeout(chatTimer);
+        chatButton(true); chatShow('듣고 있어요…', false);
+        if (VOICE_TEST_MODE || !SR) { chatUsingSim = true; chatSim(); return; }
+        try {
+          chatRec = new SR();
+          chatRec.lang = 'ko-KR'; chatRec.interimResults = true; chatRec.continuous = false;
+          chatRec.onresult = function (e) {
+            if (chatUsingSim) return;
+            var t = '';
+            for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+            chatBuf = t; chatShow(t, true);
+          };
+          chatRec.onerror = function (e) { if (e.error !== 'no-speech' && e.error !== 'aborted') chatFallback(); };
+          chatRec.onend = function () { if (chatActive && !chatUsingSim) finishChat(); };
+          chatRec.start();
+        } catch (err) { chatFallback(); }
+      }
+      function stopChat() {
+        chatActive = false; clearTimeout(chatTimer);
+        try { if (chatRec) chatRec.abort(); } catch (err) { /* noop */ }
+        chatButton(false);
+      }
+      function finishChat() {
+        if (!chatActive) return;
+        chatActive = false; clearTimeout(chatTimer);
+        try { if (chatRec) chatRec.stop(); } catch (err) { /* noop */ }
+        chatButton(false);
+        var said = chatBuf.trim();
+        if (!said) { renderGreet(); showToast('잘 못 들었어요. 다시 말씀해 주세요'); return; }
+        chatShow(said, false); // 내가 한 말이 잠깐 보인 뒤
+        chatTimer = setTimeout(function () {
+          setGreet(esc(chatReply(said))); // 캐릭터가 대답해요
+          clearTimeout(talkTimer);
+          talkTimer = setTimeout(function () { talkAnswer = null; renderGreet(); }, 12000);
+        }, 900);
+      }
+      $('recBtn').addEventListener('click', function () { if (chatActive) finishChat(); else startChat(); });
+
+      /* ============ 일정 ============ */
+      var DOW = ['일', '월', '화', '수', '목', '금', '토'];
+      var schedules = [], nextId = 10;
+      var parsed = null, regCall = true, regFrom = 'home', pendingDel = null, regFromVoice = false;
+
+      function today0() { var d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+      function sameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+      function pad(n) { return (n < 10 ? '0' : '') + n; }
+      function fmtTime(h, m) { return (h < 12 ? '오전' : '오후') + ' ' + ((h % 12) || 12) + ':' + pad(m); }
+      function dayLabel(d) {
+        var diff = Math.round((d - today0()) / 86400000);
+        if (diff === 0) return '오늘';
+        if (diff === 1) return '내일';
+        if (diff === 2) return '모레';
+        return (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
+      }
+      function fullDate(d) { return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + DOW[d.getDay()] + '요일'; }
+      function initSchedules() {
+        schedules = [
+          { id: 1, kind: 'med', title: '당뇨약', repeat: true, date: null, h: 9, m: 0, on: true, call: true },
+          { id: 2, kind: 'med', title: '당뇨약', repeat: true, date: null, h: 18, m: 0, on: true, call: true },
+          { id: 3, kind: 'event', title: '경로당 가기', repeat: false, date: today0(), h: 13, m: 0, on: true, call: true }
+        ];
+      }
+      function itemWhen(it) { return (it.repeat ? '매일' : dayLabel(it.date)) + ' ' + fmtTime(it.h, it.m); }
+      function occurrence(it, now) {
+        var t;
+        if (it.repeat) { t = new Date(now); t.setHours(it.h, it.m, 0, 0); if (t <= now) t.setDate(t.getDate() + 1); }
+        else { t = new Date(it.date); t.setHours(it.h, it.m, 0, 0); }
+        return t;
+      }
+      function nextUp(filter) {
+        var now = new Date(), best = null;
+        schedules.forEach(function (it) {
+          if (!it.on || (filter && !filter(it))) return;
+          var t = occurrence(it, now);
+          if (t <= now) return;
+          if (!best || t < best.t) best = { it: it, t: t };
+        });
+        return best;
+      }
+
+      /* 하단 탭 (홈 · 추억 상자 · 동네 마을 · 일정) */
+      function navHTML(active) {
+        function ic(inner) { return '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>'; }
+        var tabs = [
+          ['홈', 'data-go="home"', ic('<path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/>')],
+          ['추억 상자', 'data-memory="box"', ic('<path d="M4 19.500v-15A2.500 2.500 0 0 1 6.500 2H20v20H6.500a2.500 2.500 0 0 1 0-5H20"/>')],
+          ['동네 마을', 'data-memory="town"', ic('<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="M16 3.100a4 4 0 0 1 0 7.800M22 21v-2a4 4 0 0 0-3-3.900"/>')],
+          ['일정', 'data-go="schedule"', ic('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>')]
+        ];
+        return '<nav class="shrink-0 h-[84px] bg-white border-t border-charcoal/10 grid grid-cols-4 pb-4 pt-2">' + tabs.map(function (t) {
+          return '<button type="button" ' + t[1] + ' class="flex flex-col items-center justify-center gap-1 text-b2 transition active:scale-90 ' + (t[0] === active ? 'text-brand' : 'text-charcoal/50') + '">' + t[2] + t[0] + '</button>';
+        }).join('') + '</nav>';
+      }
+      $$('[data-nav]').forEach(function (el) {
+        var k = el.dataset.nav;
+        el.outerHTML = navHTML(k === 'home' ? '홈' : '일정');
+      });
+
+      /* ----- 일정 목록 ----- */
+      var TRASH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+      function rowHTML(it) {
+        return '<li class="rounded-3xl border-2 border-charcoal/15 bg-white p-4 flex items-center gap-3">' +
+          '<div class="flex-1 min-w-0"><p class="truncate text-s1 text-ink">' + esc(it.title) + '</p>' +
+          '<p class="mt-1 text-b1 font-bold text-charcoal/60">' + itemWhen(it) + '</p></div>' +
+          '<button type="button" role="switch" class="sw" aria-checked="' + it.on + '" aria-label="알림 켜고 끄기" data-sw="' + it.id + '"></button>' +
+          '<button type="button" data-del="' + it.id + '" aria-label="삭제" class="shrink-0 w-14 h-[60px] rounded-2xl bg-cream flex flex-col items-center justify-center gap-0.5 text-charcoal/70 transition active:scale-90">' + TRASH + '<span class="text-b2">삭제</span></button></li>';
+      }
+      function byTime(a, b) {
+        var da = a.date ? a.date.getTime() : 0, db = b.date ? b.date.getTime() : 0;
+        return da - db || a.h - b.h || a.m - b.m;
+      }
+      function renderSchedule() {
+        var now = new Date();
+        var nx = nextUp(), nm = nextUp(function (it) { return it.kind === 'med'; });
+        var html = '<p class="text-b1 font-bold text-charcoal/60">곧 다가와요' + (nx && !sameDay(nx.t, now) ? ' · ' + dayLabel(nx.t) : '') + '</p>';
+        if (nx) {
+          html += '<div class="mt-2 flex items-baseline gap-4"><span class="text-h1 text-ink shrink-0">' + fmtTime(nx.it.h, nx.it.m) + '</span><span class="text-s2 text-ink truncate">' + esc(nx.it.title) + '</span></div>';
+        } else {
+          html += '<p class="mt-2 text-s1 text-charcoal/50">예정된 일정이 없어요</p>';
+        }
+        if (nm) {
+          html += '<div class="mt-4 pt-4 border-t border-charcoal/15 text-center text-s2 text-ink">다음 약 - ' + (sameDay(nm.t, now) ? '' : dayLabel(nm.t) + ' ') + fmtTime(nm.it.h, nm.it.m) + ' ' + esc(nm.it.title) + '</div>';
+        }
+        $('nextCard').innerHTML = html;
+        var meds = schedules.filter(function (i) { return i.kind === 'med'; }).sort(byTime);
+        var evs = schedules.filter(function (i) { return i.kind !== 'med'; }).sort(byTime);
+        $('medList').innerHTML = meds.length ? meds.map(rowHTML).join('') : '<li class="py-5 text-center text-b1 text-charcoal/50">등록된 복약이 없어요</li>';
+        $('evList').innerHTML = evs.length ? evs.map(rowHTML).join('') : '<li class="py-5 text-center text-b1 text-charcoal/50">등록된 일정이 없어요</li>';
+      }
+      function onSchedList(e) {
+        var sw = e.target.closest('[data-sw]');
+        if (sw) {
+          var it = schedules.filter(function (x) { return x.id === +sw.dataset.sw; })[0];
+          if (it) { it.on = !it.on; renderSchedule(); }
+          return;
+        }
+        var del = e.target.closest('[data-del]');
+        if (del) { pendingDel = +del.dataset.del; openDel(true); }
+      }
+      $('medList').addEventListener('click', onSchedList);
+      $('evList').addEventListener('click', onSchedList);
+
+      function openDel(open) {
+        $('delBg').style.opacity = open ? '1' : '0';
+        $('delBg').style.pointerEvents = open ? 'auto' : 'none';
+        $('delDlg').style.opacity = open ? '1' : '0';
+        $('delDlg').style.transform = open ? 'translateY(-50%) scale(1)' : '';
+        $('delDlg').style.pointerEvents = open ? 'auto' : 'none';
+      }
+      $('delNo').addEventListener('click', function () { pendingDel = null; openDel(false); });
+      $('delBg').addEventListener('click', function () { pendingDel = null; openDel(false); });
+      $('delYes').addEventListener('click', function () {
+        schedules = schedules.filter(function (x) { return x.id !== pendingDel; });
+        pendingDel = null; openDel(false); renderSchedule(); renderTasks();
+        showToast('일정을 삭제했어요');
+      });
+
+      /* ----- 홈: 오늘 꼭 챙길 일 ----- */
+      function renderTasks() {
+        var now = new Date();
+        var list = schedules.filter(function (it) { return it.on && (it.repeat || sameDay(it.date, now)); }).map(function (it) {
+          var t = new Date(now); t.setHours(it.h, it.m, 0, 0); return { it: it, t: t };
+        }).filter(function (x) { return x.t > now; }).sort(function (a, b) { return a.t - b.t; }).slice(0, 2);
+        $('taskGrid').innerHTML = list.length ? list.map(function (x) {
+          var med = x.it.kind === 'med';
+          return '<div class="rounded-3xl border-2 border-charcoal/15 bg-white p-4">' +
+            '<span class="inline-block px-3 py-1 rounded-full text-b1 font-bold ' + (med ? 'bg-accent/40 text-charcoal' : 'bg-brand/15 text-brand') + '">' + (med ? '복약' : '일정') + '</span>' +
+            '<p class="mt-3 text-h2 text-ink">' + fmtTime(x.it.h, x.it.m) + '</p>' +
+            '<p class="mt-1 text-b1 font-bold text-charcoal/70 truncate">' + esc(x.it.title) + '</p></div>';
+        }).join('') : '<div class="col-span-2 rounded-3xl border-2 border-charcoal/15 bg-white p-5 text-center text-b1 font-bold text-charcoal/50">오늘 남은 일정이 없어요</div>';
+      }
+
+      /* ----- 말로 일정 등록 ----- */
+      function parseSchedule(text) {
+        var rest = ' ' + text + ' ', now = new Date(), mm, d = null;
+        var res = { title: '', h: null, m: 0, date: null, repeat: false, kind: 'event' };
+        if (/매일|날마다/.test(rest)) { res.repeat = true; rest = rest.replace(/매일|날마다/, ' '); }
+        if (/모레/.test(rest)) { d = today0(); d.setDate(d.getDate() + 2); rest = rest.replace(/모레/, ' '); }
+        else if (/내일/.test(rest)) { d = today0(); d.setDate(d.getDate() + 1); rest = rest.replace(/내일/, ' '); }
+        else if (/오늘/.test(rest)) { d = today0(); rest = rest.replace(/오늘/, ' '); }
+        else if ((mm = rest.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/))) {
+          d = new Date(now.getFullYear(), +mm[1] - 1, +mm[2]);
+          if (d < today0()) d.setFullYear(d.getFullYear() + 1);
+          rest = rest.replace(mm[0], ' ');
+        } else if ((mm = rest.match(/(다음\s*주|이번\s*주)?\s*([일월화수목금토])요일/))) {
+          var idx = DOW.indexOf(mm[2]), base = today0(), dm = base.getDay(); // 한 주는 일요일부터 시작
+          if (/다음/.test(mm[1] || '')) base.setDate(base.getDate() - dm + 7 + idx);
+          else if (/이번/.test(mm[1] || '')) base.setDate(base.getDate() - dm + idx);
+          else { var diff = (idx - base.getDay() + 7) % 7; base.setDate(base.getDate() + (diff === 0 ? 7 : diff)); }
+          d = base; rest = rest.replace(mm[0], ' ');
+        }
+        var rel = rest.match(/(\d+)\s*시간\s*(뒤|후)/), relm = rest.match(/(\d+)\s*분\s*(뒤|후)/);
+        if (rel || relm) {
+          var t = new Date(now.getTime() + ((rel ? +rel[1] : 0) * 60 + (relm ? +relm[1] : 0)) * 60000);
+          res.h = t.getHours(); res.m = t.getMinutes();
+          d = new Date(t); d.setHours(0, 0, 0, 0);
+          if (rel) rest = rest.replace(rel[0], ' ');
+          if (relm) rest = rest.replace(relm[0], ' ');
+        } else if ((mm = rest.match(/(새벽|아침|오전|낮|점심|오후|저녁|밤)?\s*(\d{1,2})\s*시\s*(?:(\d{1,2})\s*분|(반))?/))) {
+          var hh = +mm[2], word = mm[1] || '';
+          if (hh < 13) {
+            if (/낮|점심|오후|저녁|밤/.test(word)) { if (hh < 12) hh += 12; }
+            else if (/새벽|아침|오전/.test(word)) { if (hh === 12) hh = 0; }
+            else if (hh >= 1 && hh <= 6) hh += 12;
+          }
+          res.h = hh % 24; res.m = mm[3] ? +mm[3] : (mm[4] ? 30 : 0);
+          rest = rest.replace(mm[0], ' ');
+        }
+        if (res.h !== null && !d && !res.repeat) {
+          d = today0();
+          var tt = new Date(d); tt.setHours(res.h, res.m, 0, 0);
+          if (tt <= now) d.setDate(d.getDate() + 1);
+        }
+        if (!res.repeat) res.date = d;
+        var title = rest.replace(/쯤|정각/g, ' ').replace(/\s+/g, ' ').trim();
+        title = title.replace(/^(에는|에서|에)\s+/, '');
+        title = title.replace(/\s*(일정\s*)?(등록|기록|저장|추가|알려|알림)\s*(해\s*줘|해\s*주세요|해\s*요|해)?\s*[.!?]*$/, '').trim();
+        title = title.replace(/[.!?]+$/, '');
+        title = title.replace(/(가야\s?(해요|해|돼요|돼|한다|지)|가요|가자|가)$/, '가기')
+                     .replace(/(먹어야\s?(해요|해|돼요|돼)|먹어요|먹어|먹자)$/, '먹기')
+                     .replace(/(해야\s?(해요|해|돼요|돼)|해줘|해요)$/, '하기');
+        res.title = title || '일정';
+        res.kind = /약|복용/.test(res.title) ? 'med' : 'event';
+        if (res.kind === 'med') res.title = res.title.replace(/\s*(먹기|복용하기|복용)$/, '').trim() || res.title;
+        return res;
+      }
+
+      function renderRegister() {
+        var box = $('parsedBody'), name = state.charName || '짝꿍';
+        if (!parsed) {
+          box.innerHTML = '<p class="mt-3 text-s1 text-charcoal/40">말씀해 주시면<br />여기에 정리해 드려요</p>';
+        } else {
+          var when = parsed.repeat ? '매일' : (parsed.date ? fullDate(parsed.date) : '날짜 미정');
+          box.innerHTML = '<p class="mt-2 text-s2 text-ink">' + esc(when) + '</p>' +
+            (parsed.h === null ? '<p class="mt-1 text-h2 text-brand">시간을 함께 말씀해 주세요</p>' : '<p class="mt-1 text-h1 text-ink" style="font-size:34px;line-height:42px">' + fmtTime(parsed.h, parsed.m) + '</p>') +
+            '<p class="mt-1 text-s1 text-ink">' + esc(parsed.title) + '</p>';
+        }
+        $('callLabel').textContent = name + ' 전화로 알려주기';
+        $('regCall').setAttribute('aria-checked', String(regCall));
+        $('regSave').disabled = !(parsed && parsed.h !== null);
+        $('regAgain').disabled = !parsed;
+        $('micBlock').classList.toggle('hidden', regFromVoice); // 음성으로 입력한 뒤에는 마이크 버튼과 안내를 숨김
+      }
+      var regText = $('regText');
+      regText.addEventListener('input', function () {
+        parsed = regText.value.trim() ? parseSchedule(regText.value) : null;
+        if (!regText.value.trim()) regFromVoice = false;
+        renderRegister();
+      });
+      regText.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!$('regSave').disabled) $('regSave').click(); }
+      });
+      $('regBack').addEventListener('click', function () { go(regFrom === 'schedule' ? 'schedule' : 'home'); });
+      $('regCall').addEventListener('click', function () { regCall = !regCall; renderRegister(); });
+      $('regSave').addEventListener('click', function () {
+        if (!parsed || parsed.h === null) return;
+        schedules.push({ id: nextId++, kind: parsed.kind, title: parsed.title, repeat: parsed.repeat, date: parsed.date, h: parsed.h, m: parsed.m, on: true, call: regCall });
+        var nm = state.charName || '짝꿍';
+        parsed = null; regText.value = ''; regFromVoice = false;
+        go('schedule');
+        showToast(regCall ? nm + iga(nm) + ' 전화로 알려드려요' : '일정을 등록했어요');
+      });
+      $('regAgain').addEventListener('click', function () { startListening(); });
+      $('regMic').addEventListener('click', function () { startListening(); });
+      $('addSched').addEventListener('click', function () { parsed = null; $('regText').value = ''; regFromVoice = false; regFrom = 'schedule'; go('register'); });
+
+      /* 실시간 음성 인식 (모바일 웹 등 마이크를 쓸 수 있는 환경에서 동작) */
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      var rec = null, listening = false, liveBuf = '';
+      function setLive(t) { liveBuf = t; $('liveText').innerHTML = esc(t) + '<span class="caret"></span>'; }
+
+      // 테스트용 가짜 음성 인식: 마이크 없이도 "말하는 대로 글자가 실시간으로 적히는" 흐름을 볼 수 있어요.
+      // 실제 마이크(음성 인식)를 연결할 때는 false 로 바꾸세요.
+      var VOICE_TEST_MODE = false; // true 로 바꾸면 항상 테스트 음성만 써요. false 면 실제 마이크를 쓰고, 마이크를 못 쓰면 테스트 음성으로 대신해요
+      var SAMPLE_VOICES = ['내일 아침 10시에 병원 가야해', '모레 오후 2시에 경로당 가', '매일 저녁 8시에 혈압약 먹어', '다음 주 수요일 오전 11시에 치과', '오늘 저녁 7시에 딸한테 전화하기'];
+      var simIdx = 0, simTimer = null, usingSim = false;
+      function simulateVoice() {
+        var phrase = SAMPLE_VOICES[simIdx++ % SAMPLE_VOICES.length], i = 0;
+        clearTimeout(simTimer);
+        function tick() {
+          if (!listening) return;
+          i++;
+          setLive(phrase.slice(0, i));
+          if (i < phrase.length) simTimer = setTimeout(tick, 110);
+          else simTimer = setTimeout(finishListening, 1000); // 다 말하면 잠시 뒤 자동으로 끝나요
+        }
+        simTimer = setTimeout(tick, 800); // 말하기 시작할 때까지 잠깐 기다림
+      }
+      function fallbackToSim(why) {
+        if (usingSim || !listening) return;
+        usingSim = true;
+        try { if (rec) rec.abort(); } catch (err) { /* noop */ }
+        showToast(why);
+        simulateVoice();
+      }
+      function startListening() {
+        liveBuf = '';
+        setLive('');
+        listening = true; usingSim = false;
+        $('lsChar').setAttribute('href', '#' + CHARS[state.charIdx]);
+        go('listening');
+        $('lsWrap').classList.add('listening');
+        if (VOICE_TEST_MODE) { usingSim = true; simulateVoice(); return; }
+        if (!SR) { fallbackToSim('이 브라우저는 음성 인식을 지원하지 않아 테스트 음성으로 보여드려요'); return; }
+        try {
+          rec = new SR();
+          rec.lang = 'ko-KR'; rec.interimResults = true; rec.continuous = false;
+          rec.onresult = function (e) {
+            if (usingSim) return;
+            var t = '';
+            for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+            setLive(t);
+          };
+          rec.onerror = function (e) {
+            if (e.error === 'no-speech' || e.error === 'aborted') return;
+            fallbackToSim('마이크를 쓸 수 없어 테스트 음성으로 보여드려요'); // 권한 거부·http·file 주소 등
+          };
+          rec.onend = function () { if (listening && !usingSim) finishListening(); };
+          rec.start();
+        } catch (err) { fallbackToSim('마이크를 쓸 수 없어 테스트 음성으로 보여드려요'); }
+      }
+      function cancelListening() {
+        listening = false; clearTimeout(simTimer);
+        try { if (rec) rec.abort(); } catch (err) { /* noop */ }
+        $('lsWrap').classList.remove('listening');
+      }
+      function finishListening() {
+        if (!listening) return;
+        listening = false; clearTimeout(simTimer);
+        try { if (rec) rec.stop(); } catch (err) { /* noop */ }
+        $('lsWrap').classList.remove('listening');
+        var text = liveBuf.trim();
+        if (!text) { go('register'); showToast('잘 못 들었어요. 다시 말씀해 주세요'); return; }
+        parsed = parseSchedule(text);
+        regText.value = text;
+        regFromVoice = true;
+        go('register');
+      }
+      $('lsMic').addEventListener('click', finishListening);
+      $('lsBack').addEventListener('click', function () { go('register'); });
+      (function buildWave() {
+        var hs = [14, 26, 46, 24, 34, 62, 40, 74, 100, 54, 38, 22];
+        function bars(arr) { return arr.map(function (h, i) { return '<span class="wv" style="height:' + h + 'px;animation-delay:' + (i * 70) + 'ms"></span>'; }).join(''); }
+        $('waveL').innerHTML = bars(hs);
+        $('waveR').innerHTML = bars(hs.slice().reverse());
+      })();
+
+      /* ============ 캐릭터 전화 알림 ============ */
+      var CHAR_LABELS = ['여자아이', '남자아이', '고양이', '강아지', '토끼', '곰', '개구리'];
+      var callCtx = null, callTimer = null, callOpen = false, firedCalls = {};
+      function callMessage(it, min) {
+        var nm = state.userName ? esc(state.userName) + ' 님,' : '안녕하세요,';
+        if (!it) return nm + ' 일정 알림 전화 테스트예요.<br />잘 들리시나요?';
+        var title = esc(it.title), med = it.kind === 'med';
+        if (min <= 1) return nm + ' 지금 ' + title + (med ? ' 드실 시간이에요.<br />챙기셨어요?' : ' 시간이에요.<br />준비되셨어요?');
+        if (min < 60) return nm + ' ' + min + '분 뒤에 ' + title + (med ? ' 드실 시간이에요.<br />챙기셨어요?' : ' 일정이에요.<br />준비되셨어요?');
+        var t = new Date(Date.now() + min * 60000);
+        var when = sameDay(t, new Date()) ? fmtTime(t.getHours(), t.getMinutes()) : dayLabel(t) + ' ' + fmtTime(t.getHours(), t.getMinutes());
+        return nm + ' ' + when + '에 ' + title + (med ? ' 드실 시간이에요.<br />잊지 마세요!' : ' 일정이 있어요.<br />잊지 마세요!');
+      }
+      function showCall(open) {
+        $('callModal').style.opacity = open ? '1' : '0';
+        $('callModal').style.pointerEvents = open ? 'auto' : 'none';
+      }
+      function setCallRinging() {
+        clearInterval(callTimer);
+        $('callBtns').classList.remove('hidden'); $('callEndWrap').classList.add('hidden'); $('callLater').classList.remove('hidden');
+      }
+      function fireCall(it, min) {
+        if (callOpen) return;
+        callOpen = true; callCtx = { it: it, min: min };
+        var now = new Date();
+        $('callHead').textContent = '일정 알림 전화 - ' + fmtTime(now.getHours(), now.getMinutes());
+        $('callName').textContent = state.charName || '짝꿍';
+        $('callSub').textContent = CHAR_LABELS[state.charIdx] + ' : 전화가 왔어요';
+        $('callUse').setAttribute('href', '#' + CHARS[state.charIdx]);
+        $('callBubble').innerHTML = callMessage(it, min);
+        setCallRinging();
+        if (listening) cancelListening();
+        showCall(true);
+      }
+      function endCall(msg) {
+        callOpen = false; setCallRinging(); showCall(false);
+        if (msg) showToast(msg);
+      }
+      $('callReject').addEventListener('click', function () { endCall('전화를 거절했어요'); });
+      $('callLater').addEventListener('click', function () {
+        var c = callCtx;
+        endCall('10분 뒤에 다시 걸어드릴게요');
+        if (c) setTimeout(function () { fireCall(c.it, c.min); }, 10 * 60 * 1000);
+      });
+      $('callAccept').addEventListener('click', function () {
+        var secs = 0, label = CHAR_LABELS[state.charIdx];
+        $('callHead').textContent = '통화 중';
+        $('callSub').textContent = label + ' : 0:00';
+        $('callBtns').classList.add('hidden'); $('callLater').classList.add('hidden'); $('callEndWrap').classList.remove('hidden');
+        clearInterval(callTimer);
+        callTimer = setInterval(function () { secs++; $('callSub').textContent = label + ' : ' + Math.floor(secs / 60) + ':' + pad(secs % 60); }, 1000);
+      });
+      $('callEnd').addEventListener('click', function () { endCall('통화를 마쳤어요'); });
+
+      // 등록한 일정 시간이 되면 전화가 와요 ("전화로 알려주기"를 켠 일정만)
+      setInterval(function () {
+        if (callOpen || tutActive || ORDER.indexOf(current) < ORDER.indexOf('home')) return;
+        var now = new Date();
+        schedules.forEach(function (it) {
+          if (!it.on || !it.call) return;
+          var T = null;
+          if (it.repeat) { T = new Date(now); T.setHours(it.h, it.m, 0, 0); }
+          else if (sameDay(it.date, now)) { T = new Date(it.date); T.setHours(it.h, it.m, 0, 0); }
+          if (!T) return;
+          var key = it.id + '|' + T.toDateString() + '|' + it.h + ':' + it.m;
+          if (now >= T && now - T < 60000 && !firedCalls[key]) { firedCalls[key] = 1; fireCall(it, 0); }
+        });
+      }, 1000);
+
+      /* ============ 처음 사용 안내 (튜토리얼) ============ */
+      // 로그인(가입)을 마치고 처음 홈에 들어오면, 화면을 어둡게 가리고 짚어 주는 안내가 차례로 나와요.
+      var tutActive = false, tutStep = 0, tutDone = false, tutSeq = 0;
+      var TUT_STEPS = [
+        { prep: function () { go('home'); }, items: [{ sel: '#taskGrid', side: 'above', text: '오늘 해야할 일을\n한눈에 볼 수 있어요!' }] },
+        { prep: function () { go('home'); }, items: [{ sel: '#recBtn', side: 'above', dashed: true, radius: 999, text: '직접 말을 해서\n오늘의 일을 기록해보아요' }] },
+        { prep: function () { go('memory'); window.__memory.open('box'); window.__memory.show('main'); }, items: [
+          { sel: 'mem:.speak', side: 'below', textW: 190, textX: 0.74, arrowX: 0.74, textTop: function (r) { return r.go.bottom + 62; }, text: '직접 말로 전달해서\n일기를 써보세요' },
+          { sel: 'mem:[data-act="go-pick"]', side: 'below', textW: 260, textX: 0.4, textTop: function (r) { return r.go.bottom + 150; }, text: '일기가 어색하다면\n주제를 추천받을 수 있어요' }
+        ] },
+        { prep: function () { window.__memory.show('free'); }, items: [
+          { sel: 'mem:.writer', side: 'below', textW: 350, text: '직접 말로 전달하거나 글자를 써서\n일기를 자유롭게 써보세요' },
+          { sel: 'mem:.mic-btn', dashed: true, radius: 999, noText: true }
+        ] },
+        { prep: function () { window.__memory.show('pick'); }, items: [{ sel: 'mem:.topic-q .bubble', side: 'below', textW: 300, text: '일기 주제를\n추천받을 수도 있어요' }] },
+        { prep: function () { window.__memory.show('other', 'food'); }, items: [{ sel: 'mem:.chips-card', side: 'below', textW: 340, text: '‘다른 질문’ 버튼을 눌러\n다양한 질문을 추천받아요' }] },
+        { prep: function () { go('profile'); }, items: [{ sel: '#profCard', side: 'below', textW: 320, text: '내 정보와 캐릭터 정보를\n확인할 수 있어요' }] },
+        { prep: function () { go('profile'); }, items: [{ sel: '#settingsCard', side: 'above', textW: 320, text: '나의 정보, 주요 연락처를\n설정할 수 있어요' }] }
+      ];
+      function tutEl(sel) {
+        if (sel.indexOf('mem:') === 0) { var r = $('memoryHost').shadowRoot; return r ? r.querySelector(sel.slice(4)) : null; }
+        return document.querySelector(sel);
+      }
+      function tutDraw() {
+        var step = TUT_STEPS[tutStep], fr = frame.getBoundingClientRect(), W = fr.width, H = fr.height;
+        var holes = [], texts = [], svg = '';
+        step.items.forEach(function (it) {
+          var el = tutEl(it.sel); if (!el) return;
+          var r = el.getBoundingClientRect(), pad = 6;
+          var go_ = { left: r.left - fr.left - pad, top: r.top - fr.top - pad, right: r.right - fr.left + pad, bottom: r.bottom - fr.top + pad };
+          go_.w = go_.right - go_.left; go_.h = go_.bottom - go_.top;
+          holes.push({ it: it, go: go_, rad: Math.min(it.radius || 24, go_.h / 2) });
+        });
+        var mask = '<rect width="' + W + '" height="' + H + '" fill="#fff"/>';
+        holes.forEach(function (h) { mask += '<rect x="' + h.go.left + '" y="' + h.go.top + '" width="' + h.go.w + '" height="' + h.go.h + '" rx="' + h.rad + '" fill="#000"/>'; });
+        svg += '<defs><mask id="tutMask">' + mask + '</mask></defs><rect width="' + W + '" height="' + H + '" fill="rgba(20,16,16,.78)" mask="url(#tutMask)"/>';
+        holes.forEach(function (h) {
+          svg += '<rect x="' + h.go.left + '" y="' + h.go.top + '" width="' + h.go.w + '" height="' + h.go.h + '" rx="' + h.rad + '" fill="none" stroke="#fff" stroke-width="2.5"' + (h.it.dashed ? ' stroke-dasharray="3 6" stroke-linecap="round"' : '') + '/>';
+        });
+        var box = $('tutTexts'); box.innerHTML = '';
+        holes.forEach(function (h) {
+          var it = h.it; if (it.noText) return;
+          var tw = Math.min(it.textW || 300, W - 30), cx = (it.textX != null ? it.textX : 0.5) * W;
+          cx = Math.max(tw / 2 + 15, Math.min(W - tw / 2 - 15, cx));
+          var d = document.createElement('div');
+          d.style.cssText = 'position:absolute;left:' + (cx - tw / 2) + 'px;width:' + tw + 'px;text-align:center;color:#fff;font:700 20px/1.45 Pretendard,system-ui,sans-serif;white-space:pre-line;visibility:hidden;word-break:keep-all';
+          d.textContent = it.text; box.appendChild(d);
+          var th = d.offsetHeight, ax = it.arrowX != null ? it.arrowX * W : (h.go.left + h.go.right) / 2, top;
+          if (it.side === 'above') {
+            var tip = h.go.top - 8; top = tip - 56 - 10 - th;
+            svg += '<path d="M' + ax + ' ' + (top + th + 10) + ' L' + ax + ' ' + tip + ' M' + (ax - 9) + ' ' + (tip - 11) + ' L' + ax + ' ' + tip + ' L' + (ax + 9) + ' ' + (tip - 11) + '" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+          } else {
+            var tip2 = h.go.bottom + 8;
+            top = it.textTop ? it.textTop({ go: h.go }) : tip2 + 56 + 10;
+            svg += '<path d="M' + ax + ' ' + (top - 10) + ' L' + ax + ' ' + tip2 + ' M' + (ax - 9) + ' ' + (tip2 + 11) + ' L' + ax + ' ' + tip2 + ' L' + (ax + 9) + ' ' + (tip2 + 11) + '" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+          }
+          d.style.top = top + 'px'; d.style.visibility = 'visible';
+        });
+        $('tutSvg').setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+        $('tutSvg').innerHTML = svg;
+        $('tutNext').textContent = tutStep === TUT_STEPS.length - 1 ? '시작하기' : '넘어가기';
+      }
+      function tutShow() {
+        var seq = ++tutSeq;
+        $('tutLayer').style.opacity = '0';
+        TUT_STEPS[tutStep].prep();
+        setTimeout(function () { // 화면이 바뀌는 움직임이 끝난 뒤 위치를 재요
+          if (!tutActive || seq !== tutSeq) return;
+          tutDraw();
+          $('tutLayer').style.opacity = '1';
+        }, 520);
+      }
+      function startTutorial() {
+        if (tutDone || tutActive) return;
+        tutActive = true; tutStep = 0;
+        $('tutLayer').classList.remove('hidden');
+        tutShow();
+      }
+      function endTutorial(finished) {
+        tutActive = false; tutDone = true; tutSeq++;
+        $('tutLayer').style.opacity = '0';
+        setTimeout(function () { if (!tutActive) $('tutLayer').classList.add('hidden'); }, 300);
+        if (window.__memory) window.__memory.reset();
+        go('home');
+        showToast(finished ? '이제 자유롭게 사용해 보세요!' : '안내를 닫았어요');
+      }
+      $('tutNext').addEventListener('click', function () {
+        if (tutStep >= TUT_STEPS.length - 1) { endTutorial(true); return; }
+        tutStep++; tutShow();
+      });
+      $('tutClose').addEventListener('click', function () { endTutorial(false); });
+
+      /* ============ 연락처 전화 제안 ============ */
+      // 마지막으로 전화한 지 일주일이 지난 연락처가 있으면 홈에서 팝업으로 전화를 권해요.
+      // (이 앱에서 [전화하기]를 누른 시각 또는 연락처를 추가한 시각을 '마지막 통화'로 봐요)
+      var SUGGEST_AFTER_DAYS = 7, SUGGEST_SNOOZE_MS = 24 * 60 * 60 * 1000, suggestCtx = null, suggestOpen = false;
+      function dueContact() {
+        var now = Date.now(), best = null;
+        state.contacts.forEach(function (c) {
+          if (!c.lastCall) c.lastCall = now;
+          if (c.snoozeUntil && now < c.snoozeUntil) return;
+          if ((now - c.lastCall) / 86400000 >= SUGGEST_AFTER_DAYS && (!best || c.lastCall < best.lastCall)) best = c;
+        });
+        return best;
+      }
+      function showSuggest(open) {
+        suggestOpen = open;
+        $('suggestBg').style.opacity = open ? '1' : '0';
+        $('suggestBg').style.pointerEvents = open ? 'auto' : 'none';
+        $('suggestDlg').style.opacity = open ? '1' : '0';
+        $('suggestDlg').style.transform = open ? 'translateY(-50%) scale(1)' : '';
+        $('suggestDlg').style.pointerEvents = open ? 'auto' : 'none';
+      }
+      function maybeSuggest() {
+        if (suggestOpen || callOpen || tutActive || chatActive || current !== 'home') return;
+        if ($('delDlg').style.opacity === '1' || $('sheet').style.transform) return;
+        var c = dueContact();
+        if (!c) return;
+        suggestCtx = c;
+        var weeks = Math.max(1, Math.floor((Date.now() - c.lastCall) / (7 * 86400000)));
+        $('suggestAvatar').textContent = c.name.charAt(0);
+        $('suggestTitle').innerHTML = esc(c.name) + '에게<br />전화해 볼까요?';
+        $('suggestDesc').innerHTML = '마지막으로 통화한 지 ' + weeks + '주가 됐어요.<br />목소리를 들으면 반가워하실 거예요.';
+        showSuggest(true);
+      }
+      $('suggestCall').addEventListener('click', function () {
+        var c = suggestCtx; showSuggest(false);
+        if (!c) return;
+        c.lastCall = Date.now(); c.snoozeUntil = 0; // 전화를 걸었으니 다시 일주일 뒤에 권해요
+        showToast(c.name + '에게 전화를 걸어요');
+        var a = document.createElement('a'); a.href = 'tel:' + c.phone.replace(/[^\d+]/g, ''); a.click();
+      });
+      $('suggestLater').addEventListener('click', function () {
+        if (suggestCtx) suggestCtx.snoozeUntil = Date.now() + SUGGEST_SNOOZE_MS; // 하루 뒤에 다시 권해요
+        showSuggest(false);
+        showToast('다음에 다시 알려드릴게요');
+      });
+      $('suggestBg').addEventListener('click', function () { $('suggestLater').click(); });
+      setInterval(maybeSuggest, 30000);
+
+      // 추억 상자 · 동네 마을 화면이 앱과 주고받는 통로
+      window.__appBridge = {
+        go: go,
+        toast: showToast,
+        userName: function () { return state.userName; },
+        charHref: function () { return '#' + CHARS[state.charIdx]; }
+      };
+      initSchedules();
+
+      /* 로그인 직후 온보딩은 항상 빈 상태에서 시작 */
+      function resetOnboarding() {
+        state.userName = ''; state.charName = ''; state.nameSet = false;
+        state.contacts = []; state.charIdx = 0; state.decade = 1940;
+        ['unameInput', 'by', 'bm', 'bd', 'nameInput', 'miY', 'miM', 'miD', 'miNameInput', 'miCharInput', 'cName', 'cPhone'].forEach(function (id) { $(id).value = ''; });
+        tutIdx = 0; renderTut();
+        renderUname(); renderBirth(); renderName(); renderContacts();
+        initialized = false; selectChar(0);
+        initSchedules(); parsed = null; $('regText').value = ''; regFromVoice = false; regCall = true; firedCalls = {}; tutDone = false;
+      }
+
+      /* ============ ⑦ 내 정보 ============ */
+      function renderProfile() {
+        var has = !!state.userName;
+        $('profName').textContent = has ? state.userName : '이름을 입력해 주세요';
+        $('profName').className = has ? 'text-ink' : 'text-charcoal/40';
+        $('profNim').classList.toggle('hidden', !has);
+        $('profChar').textContent = state.charName;
+        $('profAvatar').innerHTML = '<use href="#' + CHARS[state.charIdx] + '"/>';
+      }
+    })();
+  </script>
+<script>
+/* 추억 상자 · 동네 마을: 앱 안에 격리(Shadow DOM)해서 넣은 화면이에요. 앱 본문과 스타일/변수가 섞이지 않아요. */
+(function () {
+  var host = document.getElementById('memoryHost');
+  var root = host.attachShadow({ mode: 'open' });
+  root.appendChild(document.getElementById('memTpl').content.cloneNode(true));
+  // 캐릭터 그림(심볼)을 이 화면 안에서도 쓸 수 있게 복사
+  var defs = document.querySelector('svg[width="0"] defs');
+  var sym = document.createElement('div');
+  sym.innerHTML = '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>' + defs.innerHTML + '</defs></svg>';
+  root.appendChild(sym);
+
+  var bridge = window.__appBridge;
+  var ICON = {
+    mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3" fill="currentColor"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21M8.5 21h7"/></svg>',
+    stop: '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></svg>',
+    chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H5M11 5l-7 7 7 7"/></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="8" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0"/><path d="M11 20a5.5 5.5 0 0 1 11 0"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+  };
+  // 내가 고른 짝꿍 캐릭터를 아바타로 사용
+  function avatar() { return '<svg viewBox="0 0 160 160"><use href="' + bridge.charHref() + '"/></svg>'; }
+
+  var PICK_Q = '어린 시절 가장 기억에 남는 놀이는 뭐였어요?';
+  var TOPICS = [
+    { id: 'food', label: '오늘 먹은 음식', q: '오늘 드신 음식 중에 무엇이 가장 맛있었어요?',
+      sample: '점심에 복지관에서 비빔밥을 먹었어요. 나물이 넉넉하게 들어가서 참 맛있었어요. 저녁에는 남은 나물로 국을 끓여 먹었어요.' },
+    { id: 'home', label: '어릴 적 고향', q: '어릴 적 살던 고향은 어떤 곳이었어요?',
+      sample: '제 고향은 충청도 공주예요. 집 앞에 큰 감나무가 있어서 가을이면 동생들이랑 감을 땄어요.' },
+    { id: 'miss', label: '보고 싶은 사람', q: '요즘 가장 보고 싶은 사람은 누구예요?',
+      sample: '서울 사는 손녀 지은이가 보고 싶어요. 다음 달에 놀러 온다고 해서 벌써 기다려져요.' }
+  ];
+  var SAMPLE = {
+    free: '경로당에서 순자랑 윷놀이를 했어요. 모가 두 번이나 나와서 제가 이겼지 뭐예요. 저녁에는 된장찌개를 끓여 먹었어요.',
+    pick: '어릴 적엔 동네 친구들이랑 해 질 때까지 고무줄놀이를 했어요. 어머니가 밥 먹으라고 부르셔야 집에 들어갔지요.'
+  };
+  var DIARY = {
+    5: [
+      { d: 8, sum: '어버이날 아들 내외와 점심을 먹었어요', title: '어버이날 점심', body: '어버이날이라 아들 내외가 찾아왔다. 동네 한식집에서 갈비탕을 먹었는데 며느리가 카네이션도 달아 주었다.\n오랜만에 다 같이 웃으며 밥을 먹으니 마음이 든든했다.' },
+      { d: 20, sum: '복지관 노래교실에서 찔레꽃을 불렀어요', title: '노래교실 발표', body: '복지관 노래교실에서 한 명씩 앞에 나가 노래를 불렀다. 나는 찔레꽃을 불렀는데 다들 박수를 크게 쳐 주었다.\n떨렸지만 끝까지 부르고 나니 뿌듯했다.' }
+    ],
+    6: [
+      { d: 3, sum: '텃밭에 상추와 고추 모종을 심었어요', title: '텃밭 모종 심기', body: '구청 주말농장 텃밭에 상추와 고추 모종을 심었다. 옆 칸 김 씨 아주머니가 물 주는 요령을 알려 주었다.\n여름에 잘 자라면 이웃들과 나눠 먹어야겠다.' }
+    ],
+    7: [
+      { d: 9, sum: '무더위 쉼터에서 이웃들과 수박을 나눠 먹었어요', title: '무더위 쉼터', body: '날이 너무 더워서 주민센터 무더위 쉼터에 갔다. 통장님이 수박을 사 오셔서 이웃들과 나눠 먹었다.\n시원한 곳에서 이야기를 나누니 더위도 잊었다.' },
+      { d: 24, sum: '딸과 영상통화로 손주 재롱을 봤어요', title: '손주와 영상통화', body: '저녁에 딸이 영상통화를 걸어 왔다. 손주 민준이가 유치원에서 배운 율동을 보여 주었다.\n화면 너머로 보는데도 어찌나 귀여운지 한참 웃었다.' }
+    ],
+    8: [
+      { d: 5, sum: '경로당에서 순자랑 윷놀이를 했어요', title: '경로당 윷놀이', body: '오후에 경로당에 갔더니 순자가 윷놀이를 하자고 했다. 편을 나눠 세 판을 했는데 우리 편이 두 판을 이겼다.\n내기로 걸었던 식혜를 순자가 사 주었다. 오랜만에 소리 내어 웃은 하루였다.' },
+      { d: 11, sum: '지역 등산 모임과 아차산에서 정기 모임을 가졌어요', title: '아차산 정기 모임', body: '오늘은 지역 등산 모임 사람들과 아차산에 다녀왔다. 오랜만에 다 같이 산에 오르니 이야기도 끊이지 않고 참 즐거웠다.\n정상에서 시원한 바람도 쐬고 사진도 한 장 찍었다. 다음 정기 모임 때도 다들 건강한 모습으로 만났으면 좋겠다.' },
+      { d: 28, sum: '동묘시장에서 동창 영식이를 만났어요', title: '동묘시장에서 만난 영식이', body: '동묘시장에 구경 갔다가 국민학교 동창 영식이를 우연히 만났다. 오십 년 만인데도 얼굴을 단번에 알아봤다.\n국밥 한 그릇씩 먹으며 옛날 선생님 이야기를 했다. 다음 달에 또 보기로 약속했다.' }
+    ],
+    9: [
+      { d: 12, sum: '보건소에서 독감 예방접종을 맞았어요', title: '독감 예방접종', body: '보건소에서 어르신 독감 예방접종을 무료로 해 준다고 해서 다녀왔다. 줄이 길었지만 금방 끝났다.\n간호사 선생님이 오늘은 무리하지 말고 푹 쉬라고 했다.' },
+      { d: 25, sum: '추석에 아들네 식구들이 찾아왔어요', title: '추석 명절', body: '추석이라 아들네 식구들이 집에 왔다. 며느리랑 같이 송편을 빚었는데 손주가 만든 송편은 모양이 제각각이었다.\n북적북적한 집이 오랜만이라 좋았다. 다들 돌아가고 나니 조금 허전하다.' }
+    ]
+  };
+  var REACTS = [['like', '좋아요'], ['cheer', '힘내요'], ['best', '최고']];
+  function post(id, name, when, text, like, cheer, best) { return { id: id, name: name, when: when, text: text, r: { like: like, cheer: cheer, best: best }, pressed: {} }; }
+  var FEED = {
+    best: [
+      post('b1', '별빛산책', '14시간 전', '아침에 공원을 30분 걸었더니..... 무릎이 가벼워진 것 같아.요~😊', 11, 2, 3),
+      post('b2', '우주최강동석', '하루 전', '다들 올해 잘 보내세요 ❤️❤️❤️', 20, 12, 7),
+      post('b3', '우주최강동석', '이틀 전', '병아리 무서워요...', 19, 3, 10)
+    ],
+    latest: [
+      post('l1', '감히지훈', '12분 전', '경로당에서 노래 시원하게 부를 사람~~ 구합니다! 동자동입니다!', 4, 0, 1),
+      post('l2', '우주최강동석', '30분 전', '날씨가 추워지고 있습니다... ^^..', 2, 4, 2),
+      post('l3', '청춘열창', '32분 전', '오늘 운동 꼭.. 하겠습니다! 등산 갈 준비 중', 2, 4, 2)
+    ]
+  };
+
+  var state = { section: 'box', townTab: 'best', townNew: false, freshId: null, cameFrom: null, tab: 'write', view: 'main', topic: null, draft: '', listening: false, todayLine: null, shared: false, month: 8, detail: null };
+  var $ = function (s, r) { return (r || root).querySelector(s); };
+  var content = $('#content');
+  var listenTimer = null;
+  var esc = function (s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  function todayLabel() { var d = new Date(); return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + '일월화수목금토'[d.getDay()] + '요일'; }
+  function myName() { return bridge.userName() || '나'; }
+
+  function viewMain() {
+    var html = '<button class="speak" data-act="go-free"><span class="mic-disc">' + ICON.mic + '</span><span><strong>말해서 일기 쓰기</strong><span>버튼을 누르고 오늘 일을 말씀해 주세요</span></span></button>' +
+      '<p class="section-label">일기 pick</p>' +
+      '<section class="card" aria-label="일기 추천 질문"><div class="pick-q"><div class="avatar" aria-hidden="true">' + avatar() + '</div><div class="bubble">' + PICK_Q + '</div></div>' +
+      '<div class="row-btns"><button class="btn btn-dark" data-act="go-pick">이 질문에 답하기</button><button class="btn btn-ghost" data-act="go-other">다른 질문</button></div></section>';
+    if (state.todayLine) {
+      html += '<section class="card today view-in" aria-label="오늘의 한 줄"><div class="eyebrow"><span>오늘의 한 줄</span><span>' + todayLabel() + '</span></div>' +
+        '<blockquote>“' + esc(state.todayLine) + '”</blockquote>' +
+        (state.shared ? '<button class="btn btn-block btn-share done" data-act="see-town">' + ICON.check + '공유됨 · 동네 마을에서 보기</button>'
+                      : '<button class="btn btn-block btn-share" data-act="share">' + ICON.share + '오늘의 한 줄 공유</button>') + '</section>';
+    }
+    return html;
+  }
+  function writer(sampleKey) {
+    var on = state.listening;
+    return '<div class="writer ' + (on ? 'listening' : '') + '"><label for="diaryText">말하거나 글로 적어주세요</label>' +
+      '<textarea id="diaryText" placeholder="마이크 버튼을 누르고 말씀하시면 글자로 바뀌어요. 손으로 직접 적으셔도 돼요.">' + esc(state.draft) + '</textarea>' +
+      '<div class="writer-foot"><div class="status ' + (on ? 'on' : '') + '" id="micStatus">' + (on ? '<span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>듣고 있어요…' : '마이크를 눌러 말해 보세요') + '</div>' +
+      '<button class="mic-btn ' + (on ? 'on' : '') + '" data-act="mic" data-sample="' + sampleKey + '" aria-label="' + (on ? '말하기 멈추기' : '말해서 입력하기') + '">' + (on ? ICON.stop : ICON.mic) + '</button></div></div>' +
+      '<button class="btn btn-primary btn-done" id="doneBtn" data-act="done" ' + (state.draft.trim() ? '' : 'disabled') + '>작성 완료</button>';
+  }
+  function viewFree() { return writer('free'); }
+  function viewPick() { return '<div class="topic-q"><div class="avatar" aria-hidden="true">' + avatar() + '</div><div class="bubble">' + PICK_Q + '</div></div>' + writer('pick'); }
+  function viewOther() {
+    var t = TOPICS.filter(function (x) { return x.id === state.topic; })[0];
+    return '<section class="card chips-card"><p class="lead">오늘은 이런 이야기 어떠세요?</p><div class="chips">' +
+      TOPICS.map(function (x) { return '<button class="chip" data-act="topic" data-id="' + x.id + '" aria-pressed="' + (x.id === state.topic) + '">' + x.label + '</button>'; }).join('') + '</div></section>' +
+      (t ? '<div class="topic-q view-in"><div class="avatar" aria-hidden="true">' + avatar() + '</div><div class="bubble">' + t.q + '</div></div>' + writer(t.id)
+         : '<p class="placeholder">위에서 이야기하고 싶은 주제를 골라 주세요</p>');
+  }
+  function viewPastList() {
+    var list = DIARY[state.month] || [];
+    return '<div class="year-row"><span class="year">2026년</span></div><div class="months" role="group" aria-label="월 선택">' +
+      [5, 6, 7, 8, 9].map(function (m) { return '<button class="month" data-act="month" data-m="' + m + '" aria-pressed="' + (m === state.month) + '">' + m + '월</button>'; }).join('') + '</div>' +
+      '<p class="count"><b>' + list.length + '개</b>의 일기가 있어요</p><div class="entries">' +
+      list.map(function (e, i) { return '<button class="entry" data-act="open" data-i="' + i + '" aria-label="' + state.month + '월 ' + e.d + '일 일기: ' + e.sum + '"><span class="day"><b>' + e.d + '</b><small>일</small></span><span class="summary">' + e.sum + '</span>' + ICON.chev + '</button>'; }).join('') + '</div>';
+  }
+  function viewPastDetail() {
+    var e = DIARY[state.month][state.detail];
+    return '<div class="detail-head"><button class="back" data-act="close-detail" aria-label="날짜별 목록으로">' + ICON.arrow + '</button><div class="when"><b>' + e.d + '</b><small>일</small><span>2026년 ' + state.month + '월</span></div><span></span></div>' +
+      '<article class="card paper"><h2>' + e.title + '</h2><p>' + e.body + '</p></article>';
+  }
+  function timeLabel(p) { if (!p.at) return p.when; var min = Math.floor((Date.now() - p.at) / 60000); return min < 1 ? '방금 전' : min + '분 전'; }
+  function reactBtn(p, key, label) {
+    return '<button class="react" data-act="react" data-id="' + p.id + '" data-k="' + key + '" aria-pressed="' + !!p.pressed[key] + '" aria-label="' + label + ' ' + p.r[key] + '개' + (p.pressed[key] ? ', 다시 누르면 취소돼요' : '') + '">' + label + ' <b>' + p.r[key] + '</b></button>';
+  }
+  function viewTown() {
+    var list = FEED[state.townTab];
+    return '<div class="feed">' + list.map(function (p) {
+      return '<article class="post ' + (p.mine ? 'mine' : '') + ' ' + (p.id === state.freshId ? 'fresh' : '') + '"><div class="post-head"><div class="face" aria-hidden="true">' + esc(p.name.charAt(0)) + '</div><div class="who"><span class="name">' + esc(p.name) + (p.mine ? '<span class="mine-tag">내 글</span>' : '') + '</span><time>' + timeLabel(p) + '</time></div>' +
+        (p.mine ? '<button class="del" data-act="del-post" data-id="' + p.id + '" aria-label="내 글 삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>삭제</button>' : '') + '</div>' +
+        '<p class="post-text">' + esc(p.text) + '</p><div class="reacts" role="group" aria-label="공감하기">' + REACTS.map(function (r) { return reactBtn(p, r[0], r[1]); }).join('') + '</div></article>';
+    }).join('') + '</div><p class="feed-note">동네 마을 글은 추억상자의 ‘오늘의 한 줄 공유’로만 올라와요</p>';
+  }
+
+  var TABS = {
+    box: { title: '추억상자', a: ['write', '오늘의 일기 쓰기'], b: ['past', '지난 추억 보기'] },
+    town: { title: '동네 마을', a: ['best', 'BEST 게시글'], b: ['latest', '최신순 게시글'] }
+  };
+  function render() {
+    var T = TABS[state.section];
+    var cur = state.section === 'box' ? state.tab : state.townTab;
+    $('#pageTitle').textContent = T.title;
+    [['#tabA', T.a], ['#tabB', T.b]].forEach(function (p) {
+      var el = $(p[0]); el.dataset.tab = p[1][0]; el.textContent = p[1][1]; el.setAttribute('aria-selected', p[1][0] === cur);
+    });
+    root.querySelectorAll('.nav button').forEach(function (b) {
+      var on = b.dataset.nav === state.section;
+      if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    var navTown = $('.nav [data-nav="town"]'), dot = navTown.querySelector('.dot');
+    if (state.townNew && !dot) navTown.insertAdjacentHTML('beforeend', '<span class="dot" aria-label="새 글"></span>');
+    if (!state.townNew && dot) dot.remove();
+    var html;
+    if (state.section === 'town') { html = viewTown(); }
+    else if (state.tab === 'write') { html = { main: viewMain, free: viewFree, pick: viewPick, other: viewOther }[state.view](); }
+    else { html = state.detail === null ? viewPastList() : viewPastDetail(); }
+    content.innerHTML = html;
+  }
+  function openTown(tab) { go({ section: 'town', townTab: tab, townNew: false, cameFrom: null }); state.freshId = null; }
+  function go(patch) {
+    stopListening(false);
+    Object.assign(state, patch);
+    render();
+    content.scrollTop = 0;
+    content.classList.remove('view-in'); void content.offsetWidth; content.classList.add('view-in');
+  }
+
+  // 음성 입력 시뮬레이션 (예시 문장이 한 글자씩 적혀요)
+  function startListening(key) {
+    var sample = (key === 'free' || key === 'pick') ? SAMPLE[key] : TOPICS.filter(function (t) { return t.id === key; })[0].sample;
+    state.listening = true;
+    var base = state.draft.trim() ? state.draft.trim() + ' ' : '';
+    render();
+    var i = 0;
+    listenTimer = setInterval(function () {
+      i += 1;
+      state.draft = base + sample.slice(0, i);
+      var ta = $('#diaryText');
+      if (ta) { ta.value = state.draft; ta.scrollTop = ta.scrollHeight; }
+      syncDone();
+      if (i >= sample.length) stopListening(true);
+    }, 55);
+  }
+  function stopListening(rerender) {
+    if (listenTimer) { clearInterval(listenTimer); listenTimer = null; }
+    if (state.listening) { state.listening = false; if (rerender) render(); }
+  }
+  function syncDone() { var b = $('#doneBtn'); if (b) b.disabled = !state.draft.trim(); }
+  function firstSentence(text) { var t = text.trim().replace(/\s+/g, ' '); var m = t.match(/^.*?[.!?。](?=\s|$)/); return (m ? m[0] : t).slice(0, 60); }
+
+  var shareFxTimer;
+  function showShareFx() {
+    var el = $('#shareFx'); el.classList.add('show');
+    clearTimeout(shareFxTimer); shareFxTimer = setTimeout(function () { el.classList.remove('show'); }, 1800);
+  }
+  $('#shareFx').addEventListener('click', function () { clearTimeout(shareFxTimer); this.classList.remove('show'); });
+  var delPending = null;
+  function showDlg(open) { $('#dlgBg').classList.toggle('show', open); $('#dlg').classList.toggle('show', open); if (!open) delPending = null; }
+  $('#dlgNo').addEventListener('click', function () { showDlg(false); });
+  $('#dlgBg').addEventListener('click', function () { showDlg(false); });
+  $('#dlgYes').addEventListener('click', function () {
+    var id = delPending;
+    FEED.latest = FEED.latest.filter(function (x) { return x.id !== id; });
+    FEED.best = FEED.best.filter(function (x) { return x.id !== id; });
+    if (id === state.myPostId) { state.shared = false; state.freshId = null; state.myPostId = null; state.townNew = false; } // 다시 공유할 수 있어요
+    showDlg(false);
+    render();
+    toast('게시글을 삭제했어요');
+  });
+  var toastTimer;
+  function toast(msg) { var el = $('#toast'); $('#toastText').textContent = msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2600); }
+
+  $('.tabs').addEventListener('click', function (e) {
+    var t = e.target.closest('.tab'); if (!t) return;
+    if (state.section === 'town') go({ townTab: t.dataset.tab });
+    else if (state.tab === 'write' && t.dataset.tab === 'write') go({ view: 'main', draft: '', topic: null });
+    else go({ tab: t.dataset.tab, detail: null });
+  });
+  content.addEventListener('input', function (e) { if (e.target.id === 'diaryText') { state.draft = e.target.value; syncDone(); } });
+  content.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    switch (b.dataset.act) {
+      case 'go-free': go({ view: 'free', draft: '' }); break;
+      case 'go-pick': go({ view: 'pick', draft: '' }); break;
+      case 'go-other': go({ view: 'other', draft: '', topic: null }); break;
+      case 'topic': stopListening(false); state.topic = b.dataset.id; state.draft = ''; render(); break;
+      case 'mic': state.listening ? stopListening(true) : startListening(b.dataset.sample); break;
+      case 'done':
+        if (!state.draft.trim()) return;
+        go({ view: 'main', todayLine: firstSentence(state.draft), shared: false, draft: '', topic: null });
+        toast('오늘의 일기를 추억상자에 담았어요');
+        break;
+      case 'share': {
+        if (state.shared) break;
+        var mine = post('me' + Date.now(), myName(), '', state.todayLine, 0, 0, 0);
+        mine.at = Date.now(); mine.mine = true;
+        FEED.latest.unshift(mine);
+        state.shared = true; state.townNew = true; state.freshId = mine.id; state.myPostId = mine.id;
+        render();
+        showShareFx(); // 와이어프레임의 '오늘의 한 줄이 공유되었어요!' 안내
+        break;
+      }
+      case 'see-town': openTown('latest'); break;
+      case 'del-post': delPending = b.dataset.id; showDlg(true); break;
+      case 'react': {
+        var p = FEED.best.concat(FEED.latest).filter(function (x) { return x.id === b.dataset.id; })[0];
+        var k = b.dataset.k;
+        var prev = REACTS.map(function (r) { return r[0]; }).filter(function (x) { return p.pressed[x]; })[0];
+        if (prev) { p.pressed[prev] = false; p.r[prev] -= 1; }
+        if (prev !== k) { p.pressed[k] = true; p.r[k] += 1; }
+        var group = b.closest('.reacts');
+        group.innerHTML = REACTS.map(function (r) { return reactBtn(p, r[0], r[1]); }).join('');
+        var nb = group.querySelector('[data-k="' + k + '"]');
+        if (p.pressed[k]) nb.classList.add('pop');
+        nb.focus();
+        break;
+      }
+      case 'month': go({ month: +b.dataset.m }); break;
+      case 'open': go({ detail: +b.dataset.i }); break;
+      case 'close-detail': go({ detail: null }); break;
+    }
+  });
+  $('.nav').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var n = b.dataset.nav;
+    if (n === 'home') { bridge.go('home'); return; }
+    if (n === 'plan') { bridge.go('schedule'); return; }
+    if (n === 'box') { go({ section: 'box', cameFrom: state.section === 'town' ? 'town' : state.cameFrom, tab: 'write', view: 'main', detail: null }); return; }
+    if (n === 'town') { openTown(state.townNew ? 'latest' : state.townTab); return; }
+  });
+
+  // 앱의 하단 탭에서 들어올 때 호출돼요
+  window.__memory = {
+    // 튜토리얼에서 추억상자의 각 화면을 보여 줄 때 사용
+    show: function (kind, topic) {
+      var patch = { section: 'box', tab: 'write', detail: null, cameFrom: null, draft: '', listening: false, topic: null };
+      patch.view = kind === 'free' ? 'free' : kind === 'pick' ? 'pick' : kind === 'other' ? 'other' : 'main';
+      if (kind === 'other') patch.topic = topic || null;
+      go(patch);
+    },
+    reset: function () { showDlg(false); go({ section: 'box', cameFrom: null, tab: 'write', view: 'main', detail: null, draft: '', topic: null }); },
+    open: function (section) {
+      showDlg(false);
+      if (section === 'town') openTown(state.townNew ? 'latest' : state.townTab);
+      else go({ section: 'box', cameFrom: null, tab: 'write', view: 'main', detail: null });
+    }
+  };
+  render();
+})();
+</script>
+</body>
+</html>
