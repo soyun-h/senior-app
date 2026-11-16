@@ -16,7 +16,8 @@
       "predictiveBackGestureEnabled": false
     },
     "platforms": [
-      "android"
+      "android",
+      "ios"
     ]
   }
 }
