@@ -11,15 +11,14 @@ import { HomeButton } from '../components/home/HomeButton';
 import { ScheduleCard, type HomeSchedule } from '../components/home/ScheduleCard';
 import { WeatherMessage } from '../components/home/WeatherMessage';
 import { BottomNavigation } from '../components/home/BottomNavigation';
-import { useDemoWeather } from '../features/weather/useDemoWeather';
-import type { WeatherSnapshot } from '../features/weather/types';
+import { useWeather } from '../features/weather/useWeather';
 const demoSchedules: HomeSchedule[] = [
   { id: '1', time: '9:00', title: '당뇨약', completed: true },
   { id: '2', time: '10:20', title: '연속극', completed: false },
 ];
-export function HomeScreen({ weather, avatar }: { weather?: WeatherSnapshot; avatar?: AvatarDefinition }) {
+export function HomeScreen({ avatar }: { avatar?: AvatarDefinition }) {
   const blurTarget = useRef<ComponentRef<typeof View>>(null);
-  const demoWeather = useDemoWeather();
+  const { weather, notice, credit } = useWeather();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const availableHeight = height - insets.top - insets.bottom;
@@ -29,16 +28,16 @@ export function HomeScreen({ weather, avatar }: { weather?: WeatherSnapshot; ava
     <View style={{ width: 360 * scale, height: canvasHeight * scale, overflow: 'hidden' }}>
       <View style={{ width: 360, height: canvasHeight, transform: [{ scale }], transformOrigin: 'top left' }}>
         <BlurTargetView ref={blurTarget} style={StyleSheet.absoluteFill}>
-          <WeatherBackground condition={(weather ?? demoWeather).condition}/>
+          <WeatherBackground condition={weather?.condition ?? 'unknown'}/>
           <AvatarView avatar={avatar}/>
         </BlurTargetView>
         <View style={styles.settings}><HomeButton icon="settings" label="설정"/></View>
         <View style={styles.scheduleSection}>
           <HomeText accessibilityRole="header" style={styles.heading}>오늘의 할 일</HomeText>
           <View style={styles.cards}>{demoSchedules.map(schedule => <ScheduleCard key={schedule.id} schedule={schedule}/>)}</View>
-          <HomeText style={styles.credit}>날씨 정보 제공: 기상청</HomeText>
+          <HomeText style={styles.credit}>{credit}</HomeText>
         </View>
-        <WeatherMessage weather={weather ?? demoWeather}/>
+        <WeatherMessage weather={weather} notice={notice}/>
         <BottomNavigation/>
       </View>
     </View>

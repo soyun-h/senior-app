@@ -44,3 +44,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Server-only local secrets and tooling
+.dev.vars
+.dev.vars.*
+.wrangler/

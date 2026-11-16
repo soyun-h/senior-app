@@ -1,0 +1,13 @@
+{
+  "name": "weather-schedule-kma",
+  "main": "worker.ts",
+  "compatibility_date": "2026-11-17",
+  "workers_dev": false,
+  "observability": { "enabled": false },
+  "vars": {
+    "ALLOWED_ORIGINS": "http://localhost:8081",
+    "DAILY_UPSTREAM_LIMIT": "800"
+  },
+  "durable_objects": { "bindings": [{ "name": "WEATHER_GATEWAY", "class_name": "WeatherGateway" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WeatherGateway"] }]
+}
