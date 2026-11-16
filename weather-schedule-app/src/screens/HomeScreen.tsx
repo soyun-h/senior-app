@@ -1,3 +1,6 @@
+import { useRef, type ComponentRef } from 'react';
+import { BlurTargetView } from 'expo-blur';
+import { GlassBlurContext } from '../components/home/GlassSurface';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WeatherBackground } from '../components/home/WeatherBackground';
@@ -15,34 +18,37 @@ const demoSchedules: HomeSchedule[] = [
   { id: '2', time: '10:20', title: '연속극', completed: false },
 ];
 export function HomeScreen({ weather, avatar }: { weather?: WeatherSnapshot; avatar?: AvatarDefinition }) {
+  const blurTarget = useRef<ComponentRef<typeof View>>(null);
   const demoWeather = useDemoWeather();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const availableHeight = height - insets.top - insets.bottom;
   const scale = Math.min(width / 360, availableHeight / 730);
-  const canvasHeight = availableHeight / scale;
-  return <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-    <View style={{ width: 360 * scale, height: availableHeight, overflow: 'hidden' }}>
+  const canvasHeight = 730;
+  return <GlassBlurContext.Provider value={blurTarget}><View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={{ width: 360 * scale, height: canvasHeight * scale, overflow: 'hidden' }}>
       <View style={{ width: 360, height: canvasHeight, transform: [{ scale }], transformOrigin: 'top left' }}>
-        <WeatherBackground condition={(weather ?? demoWeather).condition}/>
+        <BlurTargetView ref={blurTarget} style={StyleSheet.absoluteFill}>
+          <WeatherBackground condition={(weather ?? demoWeather).condition}/>
+          <AvatarView avatar={avatar}/>
+        </BlurTargetView>
         <View style={styles.settings}><HomeButton icon="settings" label="설정"/></View>
         <View style={styles.scheduleSection}>
           <HomeText accessibilityRole="header" style={styles.heading}>오늘의 할 일</HomeText>
           <View style={styles.cards}>{demoSchedules.map(schedule => <ScheduleCard key={schedule.id} schedule={schedule}/>)}</View>
           <HomeText style={styles.credit}>날씨 정보 제공: 기상청</HomeText>
         </View>
-        <AvatarView avatar={avatar}/>
         <WeatherMessage weather={weather ?? demoWeather}/>
         <BottomNavigation/>
       </View>
     </View>
-  </View>;
+  </View></GlassBlurContext.Provider>;
 }
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#E8EDF1', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#E8EDF1', alignItems: 'center', justifyContent: 'center' },
   settings: { position: 'absolute', top: 46, right: 23 },
   scheduleSection: { position: 'absolute', top: 108, left: 28, right: 28 },
-  heading: { fontSize: 17, fontWeight: '700', marginLeft: 8, marginBottom: 10 },
+  heading: { fontSize: 17, fontWeight: '700', marginLeft: 8, marginBottom: 7 },
   cards: { flexDirection: 'row', gap: 6 },
   credit: { color: '#FFF', fontSize: 10, marginTop: 7, marginLeft: 8 },
 });
