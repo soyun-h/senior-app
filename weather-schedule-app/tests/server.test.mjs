@@ -75,3 +75,15 @@ test('delayed observation publication retries the previous cycle, counting every
  const storage=new Storage(),r=await new WeatherGateway({storage},env()).fetch(req());
  assert.equal(r.status,200);const data=await r.json();assert.equal(data.snapshot.observedAt,'2026-11-17T00:00:00.000Z');assert.equal((await storage.get('budget')).calls,3);
 });
+test('gateway accepts a normal hourly response to a half-hour request and caches actual issue time',async t=>{
+ t.mock.method(Date,'now',()=>now);
+ t.mock.method(globalThis,'fetch',async url=>{
+  const u=new URL(url),f=fixture();const observation=u.pathname.endsWith('getUltraSrtNcst');
+  if(!observation)assert.equal(u.searchParams.get('base_time'),'0930');
+  const items=observation?f.obs:f.forecasts.map(r=>({...r,baseTime:'0900'}));
+  return Response.json({response:{header:{resultCode:'00'},body:{totalCount:items.length,items:{item:items}}}});
+ });
+ const storage=new Storage(),r=await new WeatherGateway({storage},env()).fetch(req());
+ assert.equal(r.status,200);const d=await r.json();assert.equal(d.snapshot.forecastIssuedAt,'2026-11-17T00:00:00.000Z');
+ assert.equal((await storage.get('cache:60:127')).snapshot.forecastIssuedAt,d.snapshot.forecastIssuedAt);
+});

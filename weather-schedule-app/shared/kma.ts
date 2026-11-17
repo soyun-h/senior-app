@@ -80,16 +80,44 @@ export function chooseCondition(pty: number, sky: number, lightning: number | nu
   if ([1, 2, 4, 5, 6].includes(pty)) return 'rain';
   return sky === 1 ? 'clear' : [3, 4].includes(sky) ? 'cloudy' : 'unknown';
 }
+/** Accept actual hourly/half-hourly response issues, not an equality with the request.
+ * A response may be at most one cycle older than the requested issue, and no more
+ * than two hours old now. Never combine categories from different issue groups.
+ */
+function selectForecast(forecasts: Item[], requested: Base, now: number) {
+  const requestAt = Date.parse(kstInstant(requested.date, requested.time));
+  const groups = new Map<string, Item[]>();
+  for (const row of forecasts) {
+    const issue = kstInstant(row.baseDate, row.baseTime);
+    if (!['00', '30'].includes(row.baseTime.slice(2))) throw new Error('KMA_INVALID_FORECAST_ISSUE');
+    const valid = Date.parse(kstInstant(row.fcstDate ?? '', row.fcstTime ?? ''));
+    const issued = Date.parse(issue);
+    if (valid <= issued || valid > issued + 6 * HOUR) throw new Error('KMA_INVALID_FORECAST_VALIDITY');
+    const group = groups.get(issue) ?? [];
+    group.push(row); groups.set(issue, group);
+  }
+  const issues = [...groups.keys()].filter(issue => {
+    const issued = Date.parse(issue);
+    return issued <= now && issued <= requestAt && now - issued <= 2 * HOUR && requestAt - issued <= HOUR;
+  }).sort().reverse();
+  if (!issues.length) throw new Error('KMA_NO_RECENT_FORECAST_ISSUE');
+  const issuedAt = issues[0];
+  const group = groups.get(issuedAt)!;
+  const times = [...new Set(group.map(row => kstInstant(row.fcstDate!, row.fcstTime!)))];
+  const candidates = times.filter(t => Date.parse(t) >= now - 30 * 60_000 && Date.parse(t) <= now + 90 * 60_000);
+  candidates.sort((a, b) => Math.abs(Date.parse(a) - now) - Math.abs(Date.parse(b) - now) || a.localeCompare(b));
+  if (!candidates.length) throw new Error('KMA_NO_NEAR_FORECAST');
+  const validAt = candidates[0];
+  const rows = group.filter(row => kstInstant(row.fcstDate!, row.fcstTime!) === validAt);
+  // Even identical duplicates are ambiguous; never silently pick the first value.
+  for (const category of ['SKY', 'PTY', 'LGT']) {
+    if (rows.filter(row => row.category === category).length > 1) throw new Error('KMA_DUPLICATE_FORECAST_CATEGORY');
+  }
+  return { rows, issuedAt, validAt };
+}
 export function normalize(observations: Item[], forecasts: Item[], obsBase: Base, fcstBase: Base, now: number): LiveSnapshot {
   const obs = observations.filter(r => r.baseDate === obsBase.date && r.baseTime === obsBase.time);
-  const fcst = forecasts.filter(r => r.baseDate === fcstBase.date && r.baseTime === fcstBase.time);
-  const times = [...new Set(fcst.map(r => kstInstant(r.fcstDate ?? '', r.fcstTime ?? '')))].sort();
-  // Closest forecast to now, at most 30m past / 90m future; not an observation.
-  const candidates = times.filter(t => +new Date(t) >= now - 30 * 60_000 && +new Date(t) <= now + 90 * 60_000);
-  candidates.sort((a, b) => Math.abs(+new Date(a) - now) - Math.abs(+new Date(b) - now));
-  if (!candidates.length) throw new Error('KMA_NO_NEAR_FORECAST');
-  const valid = candidates[0];
-  const rows = fcst.filter(r => kstInstant(r.fcstDate!, r.fcstTime!) === valid);
+  const { rows, issuedAt, validAt } = selectForecast(forecasts, fcstBase, now);
   const temperature = value(obs, 'T1H');
   if (temperature < -60 || temperature > 60) throw new Error('KMA_INVALID_TEMPERATURE');
   const pty = value(obs, 'PTY', [0, 1, 2, 3, 5, 6, 7]);
@@ -99,7 +127,7 @@ export function normalize(observations: Item[], forecasts: Item[], obsBase: Base
   if (lightning !== null && lightning < 0) throw new Error('KMA_INVALID_LGT');
   if (now - +new Date(obsBase.instant) > 2 * HOUR || +new Date(obsBase.instant) > now) throw new Error('KMA_OLD_OBSERVATION');
   return { condition: chooseCondition(pty, sky, lightning), temperatureCelsius: temperature, observedAt: obsBase.instant,
-    forecastIssuedAt: fcstBase.instant, forecastValidAt: valid, observedPrecipitation: pty,
+    forecastIssuedAt: issuedAt, forecastValidAt: validAt, observedPrecipitation: pty,
     forecastPrecipitation: forecastPty, sky, lightning, source: 'KMA' };
 }
 export function isStale(data: WeatherEnvelope, now = Date.now()): boolean {
