@@ -1,8 +1,9 @@
-# 기상청 연동 — 인증키 발급 전 구현
+# 기상청 날씨 연동 설정 안내
 
 ## 현재 확인된 범위
 
-실제 기상청 호출·배포는 하지 않았습니다. 인증키가 없으며 서버도 배포하지 않았습니다.
+현재 서버는 배포되어 있으며, 사용자가 Codespaces 웹 미리보기에서 실제 날씨 표시 성공을 확인했습니다.
+이번 안내 파일 정리에서는 실제 API 호출이나 배포를 다시 수행하지 않았습니다.
 단위 테스트의 API 응답은 모두 합성 fixture이고 기상청 실측 응답 캡처가 아닙니다.
 API 이용 신청·승인 후 해당 서비스 최신 활용가이드 및 실제 응답으로 필드와 제공 시각을 다시 확인해야 합니다.
 
@@ -33,18 +34,30 @@ API 이용 신청·승인 후 해당 서비스 최신 활용가이드 및 실제
 기본은 live입니다. URL 미설정 시 '날씨 서버 연결 설정이 필요합니다'를 표시하고 기온을 만들지 않습니다.
 자료가 없을 때의 흐림 이미지는 시각적 fallback이며 실제 날씨가 흐리다는 뜻이 아닙니다.
 
-프로젝트 루트의 로컬 `.env.local`에 공개 가능한 설정만 넣습니다(이 파일은 Git에서 제외).
+`weather-schedule-app/.env.example`을 같은 폴더의 `.env.local`로 복사하면 됩니다. 기존 `.env.local`이 있으면 덮어쓰지 말고 아래 공개 설정만 확인하세요. `.env.local`은 계속 Git에서 제외됩니다.
 
 ```dotenv
-EXPO_PUBLIC_WEATHER_API_URL=https://YOUR-APPROVED-SERVER/weather
-# 기본은 live. 8초 디자인 테스트를 명시적으로 실행할 때만 아래 값 사용:
-# EXPO_PUBLIC_WEATHER_MODE=demo
+EXPO_PUBLIC_WEATHER_API_URL=https://weather-schedule-kma.hsy030314.workers.dev/weather
+EXPO_PUBLIC_WEATHER_MODE=live
 ```
 
 `demo`는 `__DEV__`일 때만 작동합니다. 릴리스 빌드에서는 demo 환경변수도 무시하고 live를 사용합니다.
 데모 모드는 출처 영역에 '개발용 테스트 날씨 · 실제 기상청 조회 아님'을 명시합니다.
 기존 일정 카드 2개는 이번 작업 범위 밖의 고정 UI 데이터이며 실제 사용자 일정으로 연결하지 않았습니다.
-환경변수를 바꾸면 Metro 서버를 재시작해야 합니다.
+환경변수를 바꾸면 Metro 서버를 재시작해야 합니다. 앱에는 공개 서버 주소만 설정하며 실제 인증키는 복사하거나 저장하지 않습니다.
+8초 디자인 테스트를 명시적으로 사용할 때만 로컬 설정의 모드를 `demo`로 바꾸세요.
+
+## Codespaces 미리보기 주소와 CORS
+
+Codespace를 새로 만들거나 포트를 바꾸면 미리보기 Origin도 바뀔 수 있습니다.
+브라우저 주소에서 경로·쿼리·마지막 `/`를 제외한 `https://호스트` 부분을 확인하세요.
+현재 허용된 Codespaces Origin은 `https://ideal-lamp-p7w5rxr56pwvfrpv9-8081.app.github.dev`입니다.
+
+주소가 달라지거나 CORS 403이 발생하면 `server/wrangler.jsonc`의 `vars.ALLOWED_ORIGINS`를 확인합니다.
+기존 `http://localhost:8081`은 유지하고 필요한 새 Origin을 쉼표로 구분해 정확히 추가하세요.
+`*` 또는 모든 `app.github.dev` 주소를 허용하지 말고, 더 이상 사용하지 않는 Origin은 검토 후 제거하세요.
+실제 서버 허용 목록은 승인된 배포 이후에 반영됩니다. 대시보드에서만 바꾼 값은 다음 Wrangler 배포에서 설정 파일 값으로 덮어써질 수 있습니다.
+이번 안내 정리에서는 서버 허용 목록이나 Cloudflare 설정을 변경하지 않았습니다.
 
 ## 위치
 
@@ -87,7 +100,7 @@ npx wrangler secret put KMA_SERVICE_KEY --config server/wrangler.jsonc
 키를 `EXPO_PUBLIC_*`, app.json, 소스 코드, GitHub, 브라우저 URL에 절대 넣지 않습니다.
 `server/.dev.vars`를 로컬 서버 테스트에 쓸 수 있지만 해당 파일은 Git에서 제외됩니다.
 
-5. 배포 전 원격 접근·예산·권한을 검토합니다. 현재 `workers_dev: false`이며 배포·공개 URL을 만들지 않았습니다.
+5. 서버를 다시 구성할 때 원격 접근·예산·권한을 검토합니다. 현재 저장소는 `workers_dev: true`로 무료 기본 주소를 사용하도록 설정되어 있습니다. 이번 문서 정리에서는 배포하지 않았습니다.
 실제 배포에는 별도 승인과 HTTPS 라우트 설정이 필요합니다. 향후 배포 명령 예: `npx wrangler deploy --config server/wrangler.jsonc`.
 6. 앱의 EXPO_PUBLIC_WEATHER_API_URL을 승인된 서버의 `/weather` 주소로 설정하고 개발 서버/빌드를 다시 만듭니다.
 7. 서울 및 실제 기기에서 기온·격자·원시 관측/예보 시각·LGT와 홈 표시를 대조합니다. 실제 API 성공은 이 단계에서 따로 검증해야 합니다.
