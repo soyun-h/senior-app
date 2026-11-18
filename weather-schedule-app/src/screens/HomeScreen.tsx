@@ -1,10 +1,13 @@
-import { useRef, type ComponentRef } from 'react';
+import { useRef, useState, type ComponentRef } from 'react';
 import { BlurTargetView } from 'expo-blur';
 import { GlassBlurContext } from '../components/home/GlassSurface';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WeatherBackground } from '../components/home/WeatherBackground';
 import { AvatarView } from '../components/home/AvatarView';
+import { CharacterPicker } from '../components/home/CharacterPicker';
+import { imageFor } from '../features/avatar/characterAssets';
+import type { CharacterDef } from '../features/avatar/characterTypes';
 import type { AvatarDefinition } from '../features/avatar/types';
 import { HomeText } from '../components/home/HomeText';
 import { HomeButton } from '../components/home/HomeButton';
@@ -18,19 +21,26 @@ const demoSchedules: HomeSchedule[] = [
 ];
 export function HomeScreen({ avatar }: { avatar?: AvatarDefinition }) {
   const blurTarget = useRef<ComponentRef<typeof View>>(null);
+  const [character, setCharacter] = useState<CharacterDef | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const { weather, notice, credit } = useWeather();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const availableHeight = height - insets.top - insets.bottom;
   const scale = Math.min(width / 360, availableHeight / 730);
   const canvasHeight = 730;
+  const closePicker = () => setPickerOpen(false);
+
   return <GlassBlurContext.Provider value={blurTarget}><View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
     <View style={{ width: 360 * scale, height: canvasHeight * scale, overflow: 'hidden' }}>
       <View style={{ width: 360, height: canvasHeight, transform: [{ scale }], transformOrigin: 'top left' }}>
         <BlurTargetView ref={blurTarget} style={StyleSheet.absoluteFill}>
           <WeatherBackground condition={weather?.condition ?? 'unknown'}/>
-          <AvatarView avatar={avatar}/>
+          <AvatarView avatar={character ?? avatar} source={character ? imageFor(character.id, 'idle') : undefined}/>
         </BlurTargetView>
+        <Pressable accessibilityRole="button" onPress={() => setPickerOpen(true)} style={styles.characterButton}>
+          <HomeText style={styles.characterLabel}>캐릭터 선택</HomeText>
+        </Pressable>
         <View style={styles.settings}><HomeButton icon="settings" label="설정"/></View>
         <View style={styles.scheduleSection}>
           <HomeText accessibilityRole="header" style={styles.heading}>오늘의 할 일</HomeText>
@@ -41,10 +51,13 @@ export function HomeScreen({ avatar }: { avatar?: AvatarDefinition }) {
         <BottomNavigation/>
       </View>
     </View>
+    {pickerOpen && <CharacterPicker selected={character} onClose={closePicker} onApply={next => { setCharacter(next); closePicker(); }}/>}
   </View></GlassBlurContext.Provider>;
 }
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E8EDF1', alignItems: 'center', justifyContent: 'center' },
+  characterButton: { position: 'absolute', top: 46, left: 28, minHeight: 48, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.9)' },
+  characterLabel: { color: '#246445', fontWeight: '700' },
   settings: { position: 'absolute', top: 46, right: 23 },
   scheduleSection: { position: 'absolute', top: 108, left: 28, right: 28 },
   heading: { fontSize: 17, fontWeight: '700', marginLeft: 8, marginBottom: 7 },
