@@ -24,7 +24,7 @@ export function useHomeDialogue(characterId: CharacterId | undefined, context: O
   const demoDialogue = demo ? homeDemoDialogue(context.condition) : undefined;
   const character = getCharacter(demoDialogue?.characterId ?? characterId);
   const { situation, text, pose } = demoDialogue ?? homeDialogue(character.id, { ...context, now });
-  useHomeDialogueAudio(characterVoices[character.id][situation]);
+  const speech = useHomeDialogueAudio(characterVoices[character.id][situation]);
   const displayPose = pose === 'encourage' && !hasImage(character.id, pose) ? 'wave' : pose;
-  return { character, text, pose: displayPose };
+  return { character, text, pose: displayPose, speech };
 }

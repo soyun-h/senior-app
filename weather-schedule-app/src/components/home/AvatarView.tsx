@@ -1,8 +1,41 @@
-import { StyleSheet } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, Platform, StyleSheet } from 'react-native';
+import { characterMotion } from '../../features/avatar/characterMotion';
 import type { CharacterDef, Pose } from '../../features/avatar/characterTypes';
 import { CharacterImage } from './CharacterImage';
 
-export function AvatarView({ character, pose }: { character: CharacterDef; pose: Pose }) {
-  return <CharacterImage characterId={character.id} pose={pose} label={character.name} style={styles.image} />;
+interface AvatarViewProps {
+  character: CharacterDef;
+  pose: Pose;
+  isSpeaking: boolean;
+  mouthOpen: boolean;
 }
-const styles = StyleSheet.create({ image: { position: 'absolute', width: 324, height: 432, bottom: 66, alignSelf: 'center' } });
+
+export function AvatarView({ character, pose, isSpeaking, mouthOpen }: AvatarViewProps) {
+  const { pose: frame, bounce } = characterMotion(pose, isSpeaking, mouthOpen);
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!bounce) return;
+    const options = { easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web', isInteraction: false };
+    const motion = Animated.loop(Animated.sequence([
+      Animated.timing(translateY, { ...options, toValue: -2.5, duration: 210 }),
+      Animated.timing(translateY, { ...options, toValue: 0, duration: 240 }),
+    ]));
+    motion.start();
+    return () => {
+      motion.stop();
+      translateY.setValue(0);
+    };
+  }, [bounce, translateY]);
+
+  return (
+    <Animated.View style={[styles.frame, { transform: [{ translateY: bounce ? translateY : 0 }] }]}>
+      <CharacterImage characterId={character.id} pose={frame} label={character.name} />
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  frame: { position: 'absolute', left: 16, right: 16, height: 432, bottom: 66 },
+});

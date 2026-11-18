@@ -1,9 +1,22 @@
-import { useEffect } from 'react';
-import { setAudioModeAsync, useAudioPlayer, type AudioSource } from 'expo-audio';
+import { useEffect, useState } from 'react';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, type AudioSource } from 'expo-audio';
 import { Platform } from 'react-native';
+import { isMouthOpen } from './characterMotion';
 
 export function useHomeDialogueAudio(source: AudioSource) {
-  const player = useAudioPlayer();
+  const player = useAudioPlayer(source, { updateInterval: 100 });
+  const status = useAudioPlayerStatus(player);
+  const isSpeaking = status.id === player.id && status.playing && status.currentTime > 0
+    && !status.isBuffering && !status.didJustFinish;
+  const [mouthOpen, setMouthOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isSpeaking) return;
+    const updateFrame = () => setMouthOpen(isMouthOpen(player.currentTime));
+    updateFrame();
+    const timer = setInterval(updateFrame, 50);
+    return () => clearInterval(timer);
+  }, [isSpeaking, player]);
 
   useEffect(() => {
     let active = true;
@@ -14,7 +27,6 @@ export function useHomeDialogueAudio(source: AudioSource) {
       if (event.isTrusted && !player.playing && player.currentTime === 0) play();
     };
 
-    player.replace(source);
     if (Platform.OS === 'web') {
       // Some browsers require interaction before permitting audible autoplay.
       document.addEventListener('pointerup', retryAfterInteraction, true);
@@ -32,5 +44,7 @@ export function useHomeDialogueAudio(source: AudioSource) {
       }
       player.pause();
     };
-  }, [player, source]);
+  }, [player]);
+
+  return { isSpeaking, mouthOpen: isSpeaking && mouthOpen };
 }

@@ -28,7 +28,7 @@ export function HomeScreen({ characterId, schedules = demoSchedules }: HomeScree
   const blurTarget = useRef<ComponentRef<typeof View>>(null);
   const demo = selectWeatherMode(__DEV__, process.env.EXPO_PUBLIC_WEATHER_MODE) === 'demo';
   const { weather, notice, credit } = useWeather();
-  const { character, text, pose } = useHomeDialogue(characterId, { schedules, condition: notice ? undefined : weather?.condition }, demo);
+  const { character, text, pose, speech } = useHomeDialogue(characterId, { schedules, condition: notice ? undefined : weather?.condition }, demo);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const availableHeight = height - insets.top - insets.bottom;
@@ -39,7 +39,7 @@ export function HomeScreen({ characterId, schedules = demoSchedules }: HomeScree
       <View style={{ width: 360, height: canvasHeight, transform: [{ scale }], transformOrigin: 'top left' }}>
         <BlurTargetView ref={blurTarget} style={StyleSheet.absoluteFill}>
           <WeatherBackground condition={weather?.condition ?? 'unknown'}/>
-          <AvatarView character={character} pose={pose}/>
+          <AvatarView character={character} pose={pose} {...speech}/>
         </BlurTargetView>
         <View style={styles.settings}><HomeButton icon="settings" label="설정"/></View>
         <View style={styles.scheduleSection}>
