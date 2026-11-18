@@ -8,13 +8,14 @@ interface CharacterImageProps {
   characterId: CharacterId;
   pose: Pose;
   label?: string;
+  mouthFrame?: number;
 }
 
 const characterOutlines: Partial<Record<`${CharacterId}_${Pose}`, { width: number; height: number; path: string }>> = outlines;
 
-export function CharacterImage({ characterId, pose, label }: CharacterImageProps) {
+export function CharacterImage({ characterId, pose, label, mouthFrame }: CharacterImageProps) {
   const clipId = `character-${useId()}`;
-  const displayPose = resolvePose(characterId, pose);
+  const displayPose = mouthFrame === undefined ? resolvePose(characterId, pose) : 'idle';
   const outline = characterOutlines[`${characterId}_${displayPose}`];
   if (!outline) return null;
 
@@ -27,17 +28,19 @@ export function CharacterImage({ characterId, pose, label }: CharacterImageProps
       viewBox={`${-sidePadding} 0 ${outline.width + 2 * sidePadding} ${outline.height}`}
       preserveAspectRatio="xMidYMax meet"
     >
-      <Defs>
-        <ClipPath id={clipId}>
-          <Path d={outline.path} clipRule="evenodd" />
-        </ClipPath>
-      </Defs>
+      {mouthFrame === undefined && (
+        <Defs>
+          <ClipPath id={clipId}>
+            <Path d={outline.path} clipRule="evenodd" />
+          </ClipPath>
+        </Defs>
+      )}
       <Image
-        href={imageFor(characterId, displayPose)}
+        href={mouthFrame ?? imageFor(characterId, displayPose)}
         width={outline.width}
         height={outline.height}
         preserveAspectRatio="xMidYMid meet"
-        clipPath={`url(#${clipId})`}
+        clipPath={mouthFrame === undefined ? `url(#${clipId})` : undefined}
       />
     </Svg>
   );

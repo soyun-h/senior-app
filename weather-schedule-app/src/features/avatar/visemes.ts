@@ -10,6 +10,8 @@ import type { Mouth, MouthCue } from './characterTypes.ts';
 
 const VOWEL_A = new Set([0, 1, 2, 3, 4, 6]);
 const VOWEL_I = new Set([5, 7, 18, 19, 20]);
+const VOWEL_E = new Set([1, 3, 5, 7, 10, 11, 15]);
+const VOWEL_U = new Set([13, 14, 16, 17]);
 const LIP_INITIAL = new Set([6, 7, 8, 17]); // ㅁ ㅂ ㅃ ㅍ
 const LIP_FINAL = new Set([16, 17, 26]); // 받침 ㅁ ㅂ ㅍ
 
@@ -29,8 +31,16 @@ export function vowelMouth(ch: string): Mouth {
   return VOWEL_A.has(vowel) ? 'a' : VOWEL_I.has(vowel) ? 'i' : 'o';
 }
 
+export function fiveVowelMouth(ch: string): Mouth {
+  if (!isHangul(ch)) return vowelMouth(ch);
+  const { vowel } = decompose(ch);
+  if (VOWEL_E.has(vowel)) return 'e';
+  if (VOWEL_U.has(vowel)) return 'u';
+  return vowelMouth(ch);
+}
+
 /** 한 글자 구간 [start, end] 안의 입 모양 큐 */
-function syllableCues(ch: string, start: number, end: number): MouthCue[] {
+function syllableCues(ch: string, start: number, end: number, classifyVowel: (ch: string) => Mouth): MouthCue[] {
   if (!isHangul(ch)) {
     if (/[a-zA-Z0-9]/.test(ch)) return [{ t: start, mouth: 'a' }];
     return [{ t: start, mouth: 'rest' }];
@@ -40,7 +50,7 @@ function syllableCues(ch: string, start: number, end: number): MouthCue[] {
   const cues: MouthCue[] = [];
   let t = start;
   if (LIP_INITIAL.has(initial)) { cues.push({ t, mouth: 'm' }); t += Math.min(0.08, Math.max(0.06, d * 0.3)); }
-  cues.push({ t, mouth: vowelMouth(ch) });
+  cues.push({ t, mouth: classifyVowel(ch) });
   if (LIP_FINAL.has(final)) cues.push({ t: start + d * 0.75, mouth: 'm' });
   return cues;
 }
@@ -58,12 +68,12 @@ function tidy(cues: MouthCue[], minHold = 0.035): MouthCue[] {
 }
 
 /** 목소리 서비스가 준 글자별 시간으로 입 모양 큐 만들기 */
-export function cuesFromTiming(timing: CharTiming): MouthCue[] {
+export function cuesFromTiming(timing: CharTiming, classifyVowel = vowelMouth): MouthCue[] {
   const cues: MouthCue[] = [];
   const n = timing.characters.length;
   for (let i = 0; i < n; i++) {
     const ch = timing.characters[i], s = timing.starts[i] ?? 0, e = timing.ends[i] ?? s + 0.12;
-    cues.push(...syllableCues(ch, s, e));
+    cues.push(...syllableCues(ch, s, e, classifyVowel));
   }
   const end = n ? (timing.ends[n - 1] ?? 0) : 0;
   cues.push({ t: end, mouth: 'rest' });
@@ -80,6 +90,17 @@ export function estimateTiming(text: string, rate = 1): CharTiming {
     starts.push(t); t += d / Math.max(0.5, rate); ends.push(t);
   }
   return { characters, starts, ends };
+}
+
+export function estimateFiveVowelCues(text: string, duration: number) {
+  const { characters, starts, ends } = estimateTiming(text);
+  const estimate = ends.at(-1) ?? 0;
+  const scale = duration > 0 && Number.isFinite(duration) && estimate > 0 ? duration / estimate : 1;
+  return cuesFromTiming({
+    characters,
+    starts: starts.map(time => time * scale),
+    ends: ends.map(time => time * scale),
+  }, fiveVowelMouth);
 }
 
 /** 지금 시각(초)에 보여 줄 입 모양 */

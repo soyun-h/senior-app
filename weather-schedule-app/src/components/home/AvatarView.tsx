@@ -1,19 +1,23 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Easing, Platform, StyleSheet } from 'react-native';
 import { characterMotion } from '../../features/avatar/characterMotion';
-import type { CharacterDef, Pose } from '../../features/avatar/characterTypes';
+import type { CharacterDef, Mouth, Pose } from '../../features/avatar/characterTypes';
+import type { MouthFrames } from '../../features/avatar/nabiMedia';
 import { CharacterImage } from './CharacterImage';
 
 interface AvatarViewProps {
   character: CharacterDef;
   pose: Pose;
   isSpeaking: boolean;
-  mouthOpen: boolean;
+  mouth: Mouth;
+  mouthFrames?: MouthFrames;
 }
 
-export function AvatarView({ character, pose, isSpeaking, mouthOpen }: AvatarViewProps) {
+export function AvatarView({ character, pose, isSpeaking, mouth, mouthFrames }: AvatarViewProps) {
+  const mouthOpen = mouth !== 'rest' && mouth !== 'm';
   const { pose: frame, bounce } = characterMotion(pose, isSpeaking, mouthOpen);
-  const translateY = useRef(new Animated.Value(0)).current;
+  const mouthFrame = isSpeaking && !bounce && mouthOpen ? mouthFrames?.[mouth] : undefined;
+  const [translateY] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     if (!bounce) return;
@@ -30,12 +34,12 @@ export function AvatarView({ character, pose, isSpeaking, mouthOpen }: AvatarVie
   }, [bounce, translateY]);
 
   return (
-    <Animated.View style={[styles.frame, { transform: [{ translateY: bounce ? translateY : 0 }] }]}>
-      <CharacterImage characterId={character.id} pose={frame} label={character.name} />
+    <Animated.View style={[avatarFrameStyle, { transform: [{ translateY: bounce ? translateY : 0 }] }]}>
+      <CharacterImage characterId={character.id} pose={frame} label={character.name} mouthFrame={mouthFrame} />
     </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
+export const avatarFrameStyle = StyleSheet.create({
   frame: { position: 'absolute', left: 16, right: 16, height: 432, bottom: 66 },
-});
+}).frame;

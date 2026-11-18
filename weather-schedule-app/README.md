@@ -24,6 +24,14 @@ React Native, Expo SDK 58, TypeScript로 만든 상황 반응형 AI 컴패니언
 
 개발 데모에서는 테스트 날씨가 8초마다 바뀌고, 나비 → 서윤 → 지은 → 준호 → 도윤 순으로 각자의 대사·포즈·음성을 확인할 수 있습니다.
 
+### 나비 입 모양과 대사 영상 추가
+
+파일은 [나비 대사 에셋 폴더](assets/characters/char1/dialogue/)에 넣고 Expo를 다시 시작합니다.
+
+- 기본 자세와 구도 및 비율을 맞춘 투명 PNG 5장을 `mouth_a.png`(아), `mouth_e.png`(에), `mouth_i.png`(이), `mouth_o.png`(오), `mouth_u.png`(우)로 저장합니다. 5장이 모두 있으면 기본 자세의 대사에서 음원 길이와 한글 음절을 바탕으로 입 모양을 고릅니다. 인사 손짓처럼 자세가 다른 장면에서는 기존 모션을 사용합니다.
+- 대사 영상 1개는 상황에 맞는 이름을 사용합니다. 데모의 나비 인사에 연결하려면 “안녕하세요, 나비예요! 오늘도 저랑 기분 좋게 시작해 봐요.” 음성을 포함해 `greeting.mp4`로 저장합니다. 다른 대사의 파일명은 `night.mp4`, `schedule_pending.mp4`, `schedule_complete.mp4`, `rain.mp4`, `snow.mp4`, `thunder.mp4`입니다.
+- 영상이 등록된 대사는 영상에 포함된 음성으로 재생하고, 끝나면 기본 이미지로 돌아갑니다. 대응 영상이 없거나 영상 재생에 실패하면 기존 음원과 이미지 애니메이션으로 재생합니다. 새 PNG 세트가 없거나 일부만 있으면 기존 입 프레임을 사용합니다.
+
 ## 주요 파일
 
 | 파일 | 역할 |
@@ -34,6 +42,7 @@ React Native, Expo SDK 58, TypeScript로 만든 상황 반응형 AI 컴패니언
 | [characterVoices.ts](src/features/avatar/characterVoices.ts), [useHomeDialogueAudio.ts](src/features/avatar/useHomeDialogueAudio.ts) | 음원 매핑, 재생과 재생 상태 |
 | [characterAssets.ts](src/features/avatar/characterAssets.ts), [characterOutlines.json](src/features/avatar/characterOutlines.json) | 기존 이미지 연결과 투명 윤곽 |
 | [characterMotion.ts](src/features/avatar/characterMotion.ts), [AvatarView.tsx](src/components/home/AvatarView.tsx), [CharacterImage.tsx](src/components/home/CharacterImage.tsx) | 입 프레임 선택, 말하기 모션, 비율과 여백 |
+| [nabiMedia.ts](src/features/avatar/nabiMedia.ts), [DialogueAvatar.tsx](src/components/home/DialogueAvatar.tsx) | 선택형 나비 에셋 탐색과 대사 영상·이미지 재생 분기 |
 | [useHomeDialogue.ts](src/features/avatar/useHomeDialogue.ts), [HomeScreen.tsx](src/screens/HomeScreen.tsx) | 상황을 실제 홈의 캐릭터와 대사창에 연결 |
 
 ## 실행 및 검증
