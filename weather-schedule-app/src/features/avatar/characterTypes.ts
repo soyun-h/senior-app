@@ -3,6 +3,7 @@ export type CharacterId = 'char1' | 'char2' | 'char3' | 'char4' | 'char5';
 export type CallState = 'CALL_INCOMING' | 'GREETING' | 'LISTENING' | 'TALKING' | 'AUTH_SUCCESS' | 'AUTH_FAIL';
 export type CharacterAction = 'none' | 'nod' | 'laugh' | 'shy' | 'worry' | 'cheer' | 'encourage';
 export type Pose = 'profile' | 'idle' | 'wave' | 'ok' | 'encourage' | 'mouth_a' | 'mouth_o' | 'mouth_i';
+export type HomeDialogueSituation = 'greeting' | 'night' | 'schedulePending' | 'scheduleComplete' | 'rain' | 'snow' | 'thunder';
 /** 입 모양: rest=다문 입(idle), a=아·어, o=오·우, i=이·에, m=ㅁㅂㅍ(입술 닫힘) */
 export type Mouth = 'rest' | 'a' | 'o' | 'i' | 'm';
 export type Honorific = '할머니' | '할아버지';

@@ -1,9 +1,8 @@
-import { Image, StyleSheet, type ImageSourcePropType } from 'react-native';
-import type { AvatarDefinition } from '../../features/avatar/types';
-export const defaultAvatar: AvatarDefinition = { id: 'default', name: '기본 아바타' };
-export const defaultAvatarImage: ImageSourcePropType = require('../../../assets/design/avatar/DefaultAvatar.png');
+import { StyleSheet } from 'react-native';
+import type { CharacterDef, Pose } from '../../features/avatar/characterTypes';
+import { CharacterImage } from './CharacterImage';
 
-export function AvatarView({ avatar = defaultAvatar, source }: { avatar?: AvatarDefinition; source?: ImageSourcePropType }) {
-  return <Image source={source ?? (avatar.imageUri ? { uri: avatar.imageUri } : defaultAvatarImage)} accessibilityLabel={avatar.name} resizeMode="contain" style={styles.image}/>;
+export function AvatarView({ character, pose }: { character: CharacterDef; pose: Pose }) {
+  return <CharacterImage characterId={character.id} pose={pose} label={character.name} style={styles.image} />;
 }
-const styles = StyleSheet.create({ image: { position: 'absolute', width: 300, height: 400, bottom: 66, alignSelf: 'center' } });
+const styles = StyleSheet.create({ image: { position: 'absolute', width: 324, height: 432, bottom: 66, alignSelf: 'center' } });

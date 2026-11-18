@@ -49,8 +49,14 @@ export const CHARACTER_IMAGES: Record<CharacterId, Partial<Record<Pose, ImageSou
 /** 없는 이미지는 대신할 이미지로 (예: 격려 이미지가 없으면 기본 이미지) */
 const FALLBACK: Partial<Record<Pose, Pose>> = { encourage: 'idle', mouth_o: 'mouth_a', mouth_i: 'mouth_a', mouth_a: 'idle', wave: 'idle', ok: 'idle', profile: 'idle' };
 export function hasImage(id: CharacterId, pose: Pose): boolean { return !!CHARACTER_IMAGES[id]?.[pose]; }
+export function resolvePose(id: CharacterId, pose: Pose): Pose {
+  let current: Pose | undefined = pose;
+  for (let i = 0; i < 4 && current; i++) {
+    if (hasImage(id, current)) return current;
+    current = FALLBACK[current];
+  }
+  return 'idle';
+}
 export function imageFor(id: CharacterId, pose: Pose): ImageSourcePropType {
-  let p: Pose | undefined = pose;
-  for (let i = 0; i < 4 && p; i++) { const img = CHARACTER_IMAGES[id]?.[p]; if (img) return img; p = FALLBACK[p]; }
-  return CHARACTER_IMAGES[id].idle as ImageSourcePropType;
+  return CHARACTER_IMAGES[id][resolvePose(id, pose)] as ImageSourcePropType;
 }
