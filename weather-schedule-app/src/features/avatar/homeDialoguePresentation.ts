@@ -18,6 +18,20 @@ const homePoses: Record<HomeDialogueSituation, Pose> = {
   thunder: 'mouth_a',
 };
 
+interface DemoStep {
+  characterId: CharacterId;
+  situation: HomeDialogueSituation;
+  pose?: Pose;
+}
+
+const firstDemoStep: DemoStep = { characterId: 'char1', situation: 'greeting' };
+const demoSteps: Partial<Record<WeatherCondition, DemoStep>> = {
+  cloudy: { characterId: 'char2', situation: 'night' },
+  rain: { characterId: 'char3', situation: 'rain', pose: 'mouth_a' },
+  snow: { characterId: 'char4', situation: 'snow', pose: 'ok' },
+  thunder: { characterId: 'char5', situation: 'thunder' },
+};
+
 function selectSituation({ now, schedules, condition }: HomeDialogueContext): HomeDialogueSituation {
   if (condition === 'thunder' || condition === 'snow' || condition === 'rain') return condition;
 
@@ -35,10 +49,21 @@ function selectSituation({ now, schedules, condition }: HomeDialogueContext): Ho
 }
 
 export function homeDialogue(characterId: CharacterId, context: HomeDialogueContext) {
-  const situation = selectSituation(context);
+  return dialogueFor(characterId, selectSituation(context));
+}
+
+export function homeDemoDialogue(condition?: WeatherCondition) {
+  const step = demoSteps[condition ?? 'unknown'] ?? firstDemoStep;
+  return {
+    characterId: step.characterId,
+    ...dialogueFor(step.characterId, step.situation, step.pose),
+  };
+}
+
+function dialogueFor(characterId: CharacterId, situation: HomeDialogueSituation, pose = homePoses[situation]) {
   return {
     situation,
     text: homeDialogueLines[characterId][situation],
-    pose: homePoses[situation],
+    pose,
   };
 }

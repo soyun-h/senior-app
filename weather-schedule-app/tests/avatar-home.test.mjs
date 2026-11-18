@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { homeDialogueLines } from '../src/features/avatar/homeDialogueLines.ts';
-import { homeDialogue } from '../src/features/avatar/homeDialoguePresentation.ts';
+import { homeDemoDialogue, homeDialogue } from '../src/features/avatar/homeDialoguePresentation.ts';
 
 const at = (hour, minute = 0) => new Date(2026, 10, 19, hour, minute);
 const upcoming = [{ time: '9:00', completed: false }];
@@ -27,6 +27,20 @@ test('home dialogue changes at night and prioritizes current rain, snow and ligh
     assert.equal(line.situation, condition);
     assert.equal(line.pose, pose);
     assert.equal(line.text, homeDialogueLines.char1[condition]);
+  }
+});
+
+test('the demo weather cycle shows five characters with matching dialogue and available poses', () => {
+  const config = JSON.parse(readFileSync(new URL('../src/features/avatar/characters.json', import.meta.url), 'utf8'));
+  const weatherCycle = ['clear', 'cloudy', 'rain', 'snow', 'thunder'];
+  const steps = weatherCycle.map(condition => homeDemoDialogue(condition));
+  assert.deepEqual(steps.map(step => step.characterId), ['char1', 'char2', 'char3', 'char4', 'char5']);
+  assert.deepEqual(steps.map(step => step.situation), ['greeting', 'night', 'rain', 'snow', 'thunder']);
+  assert.deepEqual(steps.map(step => step.pose), ['wave', 'idle', 'mouth_a', 'ok', 'mouth_a']);
+  for (const { characterId, situation, text, pose } of steps) {
+    const character = config.characters.find(option => option.id === characterId);
+    assert.ok(character.assets[pose], characterId + ' ' + pose);
+    assert.equal(text, homeDialogueLines[characterId][situation]);
   }
 });
 

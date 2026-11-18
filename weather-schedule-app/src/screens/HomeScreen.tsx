@@ -3,10 +3,10 @@ import { BlurTargetView } from 'expo-blur';
 import { GlassBlurContext } from '../components/home/GlassSurface';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { selectWeatherMode } from '../../shared/mode';
 import { WeatherBackground } from '../components/home/WeatherBackground';
 import { AvatarView } from '../components/home/AvatarView';
 import { CharacterDialogue } from '../components/home/CharacterDialogue';
-import { getCharacter } from '../features/avatar/characterConfig';
 import type { CharacterId } from '../features/avatar/characterTypes';
 import { useHomeDialogue } from '../features/avatar/useHomeDialogue';
 import { HomeText } from '../components/home/HomeText';
@@ -26,9 +26,9 @@ interface HomeScreenProps {
 
 export function HomeScreen({ characterId, schedules = demoSchedules }: HomeScreenProps) {
   const blurTarget = useRef<ComponentRef<typeof View>>(null);
-  const character = getCharacter(characterId);
+  const demo = selectWeatherMode(__DEV__, process.env.EXPO_PUBLIC_WEATHER_MODE) === 'demo';
   const { weather, notice, credit } = useWeather();
-  const dialogue = useHomeDialogue(character.id, { schedules, condition: notice ? undefined : weather?.condition });
+  const { character, text, pose } = useHomeDialogue(characterId, { schedules, condition: notice ? undefined : weather?.condition }, demo);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const availableHeight = height - insets.top - insets.bottom;
@@ -39,19 +39,21 @@ export function HomeScreen({ characterId, schedules = demoSchedules }: HomeScree
       <View style={{ width: 360, height: canvasHeight, transform: [{ scale }], transformOrigin: 'top left' }}>
         <BlurTargetView ref={blurTarget} style={StyleSheet.absoluteFill}>
           <WeatherBackground condition={weather?.condition ?? 'unknown'}/>
-          <AvatarView character={character} pose={dialogue.pose}/>
+          <AvatarView character={character} pose={pose}/>
         </BlurTargetView>
         <View style={styles.settings}><HomeButton icon="settings" label="설정"/></View>
         <View style={styles.scheduleSection}>
           <HomeText accessibilityRole="header" style={styles.heading}>오늘의 할 일</HomeText>
           <View style={styles.cards}>{schedules.map(schedule => <ScheduleCard key={schedule.id} schedule={schedule}/>)}</View>
           <HomeText style={styles.credit}>{credit}</HomeText>
-          <View style={styles.weatherReport}>
-            {weather && <HomeText style={styles.weatherText}>{weatherMessage(weather)}</HomeText>}
-            {notice && <HomeText style={styles.weatherText}>{notice}</HomeText>}
-          </View>
+          {!demo && (
+            <View style={styles.weatherReport}>
+              {weather && <HomeText style={styles.weatherText}>{weatherMessage(weather)}</HomeText>}
+              {notice && <HomeText style={styles.weatherText}>{notice}</HomeText>}
+            </View>
+          )}
         </View>
-        <CharacterDialogue name={character.name} text={dialogue.text}/>
+        <CharacterDialogue name={character.name} text={text}/>
         <BottomNavigation/>
       </View>
     </View>
