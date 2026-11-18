@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "strict": true, "target": "ES2022", "module": "ESNext", "moduleResolution": "bundler", "lib": ["ES2022", "DOM"], "allowImportingTsExtensions": true, "noEmit": true, "skipLibCheck": true },
+  "include": ["worker.ts", "../shared/kma.ts"]
+}
