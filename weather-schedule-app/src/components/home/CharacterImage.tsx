@@ -19,13 +19,12 @@ export function CharacterImage({ characterId, pose, label, mouthFrame }: Charact
   const outline = characterOutlines[`${characterId}_${displayPose}`];
   if (!outline) return null;
 
-  const sidePadding = Math.ceil(outline.width * 0.03);
   return (
     <Svg
       accessibilityLabel={label}
       width="100%"
       height="100%"
-      viewBox={`${-sidePadding} 0 ${outline.width + 2 * sidePadding} ${outline.height}`}
+      viewBox={`0 0 ${outline.width} ${outline.height}`}
       preserveAspectRatio="xMidYMax meet"
     >
       {mouthFrame === undefined && (

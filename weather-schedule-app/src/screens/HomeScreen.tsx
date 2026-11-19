@@ -45,13 +45,11 @@ export function HomeScreen({ characterId, schedules = demoSchedules }: HomeScree
         <View style={styles.scheduleSection}>
           <HomeText accessibilityRole="header" style={styles.heading}>오늘의 할 일</HomeText>
           <View style={styles.cards}>{schedules.map(schedule => <ScheduleCard key={schedule.id} schedule={schedule}/>)}</View>
-          <HomeText style={styles.credit}>{credit}</HomeText>
-          {!demo && (
-            <View style={styles.weatherReport}>
-              {weather && <HomeText style={styles.weatherText}>{weatherMessage(weather)}</HomeText>}
-              {notice && <HomeText style={styles.weatherText}>{notice}</HomeText>}
-            </View>
-          )}
+          <View style={[styles.weatherDetails, !demo && styles.weatherReport]}>
+            <HomeText style={[styles.credit, !demo && styles.liveCredit]}>{credit}</HomeText>
+            {!demo && weather && <HomeText style={styles.weatherText}>{weatherMessage(weather)}</HomeText>}
+            {!demo && notice && <HomeText style={styles.weatherText}>{notice}</HomeText>}
+          </View>
         </View>
         <CharacterDialogue name={character.name} text={text}/>
         <BottomNavigation/>
@@ -62,10 +60,12 @@ export function HomeScreen({ characterId, schedules = demoSchedules }: HomeScree
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E8EDF1', alignItems: 'center', justifyContent: 'center' },
   settings: { position: 'absolute', top: 46, right: 23 },
-  scheduleSection: { position: 'absolute', top: 108, left: 28, right: 28 },
+  scheduleSection: { position: 'absolute', top: 104, left: 28, right: 28 },
   heading: { fontSize: 17, fontWeight: '700', marginLeft: 8, marginBottom: 7 },
   cards: { flexDirection: 'row', gap: 6 },
-  credit: { color: '#FFF', fontSize: 10, marginTop: 7, marginLeft: 8 },
-  weatherReport: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, marginTop: 5, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.82)' },
-  weatherText: { color: '#243e48', fontSize: 11, lineHeight: 16 },
+  weatherDetails: { marginTop: 5, paddingHorizontal: 8, paddingVertical: 4, gap: 2 },
+  credit: { color: '#FFF', fontSize: 10, lineHeight: 13 },
+  liveCredit: { color: '#314853' },
+  weatherReport: { borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.82)' },
+  weatherText: { color: '#243e48', fontSize: 11, lineHeight: 15 },
 });

@@ -6,6 +6,6 @@ export function BottomNavigation() {
   </View>;
 }
 const styles = StyleSheet.create({
-  bar: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 66, backgroundColor: 'white' },
+  bar: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 66, zIndex: 2, backgroundColor: 'white' },
   items: { flexDirection: 'row', justifyContent: 'space-around', marginTop: -14 },
 });

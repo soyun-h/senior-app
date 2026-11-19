@@ -41,5 +41,5 @@ export function AvatarView({ character, pose, isSpeaking, mouth, mouthFrames }: 
 }
 
 export const avatarFrameStyle = StyleSheet.create({
-  frame: { position: 'absolute', left: 16, right: 16, height: 432, bottom: 66 },
+  frame: { position: 'absolute', left: 4, right: 4, height: 470, bottom: 34 },
 }).frame;
