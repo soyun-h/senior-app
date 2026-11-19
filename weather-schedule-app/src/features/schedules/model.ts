@@ -11,7 +11,7 @@ export interface ScheduleDraft {
   minute: number;
   reminderMinutes: 5 | 10 | 30;
   notificationMethod: NotificationMethod;
-  medicationNote: string; // User-supplied text only; never inferred medical advice.
+  medicationNote?: string; // Legacy records only; no memo input is collected.
 }
 export interface Schedule extends ScheduleDraft {
   id: string;
@@ -57,7 +57,6 @@ export function validateDraft(draft: ScheduleDraft, now = Date.now()): void {
   if (!['general','medication'].includes(draft.type)) throw new Error('일정 유형을 선택해 주세요.');
   if (!Number.isInteger(draft.hour) || draft.hour < 0 || draft.hour > 23 || !Number.isInteger(draft.minute) || draft.minute < 0 || draft.minute > 59) throw new Error('시와 분을 올바르게 선택해 주세요.');
   if (![5,10,30].includes(draft.reminderMinutes) || !['video-call','alarm','none'].includes(draft.notificationMethod)) throw new Error('알림 설정을 확인해 주세요.');
-  if (typeof draft.medicationNote !== 'string' || draft.medicationNote.length > 500) throw new Error('메모는 500자 이내로 입력해 주세요.');
   const r = draft.recurrence;
   if (!r || !['once','weekly'].includes(r.mode)) throw new Error('날짜 또는 요일 반복을 선택해 주세요.');
   if (r.mode === 'once') {
@@ -81,7 +80,7 @@ export function parseSchedules(raw: string | null): Schedule[] {
       if (typeof s.title !== 'string' || !s.title.trim() || s.title.length > 80 || !['general','medication'].includes(s.type) || s.timeZone !== 'Asia/Seoul') throw new Error();
       if (!Number.isInteger(s.hour) || s.hour<0 || s.hour>23 || !Number.isInteger(s.minute) || s.minute<0 || s.minute>59) throw new Error();
       if (![5,10,30].includes(s.reminderMinutes) || !['video-call','alarm','none'].includes(s.notificationMethod) || typeof s.notificationsEnabled !== 'boolean' || (s.notificationMethod==='none' && s.notificationsEnabled)) throw new Error();
-      if (typeof s.medicationNote !== 'string' || s.medicationNote.length>500 || ![s.createdAt,s.updatedAt].every(d=>typeof d==='string' && Number.isFinite(Date.parse(d)))) throw new Error();
+      if ((s.medicationNote !== undefined && (typeof s.medicationNote !== 'string' || s.medicationNote.length>500)) || ![s.createdAt,s.updatedAt].every(d=>typeof d==='string' && Number.isFinite(Date.parse(d)))) throw new Error();
       if (!Array.isArray(s.completedDates) || s.completedDates.some(d=>!validDate(d) || !onDate(s,d)) || new Set(s.completedDates).size !== s.completedDates.length) throw new Error();
       const r=s.recurrence;
       if (r.mode==='once') { if (!validDate(r.date)) throw new Error(); }

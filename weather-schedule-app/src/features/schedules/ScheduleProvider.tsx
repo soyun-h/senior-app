@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LocalScheduleRepository } from './repository';
@@ -10,13 +10,13 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const [items,setItems] = useState<Schedule[]>([]);
   const [loading,setLoading] = useState(true);
   const [loadError,setError] = useState<string>();
-  async function reload() {
+  const reload = useCallback(async () => {
     setLoading(true);
     try { setItems(await repository.list()); setError(undefined); }
     catch (e) { setError(e instanceof Error ? e.message : '일정을 불러오지 못했어요.'); }
     finally { setLoading(false); }
-  }
-  useEffect(() => { void reload(); }, []);
+  }, [repository]);
+  useEffect(() => { void reload(); }, [reload]);
   return <Context.Provider value={{items,loading,loadError,reload,repository,accept:setItems}}>{children}</Context.Provider>;
 }
 export function useSchedules() { const value=useContext(Context);if (!value) throw new Error('ScheduleProvider is required');return value; }

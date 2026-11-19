@@ -11,6 +11,7 @@ import { ScheduleProvider } from './src/features/schedules/ScheduleProvider';
 import type { BottomTabId } from './src/navigation/bottomTabs';
 type Screen = 'home' | 'schedule' | 'schedule-add' | 'schedule-success';
 export default function App() {
+  const [savedMessage,setSavedMessage]=useState('');
   const [saving,setSaving]=useState(false);
   const [screen,setScreen]=useState<Screen>('home');
   function navigate(tab: BottomTabId) { if(!saving&&(tab==='home'||tab==='schedule'))setScreen(tab); }
@@ -24,7 +25,7 @@ export default function App() {
   return <SafeAreaProvider><ScheduleProvider><StatusBar hidden/>
     {screen==='home'&&<HomeScreen onNavigate={navigate}/>}
     {screen==='schedule'&&<ScheduleListScreen onAdd={()=>setScreen('schedule-add')} onNavigate={navigate}/>}
-    {screen==='schedule-add'&&<ScheduleAddScreen onSavingChange={setSaving} onBack={()=>setScreen('schedule')} onSaved={()=>setScreen('schedule-success')} onNavigate={navigate}/>}
-    {screen==='schedule-success'&&<ScheduleSuccessScreen onList={()=>setScreen('schedule')} onNavigate={navigate}/>}
+    {screen==='schedule-add'&&<ScheduleAddScreen onSavingChange={setSaving} onBack={()=>setScreen('schedule')} onSaved={message=>{setSavedMessage(message);setScreen('schedule-success');}} onNavigate={navigate}/>}
+    {screen==='schedule-success'&&<ScheduleSuccessScreen message={savedMessage} onList={()=>setScreen('schedule')} onNavigate={navigate}/>}
   </ScheduleProvider></SafeAreaProvider>;
 }

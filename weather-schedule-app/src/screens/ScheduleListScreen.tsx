@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ScheduleShell } from '../components/schedule/ScheduleShell';
 import { ScheduleAsset } from '../components/schedule/ScheduleAsset';
@@ -14,6 +14,7 @@ export function ScheduleListScreen({ onAdd, onNavigate }: { onAdd:()=>void; onNa
     try{accept(await action());}catch{setError('변경 내용을 저장하지 못했어요. 다시 시도해 주세요.');}
     finally{locks.current.delete(id);setBusy([...locks.current]);}
   }
+  useEffect(()=>{void reload();},[reload,today]);
   const schedules=schedulesForDate(items,today);
   return <ScheduleShell onNavigate={onNavigate}><ScrollView contentContainerStyle={styles.content}>
     <View style={styles.heading}><HomeIcon name="alarm"/><Text accessibilityRole="header" style={styles.title}>일정</Text></View>
@@ -22,7 +23,7 @@ export function ScheduleListScreen({ onAdd, onNavigate }: { onAdd:()=>void; onNa
     {loading&&<Text style={styles.empty}>일정을 불러오고 있어요.</Text>}
     {loadError&&<View><Text accessibilityRole="alert" style={styles.error}>{loadError}</Text><Pressable accessibilityRole="button" onPress={()=>void reload()} style={styles.retry}><Text>다시 불러오기</Text></Pressable></View>}
     {error&&<Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-    {!loading&&!loadError&&schedules.length===0&&<Text style={styles.empty}>오늘 등록된 일정이 없어요.{ '\n' }할 일을 추가해 보세요.</Text>}
+    {!loading&&!loadError&&schedules.length===0&&<Text style={styles.empty}>오늘 날짜에 해당하는 일정이 없어요.{ '\n' }다른 날짜의 일정은 해당 날짜에 표시돼요.</Text>}
     {!loading&&!loadError&&schedules.map(schedule=>{
       const complete=schedule.completedDates.includes(today),disabled=busy.includes(schedule.id),enabled=schedule.notificationsEnabled;
       return <ImageBackground key={schedule.id} source={enabled?require('../../assets/schedule/images/card-on.png'):require('../../assets/schedule/images/card-off.png')} resizeMode="stretch" imageStyle={{width:'100%',height:'100%'}} style={styles.card}>

@@ -31,7 +31,7 @@ export class LocalScheduleRepository implements ScheduleRepository {
       if (items.some(s => s.id === id)) return items; // retry of the same form submission
       validateDraft(copy, now);
       const createdAt = new Date(now).toISOString();
-      return [...items, { ...copy, title: copy.title.trim(), medicationNote: copy.type==='medication' ? copy.medicationNote.trim() : '', id,
+      return [...items, { ...copy, title: copy.title.trim(), ...(copy.medicationNote === undefined ? {} : {medicationNote:copy.type==='medication'?copy.medicationNote.trim():''}), id,
         timeZone: 'Asia/Seoul', notificationsEnabled: copy.notificationMethod !== 'none', completedDates: [], createdAt, updatedAt: createdAt }];
     });
   }

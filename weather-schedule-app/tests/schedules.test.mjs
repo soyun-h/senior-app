@@ -76,3 +76,14 @@ test('invalid persisted schemas fail closed and are never silently overwritten',
  const repo=new LocalScheduleRepository(storage);await assert.rejects(repo.list());await assert.rejects(repo.create(draft(),'new',now));
  assert.equal(storage.data.get(SCHEDULE_STORAGE_KEY),'{"version":99,"items":[]}');assert.deepEqual(parseSchedules(null),[]);
 });
+
+test('memo-free new schedules and legacy memos coexist without losing existing data',async()=>{
+ const storage=new MemoryStorage(),repo=new LocalScheduleRepository(storage);
+ const fresh=draft();delete fresh.medicationNote;
+ await repo.create(fresh,'fresh',now);
+ await repo.create(draft({type:'medication',medicationNote:'기존 메모'}),'legacy',now);
+ await repo.setNotifications('legacy',false,now+1000);
+ const items=await new LocalScheduleRepository(storage).list();
+ assert.equal(items[0].medicationNote,undefined);assert.equal(items[1].medicationNote,'기존 메모');
+ assert.equal(schedulesForDate(items,'2026-11-19').length,2);
+});
