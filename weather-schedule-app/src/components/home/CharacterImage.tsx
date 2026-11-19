@@ -1,23 +1,23 @@
 import { useId } from 'react';
-import Svg, { ClipPath, Defs, Image, Path } from 'react-native-svg';
-import { imageFor, resolvePose } from '../../features/avatar/characterAssets';
+import type { ImageSourcePropType } from 'react-native';
+import Svg, { ClipPath, Defs, Image, Mask, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { imageFor } from '../../features/avatar/characterAssets';
+import { mouthRegions } from '../../features/avatar/characterMotion';
 import outlines from '../../features/avatar/characterOutlines.json';
-import type { CharacterId, Pose } from '../../features/avatar/characterTypes';
+import type { CharacterId } from '../../features/avatar/characterTypes';
 
 interface CharacterImageProps {
   characterId: CharacterId;
-  pose: Pose;
   label?: string;
-  mouthFrame?: number;
+  mouthFrame?: ImageSourcePropType;
 }
 
-const characterOutlines: Partial<Record<`${CharacterId}_${Pose}`, { width: number; height: number; path: string }>> = outlines;
-
-export function CharacterImage({ characterId, pose, label, mouthFrame }: CharacterImageProps) {
+export function CharacterImage({ characterId, label, mouthFrame }: CharacterImageProps) {
   const clipId = `character-${useId()}`;
-  const displayPose = mouthFrame === undefined ? resolvePose(characterId, pose) : 'idle';
-  const outline = characterOutlines[`${characterId}_${displayPose}`];
-  if (!outline) return null;
+  const fadeId = `${clipId}-fade`;
+  const mouthMaskId = `${clipId}-mouth`;
+  const outline = outlines[`${characterId}_idle`];
+  const mouthRegion = mouthRegions[characterId];
 
   return (
     <Svg
@@ -27,20 +27,29 @@ export function CharacterImage({ characterId, pose, label, mouthFrame }: Charact
       viewBox={`0 0 ${outline.width} ${outline.height}`}
       preserveAspectRatio="xMidYMax meet"
     >
-      {mouthFrame === undefined && (
-        <Defs>
-          <ClipPath id={clipId}>
-            <Path d={outline.path} clipRule="evenodd" />
-          </ClipPath>
-        </Defs>
-      )}
+      <Defs>
+        <ClipPath id={clipId}>
+          <Path d={outline.path} clipRule="evenodd" />
+        </ClipPath>
+        <RadialGradient id={fadeId} cx="50%" cy="50%" r="50%">
+          <Stop offset="0" stopColor="white" stopOpacity={1} />
+          <Stop offset="0.78" stopColor="white" stopOpacity={1} />
+          <Stop offset="1" stopColor="white" stopOpacity={0} />
+        </RadialGradient>
+        <Mask id={mouthMaskId} {...mouthRegion} maskUnits="userSpaceOnUse" maskType="alpha">
+          <Rect {...mouthRegion} fill={`url(#${fadeId})`} />
+        </Mask>
+      </Defs>
       <Image
-        href={mouthFrame ?? imageFor(characterId, displayPose)}
+        href={imageFor(characterId, 'idle')}
         width={outline.width}
         height={outline.height}
         preserveAspectRatio="xMidYMid meet"
-        clipPath={mouthFrame === undefined ? `url(#${clipId})` : undefined}
+        clipPath={`url(#${clipId})`}
       />
+      {mouthFrame !== undefined && (
+        <Image href={mouthFrame} width={outline.width} height={outline.height} mask={`url(#${mouthMaskId})`} />
+      )}
     </Svg>
   );
 }

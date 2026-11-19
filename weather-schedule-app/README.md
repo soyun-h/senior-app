@@ -33,18 +33,16 @@ npm start             # Expo 개발 서버
 ## 3. 대사·포즈·음성 연동 구조
 
 1. 홈 화면이 외부 상태(시각, 일정 완료 여부, 상황 조건)를 `homeDialoguePresentation.ts`에 넘긴다. 이 파일이 상황 키(`HomeDialogueSituation`) 하나를 고른다. 우선순위는 `thunder`·`snow`·`rain`, `night`(22시~6시), `scheduleComplete`, `schedulePending`, `greeting` 순이다.
-2. 캐릭터 ID와 상황 키로 다음 세 가지를 정한다.
+2. 캐릭터 ID와 상황 키로 대사와 음원을 정한다.
    - 대사: `homeDialogueLines[characterId][situation]`
-   - 포즈: `homePoses[situation]`. 예를 들어 `greeting`은 `wave`, `scheduleComplete`는 `ok`, `schedulePending`은 `encourage`다.
    - 음원: `characterVoices[characterId][situation]`(`assets/voices/*.m4a`)
 3. `DialogueAvatar.tsx`가 재생 방식을 고른다.
    - `getDialogueMedia()`(`dialogueMedia.ts`)가 해당 캐릭터의 `dialogue/` 폴더에서 상황 키에 맞는 영상(`<situation>.mp4`)을 찾으면 영상을 재생한다. 영상 속 음성을 쓰고, 끝나면 `idle` 포즈로 돌아간다.
    - 영상이 없거나 재생에 실패하면 `useHomeDialogueAudio`로 `.m4a`를 재생하고 이미지로 입을 움직인다.
 4. 이미지로 입을 움직이는 방식은 두 가지다.
    - 입 모양 PNG 5장(`mouth_a`~`mouth_u`)이 모두 있으면, `visemes.ts`의 `estimateFiveVowelCues()`가 대사의 한글 음절과 음원 길이로 아·에·이·오·우 큐를 만든다. 쉼표, 마침표, 끝에서는 입을 닫는다.
-   - 5장 중 하나라도 없으면 `characterMotion.ts`가 기존 `idle`과 `mouth_a` JPG를 200ms 간격으로 번갈아 보여 준다.
-   - `wave`·`ok`·`encourage`처럼 입 이미지 짝이 없는 포즈에서는 상하로 살짝 움직이는 모션만 준다.
-5. 정리하면 파일이 없을 때 이렇게 동작한다. 영상이 없으면 음원으로, 입 모양 PNG 세트가 불완전하면 기존 2프레임 방식으로, 특정 포즈 이미지가 없으면 `characters.json`의 `poseFallback`에 적힌 포즈로 대체한다. 그래서 선택형 에셋이 없어도 대사 재생은 멈추지 않는다.
+   - PNG 세트가 불완전하면 기존 `mouth_a` JPG로 200ms 간격의 입 모양 전환을 적용한다.
+   - 이미지 재생에서는 `idle` 자세를 고정하고 음성이 나오는 동안 입 주변 영역만 바꾼다. 쉼이나 음성 종료 시에는 기본 입 모양이 보인다.
 
 ## 4. 에셋 규격 및 현재 반영 현황
 
@@ -79,7 +77,7 @@ npm start             # Expo 개발 서버
 | `mouth_a.png`, `mouth_e.png`, `mouth_i.png`, `mouth_o.png`, `mouth_u.png` | 같은 캐릭터의 `<id>_idle.jpg`와 같은 810×1080, 배경 투명 PNG. 얼굴·손·옷·구도는 `idle`과 같고 입 모양만 다르다. 5장이 모두 있어야 적용된다. |
 | `greeting.mp4` | 인사 영상. 해당 캐릭터의 `greeting` 음원(`<id>.m4a`)을 포함한다. 같은 규칙으로 `night.mp4`, `schedule_pending.mp4`, `schedule_complete.mp4`, `rain.mp4`, `snow.mp4`, `thunder.mp4`도 인식한다. |
 
-입 모양 PNG는 생성 이미지에서 입 주변 타원 영역만 잘라 `<id>_idle.jpg` 위에 합성해 만든다. 그래서 얼굴 위치, 손, 옷, 구도는 `idle`과 픽셀 단위로 같다. 화면에 그릴 때는 윤곽선 클리핑 없이 PNG의 투명 채널을 그대로 쓰고, 입을 닫은 프레임은 `idle` JPG를 `characterOutlines.json`의 `<id>_idle` 윤곽선으로 잘라 보여 준다. 두 테두리가 같아야 프레임이 바뀔 때 흔들리지 않으므로 PNG의 투명 영역도 같은 윤곽선으로 만든다.
+기본 자세는 `characterOutlines.json`의 `<id>_idle` 윤곽선으로 잘라 표시한다. 열린 입 프레임은 같은 810×1080 좌표에 맞추고, 입 주변만 가장자리가 부드러운 마스크로 합성한다. 기본 자세의 얼굴과 몸 위치는 고정된다.
 
 ### 현재 반영 현황
 
@@ -106,7 +104,7 @@ npm start             # Expo 개발 서버
 | `src/features/avatar/characterVoices.ts` | 캐릭터 × 상황 키별 `.m4a` 음원 매핑 |
 | `src/features/avatar/useHomeDialogue.ts`, `useHomeDialogueAudio.ts` | 홈 대사 상태 관리, 음원 재생과 입 모양 큐 계산 |
 | `src/features/avatar/visemes.ts` | 한글 음절 분해, 3모음(`vowelMouth`)·5모음(`fiveVowelMouth`) 입 모양 분류, 큐 생성(`estimateFiveVowelCues`, `mouthAt`) |
-| `src/features/avatar/characterMotion.ts` | 200ms 입 프레임 전환, 짝 없는 포즈의 모션 결정 |
+| `src/features/avatar/characterMotion.ts` | 200ms 입 프레임 전환, 캐릭터별 입 마스크 위치와 대체 프레임 |
 | `src/features/avatar/dialogueMedia.ts` | 캐릭터별 선택형 에셋(입 모양 PNG, 대사 영상) 탐색 |
 | `src/features/avatar/characterAssets.ts`, `characterOutlines.json` | 포즈 이미지 연결, 포즈 대체, 배경 투명 처리용 윤곽 |
 | `src/components/home/DialogueAvatar.tsx` | 영상 재생과 음원·이미지 재생 분기 |
