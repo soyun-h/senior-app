@@ -72,7 +72,8 @@ npm start             # Expo 개발 서버
 | 파일 | 상태 |
 | --- | --- |
 | `mouth_a.png` | 반영 완료. 810×1080 RGBA PNG |
-| `mouth_e.png`, `mouth_i.png`, `mouth_o.png`, `mouth_u.png` | 미반영. 생성 도구의 일일 한도 소진 |
+| `mouth_i.png`, `mouth_o.png` | 반영 완료. 기존 `char1_mouth_i.jpg`, `char1_mouth_o.jpg`의 입 영역을 같은 방식으로 합성 |
+| `mouth_e.png`, `mouth_u.png` | 미반영. 생성 도구의 일일 한도 소진 |
 | `greeting.mp4` | 미반영. 생성 도구의 일일 한도 소진 |
 
 `mouth_a.png`는 Gemini로 만든 '아' 입 모양 이미지에서 입 주변 타원 영역만 잘라 `char1_idle.jpg` 위에 합성했다. 그래서 얼굴 위치, 손, 옷, 구도는 `idle`과 픽셀 단위로 같다. 투명 영역은 `characterOutlines.json`의 `char1_idle` 윤곽선으로 만들었다. 5장이 모두 모이기 전까지 앱은 기존 `mouth_a`·`idle` JPG 2프레임 방식으로 동작한다.
