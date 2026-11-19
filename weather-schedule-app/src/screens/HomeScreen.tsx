@@ -1,3 +1,4 @@
+import type { BottomTabId } from '../navigation/bottomTabs';
 import { useRef, type ComponentRef } from 'react';
 import { BlurTargetView } from 'expo-blur';
 import { GlassBlurContext } from '../components/home/GlassSurface';
@@ -16,7 +17,7 @@ const demoSchedules: HomeSchedule[] = [
   { id: '1', time: '9:00', title: '당뇨약', completed: true },
   { id: '2', time: '10:20', title: '연속극', completed: false },
 ];
-export function HomeScreen({ avatar }: { avatar?: AvatarDefinition }) {
+export function HomeScreen({ avatar, onNavigate }: { avatar?: AvatarDefinition; onNavigate?: (tab: BottomTabId) => void }) {
   const blurTarget = useRef<ComponentRef<typeof View>>(null);
   const { weather, notice, credit } = useWeather();
   const { width, height } = useWindowDimensions();
@@ -38,7 +39,7 @@ export function HomeScreen({ avatar }: { avatar?: AvatarDefinition }) {
           <HomeText style={styles.credit}>{credit}</HomeText>
         </View>
         <WeatherMessage weather={weather} notice={notice}/>
-        <BottomNavigation activeTab="home"/>
+        <BottomNavigation activeTab="home" onNavigate={onNavigate} enabledTabs={['schedule', 'home']}/>
       </View>
     </View>
   </View></GlassBlurContext.Provider>;

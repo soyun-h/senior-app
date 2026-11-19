@@ -9,4 +9,6 @@ export interface BottomNavigationProps {
   activeTab: BottomTabId;
   /** Supply the screen/router's navigation callback once those screens exist. */
   onNavigate?: (tab: BottomTabId) => void;
+  /** Omit for fully implemented apps; unfinished destinations stay visibly disabled. */
+  enabledTabs?: readonly BottomTabId[];
 }
