@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { resolveDialogueMedia } from '../src/features/avatar/dialogueMedia.ts';
-import { estimateFiveVowelCues, mouthAt, vowelMouth } from '../src/features/avatar/visemes.ts';
+import { estimateMouthCues, mouthAt, vowelMouth } from '../src/features/avatar/visemes.ts';
 
 function localAssets(entries = {}) {
   return Object.assign(path => {
@@ -32,9 +32,19 @@ test('three vowels activate the PNG set without requiring or loading e and u', (
 
 test('estimated cue timing folds e into i and u into o, and closes the mouth at the end', () => {
   assert.deepEqual(Array.from('아에이오우', vowelMouth), ['a', 'i', 'i', 'o', 'o']);
-  const cues = estimateFiveVowelCues('아에이오우.', 3);
+  const cues = estimateMouthCues('아에이오우.', 3);
   assert.equal(mouthAt(cues, 0), 'rest');
   assert.deepEqual(cues.filter(cue => cue.mouth !== 'rest').map(cue => cue.mouth), ['a', 'i', 'o']);
   assert.equal(mouthAt(cues, 3), 'rest');
-  assert.deepEqual(estimateFiveVowelCues('', 0), [{ t: 0, mouth: 'rest' }]);
+  assert.deepEqual(estimateMouthCues('', 0), [{ t: 0, mouth: 'rest' }]);
+});
+
+test('the five vowel set keeps e and u and needs all five images', () => {
+  assert.deepEqual(Array.from('아에이오우', ch => vowelMouth(ch, 'aeiou')), ['a', 'e', 'i', 'o', 'u']);
+  const cues = estimateMouthCues('아에이오우.', 3, 'aeiou');
+  assert.deepEqual(cues.filter(cue => cue.mouth !== 'rest').map(cue => cue.mouth), ['a', 'e', 'i', 'o', 'u']);
+  const three = { './mouth_a.png': 1, './mouth_i.png': 3, './mouth_o.png': 4 };
+  assert.equal(resolveDialogueMedia('greeting', localAssets(three), 'aeiou').mouthFrames, undefined);
+  assert.deepEqual(resolveDialogueMedia('greeting', localAssets({ ...three, './mouth_e.png': 2, './mouth_u.png': 5 }), 'aeiou').mouthFrames,
+    { a: 1, e: 2, i: 3, o: 4, u: 5 });
 });

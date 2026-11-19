@@ -3,7 +3,8 @@ import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, type AudioSour
 import { Platform } from 'react-native';
 import { isMouthOpen } from './characterMotion';
 import type { Mouth } from './characterTypes';
-import { estimateFiveVowelCues, mouthAt } from './visemes';
+import { mouthSet } from './dialogueMedia';
+import { estimateMouthCues, mouthAt } from './visemes';
 
 export function useHomeDialogueAudio(source: AudioSource, dialogueForMouthFrames?: string) {
   const player = useAudioPlayer(source, { updateInterval: 100 });
@@ -13,7 +14,7 @@ export function useHomeDialogueAudio(source: AudioSource, dialogueForMouthFrames
     && !status.isBuffering && !status.didJustFinish && finishedPlayer !== player.id;
   const [mouth, setMouth] = useState<Mouth>('rest');
   const cues = useMemo(
-    () => dialogueForMouthFrames ? estimateFiveVowelCues(dialogueForMouthFrames, status.duration) : undefined,
+    () => dialogueForMouthFrames ? estimateMouthCues(dialogueForMouthFrames, status.duration, mouthSet) : undefined,
     [dialogueForMouthFrames, status.duration],
   );
 

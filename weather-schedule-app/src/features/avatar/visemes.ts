@@ -1,15 +1,18 @@
 /*
- * 한국어 입 모양(립싱크) 계산 — 화면과 무관한 순수 로직
- *  글자(음절)의 모음을 보고 입 모양을 정해요.
- *    a: ㅏ ㅑ ㅓ ㅕ (크게 벌림)   o: ㅗ ㅜ ㅛ ㅠ ㅘ ㅝ ㅟ … (둥글게)
- *    i: ㅣ ㅡ ㅢ ㅔ ㅐ ㅖ … (옆으로)   m: 받침 ㅁ ㅂ ㅍ   rest: 쉼(다문 입)
- *  목소리 서비스가 글자별 시간(타임스탬프)을 주면 그 시간에 정확히 맞추고,
- *  없으면 말 빠르기로 시간을 추정해요.
+ * 한국어 립싱크 큐 계산. 화면과 무관한 순수 함수만 둔다.
+ *  음절의 중성으로 입 모양을 고른다.
+ *    a: ㅏ ㅑ ㅓ ㅕ   e: ㅐ ㅒ ㅔ ㅖ ㅙ ㅚ ㅞ   i: ㅡ ㅢ ㅣ
+ *    o: ㅗ ㅘ ㅛ      u: ㅜ ㅝ ㅟ ㅠ            m: 받침 ㅁ ㅂ ㅍ   rest: 쉼
+ *  'aio' 세트에서는 e를 i로, u를 o로 합친다.
+ *  음성 서비스가 글자별 타임스탬프를 주면 그 시간을 쓰고, 없으면 말 속도로 추정한다.
  */
-import type { Mouth, MouthCue } from './characterTypes.ts';
+import type { Mouth, MouthCue, MouthSet, SpokenVowel } from './characterTypes.ts';
 
 const VOWEL_A = new Set([0, 2, 4, 6]);
-const VOWEL_I = new Set([1, 3, 5, 7, 10, 11, 15, 18, 19, 20]);
+const VOWEL_E = new Set([1, 3, 5, 7, 10, 11, 15]);
+const VOWEL_I = new Set([18, 19, 20]);
+const VOWEL_O = new Set([8, 9, 12]);
+const MERGED: Record<SpokenVowel, SpokenVowel> = { a: 'a', e: 'i', i: 'i', o: 'o', u: 'o' };
 const LIP_FINAL = new Set([16, 17, 26]); // 받침 ㅁ ㅂ ㅍ
 const minPause = 0.15;
 
@@ -23,15 +26,16 @@ function decompose(ch: string) {
   const s = ch.charCodeAt(0) - 0xac00;
   return { vowel: Math.floor((s % 588) / 28), final: s % 28 };
 }
-export function vowelMouth(ch: string): Mouth {
+export function vowelMouth(ch: string, set: MouthSet = 'aio'): Mouth {
   if (!isHangul(ch)) return /[a-zA-Z0-9]/.test(ch) ? 'a' : 'rest';
   const { vowel } = decompose(ch);
-  return VOWEL_A.has(vowel) ? 'a' : VOWEL_I.has(vowel) ? 'i' : 'o';
+  const shape: SpokenVowel = VOWEL_A.has(vowel) ? 'a' : VOWEL_E.has(vowel) ? 'e' : VOWEL_I.has(vowel) ? 'i' : VOWEL_O.has(vowel) ? 'o' : 'u';
+  return set === 'aeiou' ? shape : MERGED[shape];
 }
 
 /** 한 글자 구간 [start, end] 안의 입 모양 큐 */
-function syllableCues(ch: string, start: number, end: number): MouthCue[] {
-  const cues: MouthCue[] = [{ t: start, mouth: vowelMouth(ch) }];
+function syllableCues(ch: string, start: number, end: number, set: MouthSet): MouthCue[] {
+  const cues: MouthCue[] = [{ t: start, mouth: vowelMouth(ch, set) }];
   if (end > start && isHangul(ch) && LIP_FINAL.has(decompose(ch).final)) {
     cues.push({ t: start + (end - start) * 0.75, mouth: 'm' });
   }
@@ -55,13 +59,13 @@ function tidy(cues: MouthCue[], end: number, minHold = 0.11): MouthCue[] {
 }
 
 /** 목소리 서비스가 준 글자별 시간으로 입 모양 큐 만들기 */
-export function cuesFromTiming(timing: CharTiming): MouthCue[] {
+export function cuesFromTiming(timing: CharTiming, set: MouthSet = 'aio'): MouthCue[] {
   const cues: MouthCue[] = [];
   let end = 0;
   const n = timing.characters.length;
   for (let i = 0; i < n; i++) {
     const ch = timing.characters[i], s = timing.starts[i] ?? 0, e = timing.ends[i] ?? s + 0.12;
-    cues.push(...syllableCues(ch, s, e));
+    cues.push(...syllableCues(ch, s, e, set));
     end = Math.max(end, e);
   }
   return tidy(cues, end);
@@ -79,7 +83,8 @@ export function estimateTiming(text: string, rate = 1): CharTiming {
   return { characters, starts, ends };
 }
 
-export function estimateFiveVowelCues(text: string, duration: number) {
+/** 대사 글자와 음원 길이로 입 모양 큐를 추정한다. */
+export function estimateMouthCues(text: string, duration: number, set: MouthSet = 'aio') {
   const { characters, starts, ends } = estimateTiming(text);
   const estimate = ends.at(-1) ?? 0;
   const scale = duration > 0 && Number.isFinite(duration) && estimate > 0 ? duration / estimate : 1;
@@ -87,7 +92,7 @@ export function estimateFiveVowelCues(text: string, duration: number) {
     characters,
     starts: starts.map(time => time * scale),
     ends: ends.map(time => time * scale),
-  });
+  }, set);
 }
 
 /** 지금 시각(초)에 보여 줄 입 모양 */

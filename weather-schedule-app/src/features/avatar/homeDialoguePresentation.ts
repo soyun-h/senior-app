@@ -8,7 +8,11 @@ export interface HomeDialogueContext {
   condition?: WeatherCondition;
 }
 
-const homePoses: Record<HomeDialogueSituation, Pose> = {
+/**
+ * 상황별 기준 포즈. 홈 화면은 몸을 idle로 고정하고 입 모양만 바꾸므로 지금은 화면에 쓰지 않는다.
+ * 대사 영상(<situation>.mp4)을 만들 때 idle에서 이 포즈로 갔다가 idle로 돌아오는 중간 동작 기준으로 쓴다.
+ */
+export const homePoses: Record<HomeDialogueSituation, Pose> = {
   greeting: 'wave',
   night: 'idle',
   schedulePending: 'encourage',

@@ -12,8 +12,8 @@ import { useHomeDialogue } from '../features/avatar/useHomeDialogue';
 import { HomeText } from '../components/home/HomeText';
 import { HomeButton } from '../components/home/HomeButton';
 import { ScheduleCard, type HomeSchedule } from '../components/home/ScheduleCard';
+import { WeatherMessage } from '../components/home/WeatherMessage';
 import { BottomNavigation } from '../components/home/BottomNavigation';
-import { weatherMessage } from '../features/weather/presentation';
 import { useWeather } from '../features/weather/useWeather';
 const demoSchedules: HomeSchedule[] = [
   { id: '1', time: '9:00', title: '당뇨약', completed: true },
@@ -45,12 +45,10 @@ export function HomeScreen({ characterId, schedules = demoSchedules }: HomeScree
         <View style={styles.scheduleSection}>
           <HomeText accessibilityRole="header" style={styles.heading}>오늘의 할 일</HomeText>
           <View style={styles.cards}>{schedules.map(schedule => <ScheduleCard key={schedule.id} schedule={schedule}/>)}</View>
-          <View style={[styles.weatherDetails, !demo && styles.weatherReport]}>
-            <HomeText style={[styles.credit, !demo && styles.liveCredit]}>{credit}</HomeText>
-            {!demo && weather && <HomeText style={styles.weatherText}>{weatherMessage(weather)}</HomeText>}
-            {!demo && notice && <HomeText style={styles.weatherText}>{notice}</HomeText>}
-          </View>
+          <HomeText style={styles.credit}>{credit}</HomeText>
         </View>
+        {/* 날씨 안내는 날씨 담당 브랜치의 WeatherMessage 배치를 그대로 쓴다. 캐릭터 작업에서 위치와 내용을 바꾸지 않는다. */}
+        <WeatherMessage weather={weather} notice={notice}/>
         <CharacterDialogue name={character.name} text={text}/>
         <BottomNavigation/>
       </View>
@@ -60,12 +58,8 @@ export function HomeScreen({ characterId, schedules = demoSchedules }: HomeScree
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E8EDF1', alignItems: 'center', justifyContent: 'center' },
   settings: { position: 'absolute', top: 46, right: 23 },
-  scheduleSection: { position: 'absolute', top: 104, left: 28, right: 28 },
+  scheduleSection: { position: 'absolute', top: 108, left: 28, right: 28 },
   heading: { fontSize: 17, fontWeight: '700', marginLeft: 8, marginBottom: 7 },
   cards: { flexDirection: 'row', gap: 6 },
-  weatherDetails: { marginTop: 5, paddingHorizontal: 8, paddingVertical: 4, gap: 2 },
-  credit: { color: '#FFF', fontSize: 10, lineHeight: 13 },
-  liveCredit: { color: '#314853' },
-  weatherReport: { borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.82)' },
-  weatherText: { color: '#243e48', fontSize: 11, lineHeight: 15 },
+  credit: { color: '#FFF', fontSize: 10, marginTop: 7, marginLeft: 8 },
 });

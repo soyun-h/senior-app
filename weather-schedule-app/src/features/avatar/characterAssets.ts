@@ -1,5 +1,6 @@
-/* 자동 생성 파일: 캐릭터 이미지 연결표 (Expo는 이미지를 require로 미리 묶어야 해요).
- * 새 이미지를 넣으면 assets/characters/charN/charN_<pose>.jpg 로 저장하고 여기에 한 줄 추가하세요. */
+/* 캐릭터 포즈 이미지 연결표. Expo는 require 경로가 리터럴이어야 번들에 포함한다.
+ * 새 포즈는 assets/characters/charN/charN_<pose>.jpg로 저장하고 아래 표에 추가한다.
+ * 홈 화면은 현재 idle만 표시한다. wave·ok·encourage는 대사 영상을 만들 때 중간 동작 기준 이미지로 쓴다. */
 import type { ImageSourcePropType } from 'react-native';
 import type { CharacterId, Pose } from './characterTypes';
 
@@ -46,7 +47,7 @@ export const CHARACTER_IMAGES: Record<CharacterId, Partial<Record<Pose, ImageSou
   },
 };
 
-/** 없는 이미지는 대신할 이미지로 (예: 격려 이미지가 없으면 기본 이미지) */
+/** 없는 포즈는 대체 포즈로 연결한다. 예: encourage가 없으면 idle. */
 const FALLBACK: Partial<Record<Pose, Pose>> = { encourage: 'idle', mouth_o: 'mouth_a', mouth_i: 'mouth_a', mouth_a: 'idle', wave: 'idle', ok: 'idle', profile: 'idle' };
 export function hasImage(id: CharacterId, pose: Pose): boolean { return !!CHARACTER_IMAGES[id]?.[pose]; }
 export function resolvePose(id: CharacterId, pose: Pose): Pose {

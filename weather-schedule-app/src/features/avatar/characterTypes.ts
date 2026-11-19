@@ -1,11 +1,13 @@
-/** 캐릭터 AI 타입 (담당: 한나). 소윤 님 types.ts(AvatarDefinition)는 그대로 두고 따로 둬요. */
+/** 캐릭터 모듈 타입. 기존 types.ts(AvatarDefinition)와 별도로 관리한다. */
 export type CharacterId = 'char1' | 'char2' | 'char3' | 'char4' | 'char5';
 export type CallState = 'CALL_INCOMING' | 'GREETING' | 'LISTENING' | 'TALKING' | 'AUTH_SUCCESS' | 'AUTH_FAIL';
 export type CharacterAction = 'none' | 'nod' | 'laugh' | 'shy' | 'worry' | 'cheer' | 'encourage';
 export type Pose = 'profile' | 'idle' | 'wave' | 'ok' | 'encourage' | 'mouth_a' | 'mouth_o' | 'mouth_i';
 export type HomeDialogueSituation = 'greeting' | 'night' | 'schedulePending' | 'scheduleComplete' | 'rain' | 'snow' | 'thunder';
-/** 입 모양: rest=다문 입(idle), a=아·어, o=오·우, i=이·에, m=ㅁㅂㅍ(입술 닫힘) */
-export type SpokenVowel = 'a' | 'i' | 'o';
+/** 입 모양: rest=다문 입(idle), a=아·어, e=에·애, i=이·으, o=오, u=우, m=ㅁㅂㅍ(입술 닫힘) */
+export type SpokenVowel = 'a' | 'e' | 'i' | 'o' | 'u';
+/** 재생에 쓰는 입 모양 세트. 'aio'는 에→이, 우→오로 합쳐 3장만 쓰고, 'aeiou'는 5장을 모두 쓴다. */
+export type MouthSet = 'aio' | 'aeiou';
 export type Mouth = 'rest' | SpokenVowel | 'm';
 export type Honorific = '할머니' | '할아버지';
 
@@ -41,7 +43,7 @@ export interface CharacterConfig {
   characters: CharacterDef[];
 }
 
-/** 소윤 님 WeatherSnapshot도, 간단한 {sky, temp}도 받아요 */
+/** WeatherSnapshot 또는 {sky, temp} 형태를 모두 받는다. */
 export interface WeatherLike {
   condition?: string;
   temperatureCelsius?: number;
@@ -68,5 +70,5 @@ export interface CharacterReply {
 
 export interface ChatMessage { role: 'user' | 'assistant'; content: string }
 
-/** 입 모양 큐: t초에 mouth 모양으로 바꿔요 */
+/** 입 모양 큐: t초부터 mouth 모양을 보여 준다. */
 export interface MouthCue { t: number; mouth: Mouth }

@@ -1,6 +1,6 @@
 /*
- * 캐릭터 "두뇌" — 화면과 무관한 순수 로직 (앱·아바타 서버·테스트가 같이 씀)
- *  대사 틀 채우기 · 인사+날씨 멘트 · 체험용 대답 · AI용 System Prompt
+ * 캐릭터 대화 로직. 화면과 무관한 순수 함수로 앱·아바타 서버·테스트가 함께 쓴다.
+ *  대사 템플릿 채우기, 인사·날씨 문구, 데모 응답, 대화 모델용 system prompt
  */
 import type {
   CallState, CharacterAction, CharacterConfig, CharacterDef, CharacterReply, LineContext, WeatherLike,
@@ -75,7 +75,7 @@ export function stateLine(char: CharacterDef, state: CallState, ctx: LineContext
   return fill(pick(char.stateLines[state], char.id + state), c);
 }
 
-/** 캐릭터 성격에 맞게 행동 조정 (도윤이는 크게 웃는 대신 쑥스러워해요) */
+/** 캐릭터 성격에 맞게 행동을 조정한다. 예: 도윤은 laugh 대신 shy. */
 export function personalize(action: unknown, char: CharacterDef): CharacterAction {
   const a = ACTIONS.includes(action as CharacterAction) ? (action as CharacterAction) : 'none';
   if (char.id === 'char5' && (a === 'laugh' || a === 'cheer')) return 'shy';

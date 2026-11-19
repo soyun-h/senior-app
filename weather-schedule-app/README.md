@@ -39,8 +39,8 @@ npm start             # Expo 개발 서버
 3. `DialogueAvatar.tsx`가 재생 방식을 고른다.
    - `getDialogueMedia()`(`dialogueMedia.ts`)가 해당 캐릭터의 `dialogue/` 폴더에서 상황 키에 맞는 영상(`<situation>.mp4`)을 찾으면 영상을 재생한다. 영상 속 음성을 쓰고, 끝나면 `idle` 포즈로 돌아간다.
    - 영상이 없거나 재생에 실패하면 `useHomeDialogueAudio`로 `.m4a`를 재생하고 이미지로 입을 움직인다.
-4. 이미지로 입을 움직이는 방식은 두 가지다.
-   - 아·이·오 PNG 3장이 있으면 `estimateFiveVowelCues()`가 한글 음절과 음원 길이로 입 모양을 고른다. 에는 이, 우는 오로 표시한다. 110ms 미만 모양은 앞 모양에 합치고, 중간 쉼은 150ms 이상일 때만 표시한다. ㅁ·ㅂ·ㅍ은 받침에서만 닫힌 입 후보가 된다.
+4. 이미지로 입을 움직이는 방식은 두 가지다. 홈 화면은 몸을 `idle`로 고정한다.
+   - 입 모양 PNG 세트가 있으면 `estimateMouthCues()`가 한글 음절과 음원 길이로 입 모양을 고른다. 기본 세트(`mouthSet = 'aio'`)는 에를 이로, 우를 오로 합쳐 아·이·오 3장만 쓴다. 110ms 미만 모양은 앞 모양에 합치고, 중간 쉼은 150ms 이상일 때만 표시한다. ㅁ·ㅂ·ㅍ은 받침에서만 닫힌 입 후보가 된다.
    - PNG 세트가 불완전하면 기존 `mouth_a` JPG로 200ms 간격의 입 모양 전환을 적용한다.
    - 이미지 재생에서는 `idle` 자세를 고정하고 음성이 나오는 동안 입 주변 영역만 약 60ms에 걸쳐 전환한다. 쉼이나 음성 종료 시에는 기본 입 모양이 보인다.
 
@@ -58,15 +58,15 @@ npm start             # Expo 개발 서버
 
 ### 캐릭터 ID와 이름
 
-코드와 에셋 경로는 캐릭터 ID를 쓴다. 생성 원본은 바탕화면 `_gemini_raw/<이름>/<이름>_<모음 또는 자세>.png`로 이름별로 정리한다.
+코드와 에셋 경로는 캐릭터 ID를 쓴다.
 
-| ID | 이름 | 에셋 폴더 | 원본 폴더 |
-| --- | --- | --- | --- |
-| `char1` | 나비 | `assets/characters/char1/` | `_gemini_raw/나비/` |
-| `char2` | 서윤 | `assets/characters/char2/` | `_gemini_raw/서윤/` |
-| `char3` | 지은 | `assets/characters/char3/` | `_gemini_raw/지은/` |
-| `char4` | 준호 | `assets/characters/char4/` | `_gemini_raw/준호/` |
-| `char5` | 도윤 | `assets/characters/char5/` | `_gemini_raw/도윤/` |
+| ID | 이름 | 에셋 폴더 |
+| --- | --- | --- |
+| `char1` | 나비 | `assets/characters/char1/` |
+| `char2` | 서윤 | `assets/characters/char2/` |
+| `char3` | 지은 | `assets/characters/char3/` |
+| `char4` | 준호 | `assets/characters/char4/` |
+| `char5` | 도윤 | `assets/characters/char5/` |
 
 ### 선택형 에셋 규격
 
@@ -74,7 +74,8 @@ npm start             # Expo 개발 서버
 
 | 파일 | 규격 |
 | --- | --- |
-| `mouth_a.png`, `mouth_i.png`, `mouth_o.png` | 같은 캐릭터의 `<id>_idle.jpg`와 같은 810×1080, 배경 투명 PNG. 아·이·오 3장이 모두 있을 때 적용한다. 저장소의 `mouth_e.png`와 `mouth_u.png`는 예전 에셋이며 재생에 쓰이지 않는다. |
+| `mouth_a.png`, `mouth_i.png`, `mouth_o.png` | 같은 캐릭터의 `<id>_idle.jpg`와 같은 810×1080, 배경 투명 PNG. 기본 세트에서 3장이 모두 있을 때 적용한다. |
+| `mouth_e.png`, `mouth_u.png` | 같은 규격. `mouthSet`을 `'aeiou'`로 바꾸면 5장이 모두 있는 캐릭터에서 쓴다. 기본 세트에서는 보관만 한다. |
 | `greeting.mp4` | 인사 영상. 해당 캐릭터의 `greeting` 음원(`<id>.m4a`)을 포함한다. 같은 규칙으로 `night.mp4`, `schedule_pending.mp4`, `schedule_complete.mp4`, `rain.mp4`, `snow.mp4`, `thunder.mp4`도 인식한다. |
 
 기본 자세는 `characterOutlines.json`의 `<id>_idle` 윤곽선으로 잘라 표시한다. 열린 입 프레임은 같은 810×1080 좌표에 맞추고, 입 주변만 가장자리가 부드러운 마스크로 합성한다. 기본 자세의 얼굴과 몸 위치는 고정된다.
@@ -89,26 +90,63 @@ npm start             # Expo 개발 서버
 | 준호 | 아·이·오 | 적용 | 미반영 | 없음 (`idle`로 대체) |
 | 도윤 | 아 | 기본 JPG 사용 (이·오 필요) | 미반영 | 없음 (`idle`로 대체) |
 
-'아'(전원)와 나비 '이'·'오', 서윤 '오'는 기존 `<id>_mouth_*.jpg`에서, 나머지는 Gemini로 생성한 이미지에서 입 영역을 합성했다. 아·이·오 세 장이 다 갖춰지지 않은 캐릭터는 기존 `mouth_a`·`idle` JPG의 입 영역을 사용한다.
+입 모양 PNG는 별도로 만든 입 모양 이미지에서 입 주변만 잘라 각 캐릭터의 `idle` 위에 합성했다. 그래서 얼굴과 몸 위치는 `idle`과 같다. 세트가 갖춰지지 않은 캐릭터는 기존 `mouth_a`·`idle` JPG의 입 영역을 사용한다.
+
+| 캐릭터 | 보관 중인 입 모양 PNG |
+| --- | --- |
+| 나비 | 아·에·이·오·우 |
+| 서윤 | 아·에·이·오·우 |
+| 지은 | 아 |
+| 준호 | 아·에·이·오 |
+| 도윤 | 아·에 |
 
 추가 방법은 다음과 같다. 규격에 맞춘 파일을 `assets/characters/<id>/dialogue/`에 정확한 파일명으로 넣는다. `npm test`로 규격 검사를 통과하는지 확인한 뒤 Expo를 다시 시작한다(`npm start -- --clear`). 코드는 고칠 필요가 없다.
 
-## 5. 주요 파일 구조
+## 5. 대사 영상 전환 대비
+
+이미지 방식은 대사 영상이 준비되기 전까지 쓰는 기본 재생 방식이다. 상황별 영상 파일을 `dialogue/`에 넣으면 해당 대사만 영상으로 바뀌고, 코드는 고치지 않는다.
+
+- 영상의 첫 프레임과 마지막 프레임은 `<id>_idle.jpg`와 같게 만든다. 영상이 끝나면 `idle` 이미지로 돌아가므로 두 프레임이 다르면 화면이 튄다.
+- 중간 동작은 `homeDialoguePresentation.ts`의 `homePoses`를 기준으로 한다.
+
+| 상황 | 영상 파일 | 중간 동작 기준 포즈 |
+| --- | --- | --- |
+| 인사 | `greeting.mp4` | `wave` |
+| 남은 일정 | `schedule_pending.mp4` | `encourage` (없는 캐릭터는 `idle`) |
+| 일정 완료 | `schedule_complete.mp4` | `ok` |
+| 밤 | `night.mp4` | `idle` |
+| 비·눈·낙뢰 | `rain.mp4`, `snow.mp4`, `thunder.mp4` | `idle` (말하는 입 모양만) |
+
+- 포즈 JPG(`wave`, `ok`, `encourage`)와 5모음 PNG는 홈 화면에서 지금 쓰지 않지만 영상 제작 기준 이미지로 보관한다.
+- 음성은 `assets/voices/<id>_<situation>.m4a`(인사는 `<id>.m4a`)를 그대로 쓴다.
+- mp4는 배경이 투명하지 않아 `idle`의 회색 배경이 그대로 보인다. 홈 화면에 넣을 때는 배경을 지운 투명 애니메이션으로 바꾸거나, 영상통화 카드 형태로 표시하는 방식을 정해야 한다.
+
+## 6. 날씨 안내 영역 규칙
+
+날씨 안내는 날씨 담당 브랜치의 구성을 그대로 쓴다.
+
+- `HomeScreen.tsx`는 할 일 카드 아래에 `credit` 한 줄을 두고, 화면 아래쪽에 `<WeatherMessage weather={weather} notice={notice}/>`를 표시한다.
+- `WeatherMessage.tsx`, `src/features/weather/*`, `shared/*`, `server/*`는 캐릭터 작업에서 수정하지 않는다.
+- 캐릭터 대사창(`CharacterDialogue`)은 날씨 안내 패널 위(`bottom: 183`)에 둔다.
+- `tests/home-weather-layout.test.mjs`가 이 조건을 검사한다.
+
+## 7. 주요 파일 구조
 
 | 파일 | 역할 |
 | --- | --- |
 | `src/features/avatar/characterTypes.ts` | `CharacterId`, `Pose`, `HomeDialogueSituation`, `SpokenVowel`, `Mouth`, `MouthCue` 등 캐릭터 모듈 타입 |
 | `src/features/avatar/characters.json`, `characterConfig.ts` | 캐릭터 5인 설정, `poseFallback`, 공통 대화 규칙 |
 | `src/features/avatar/homeDialogueLines.ts` | 캐릭터 × 상황 키별 홈 대사 35줄 |
-| `src/features/avatar/homeDialoguePresentation.ts` | 상황 키 선택 우선순위, 상황별 포즈 매핑, 데모 순서 |
+| `src/features/avatar/homeDialoguePresentation.ts` | 상황 키 선택 우선순위, 영상 제작용 상황별 포즈(`homePoses`), 데모 순서 |
 | `src/features/avatar/characterVoices.ts` | 캐릭터 × 상황 키별 `.m4a` 음원 매핑 |
 | `src/features/avatar/useHomeDialogue.ts`, `useHomeDialogueAudio.ts` | 홈 대사 상태 관리, 음원 재생과 입 모양 큐 계산 |
-| `src/features/avatar/visemes.ts` | 한글 음절 분해, 아·이·오 분류, 최소 유지 시간이 적용된 입 모양 큐 |
+| `src/features/avatar/visemes.ts` | 한글 음절 분해, 아·이·오 또는 5모음 분류, 최소 유지 시간이 적용된 입 모양 큐 |
 | `src/features/avatar/characterMotion.ts` | 200ms 입 프레임 전환, 캐릭터별 입 마스크 위치와 대체 프레임 |
-| `src/features/avatar/dialogueMedia.ts` | 캐릭터별 선택형 에셋(입 모양 PNG, 대사 영상) 탐색 |
+| `src/features/avatar/dialogueMedia.ts` | 입 모양 세트 설정(`mouthSet`), 캐릭터별 입 모양 PNG와 대사 영상 탐색 |
 | `src/features/avatar/characterAssets.ts`, `characterOutlines.json` | 포즈 이미지 연결, 포즈 대체, 배경 투명 처리용 윤곽 |
 | `src/components/home/DialogueAvatar.tsx` | 영상 재생과 음원·이미지 재생 분기 |
 | `src/components/home/DialogueVideo.tsx`, `DialogueVideo.web.tsx` | `expo-video` 기반 대사 영상 재생(네이티브·웹) |
 | `src/components/home/AvatarView.tsx`, `CharacterImage.tsx` | 포즈·입 프레임 렌더링, 비율과 여백 |
 | `tests/avatar*.test.mjs` | 상황 선택, 모션, 입 모양 큐, 선택형 에셋 탐색 테스트 |
 | `tests/avatar-dialogue-assets.test.mjs` | 5명의 `dialogue/` 폴더 파일명, PNG 크기(각 `idle`과 동일)·투명 채널, MP4 형식 검사 |
+| `tests/home-weather-layout.test.mjs` | 날씨 안내 영역 구성과 대사창 위치 검사 |

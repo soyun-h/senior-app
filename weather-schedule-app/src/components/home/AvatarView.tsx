@@ -25,5 +25,6 @@ export function AvatarView({ character, isSpeaking, mouth, mouthFrames }: Avatar
 }
 
 export const avatarFrameStyle = StyleSheet.create({
-  frame: { position: 'absolute', left: 4, right: 4, height: 470, bottom: 34 },
+  // 몸 아래쪽은 높이 66의 하단 내비게이션 뒤로 들어가고, 입은 대사창(bottom 183)보다 위에 오도록 맞춘 값.
+  frame: { position: 'absolute', left: 4, right: 4, height: 470, bottom: 54 },
 }).frame;
