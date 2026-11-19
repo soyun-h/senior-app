@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { getDialogueMedia, resolveNabiMedia } from '../src/features/avatar/nabiMedia.ts';
+import { resolveDialogueMedia } from '../src/features/avatar/dialogueMedia.ts';
 import { estimateFiveVowelCues, fiveVowelMouth, mouthAt, vowelMouth } from '../src/features/avatar/visemes.ts';
 
 function localAssets(entries = {}) {
@@ -10,10 +10,9 @@ function localAssets(entries = {}) {
   }, { keys: () => Object.keys(entries) });
 }
 
-test('optional Navi assets can be absent or incomplete without interfering with dialogue playback', () => {
-  assert.deepEqual(getDialogueMedia('char2', 'greeting'), {});
-  assert.deepEqual(resolveNabiMedia('greeting', localAssets()), { mouthFrames: undefined, video: undefined });
-  assert.deepEqual(resolveNabiMedia('greeting', localAssets({ './mouth_a.png': 1 })), {
+test('optional dialogue assets can be absent or incomplete without interfering with dialogue playback', () => {
+  assert.deepEqual(resolveDialogueMedia('greeting', localAssets()), { mouthFrames: undefined, video: undefined });
+  assert.deepEqual(resolveDialogueMedia('greeting', localAssets({ './mouth_a.png': 1 })), {
     mouthFrames: undefined, video: undefined,
   });
 });
@@ -23,11 +22,11 @@ test('all five registered images and only the video for the current line are sel
     './mouth_a.png': 1, './mouth_e.png': 2, './mouth_i.png': 3, './mouth_o.png': 4, './mouth_u.png': 5,
     './greeting.mp4': 6, './schedule_pending.mp4': 7,
   });
-  assert.deepEqual(resolveNabiMedia('greeting', files), {
+  assert.deepEqual(resolveDialogueMedia('greeting', files), {
     mouthFrames: { a: 1, e: 2, i: 3, o: 4, u: 5 }, video: 6,
   });
-  assert.equal(resolveNabiMedia('schedulePending', files).video, 7);
-  assert.equal(resolveNabiMedia('rain', files).video, undefined);
+  assert.equal(resolveDialogueMedia('schedulePending', files).video, 7);
+  assert.equal(resolveDialogueMedia('rain', files).video, undefined);
 });
 
 test('five vowel cue timing covers the audio duration and closes the mouth on pauses and at the end', () => {

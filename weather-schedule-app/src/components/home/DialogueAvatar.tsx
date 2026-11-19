@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import type { CharacterDef, HomeDialogueSituation, Pose } from '../../features/avatar/characterTypes';
 import { characterVoices } from '../../features/avatar/characterVoices';
-import { getDialogueMedia, type MouthFrames } from '../../features/avatar/nabiMedia';
+import { getDialogueMedia, type MouthFrames } from '../../features/avatar/dialogueMedia';
 import { useHomeDialogueAudio } from '../../features/avatar/useHomeDialogueAudio';
 import { AvatarView, avatarFrameStyle } from './AvatarView';
 import { DialogueVideo } from './DialogueVideo';

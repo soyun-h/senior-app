@@ -38,7 +38,7 @@ npm start             # Expo 개발 서버
    - 포즈: `homePoses[situation]`. 예를 들어 `greeting`은 `wave`, `scheduleComplete`는 `ok`, `schedulePending`은 `encourage`다.
    - 음원: `characterVoices[characterId][situation]`(`assets/voices/*.m4a`)
 3. `DialogueAvatar.tsx`가 재생 방식을 고른다.
-   - `getDialogueMedia()`(`nabiMedia.ts`)가 상황 키에 맞는 영상(`<situation>.mp4`)을 찾으면 영상을 재생한다. 영상 속 음성을 쓰고, 끝나면 `idle` 포즈로 돌아간다.
+   - `getDialogueMedia()`(`dialogueMedia.ts`)가 해당 캐릭터의 `dialogue/` 폴더에서 상황 키에 맞는 영상(`<situation>.mp4`)을 찾으면 영상을 재생한다. 영상 속 음성을 쓰고, 끝나면 `idle` 포즈로 돌아간다.
    - 영상이 없거나 재생에 실패하면 `useHomeDialogueAudio`로 `.m4a`를 재생하고 이미지로 입을 움직인다.
 4. 이미지로 입을 움직이는 방식은 두 가지다.
    - 입 모양 PNG 5장(`mouth_a`~`mouth_u`)이 모두 있으면, `visemes.ts`의 `estimateFiveVowelCues()`가 대사의 한글 음절과 음원 길이로 아·에·이·오·우 큐를 만든다. 쉼표, 마침표, 끝에서는 입을 닫는다.
@@ -58,29 +58,42 @@ npm start             # Expo 개발 서버
 | `char4` 준호 | `idle`, `wave`, `ok`, `mouth_a`, `profile` | `char4.m4a` 외 6개 |
 | `char5` 도윤 | `idle`, `wave`, `ok`, `mouth_a`, `profile` | `char5.m4a` 외 6개 |
 
-### 나비 선택형 에셋 규격
+### 캐릭터 ID와 이름
 
-경로는 `assets/characters/char1/dialogue/`이다. `nabiMedia.ts`의 `require.context`가 이 폴더에서 아래 이름만 읽는다.
+코드와 에셋 경로는 캐릭터 ID를 쓴다. 생성 원본은 바탕화면 `_gemini_raw/<이름>/<이름>_<모음 또는 자세>.png`로 이름별로 정리한다.
+
+| ID | 이름 | 에셋 폴더 | 원본 폴더 |
+| --- | --- | --- | --- |
+| `char1` | 나비 | `assets/characters/char1/` | `_gemini_raw/나비/` |
+| `char2` | 서윤 | `assets/characters/char2/` | `_gemini_raw/서윤/` |
+| `char3` | 지은 | `assets/characters/char3/` | `_gemini_raw/지은/` |
+| `char4` | 준호 | `assets/characters/char4/` | `_gemini_raw/준호/` |
+| `char5` | 도윤 | `assets/characters/char5/` | `_gemini_raw/도윤/` |
+
+### 선택형 에셋 규격
+
+경로는 캐릭터마다 `assets/characters/<id>/dialogue/`이다. `dialogueMedia.ts`의 `require.context`가 이 폴더에서 아래 이름만 읽는다.
 
 | 파일 | 규격 |
 | --- | --- |
-| `mouth_a.png`, `mouth_e.png`, `mouth_i.png`, `mouth_o.png`, `mouth_u.png` | `char1_idle.jpg`와 같은 810×1080, 배경 투명 PNG. 얼굴·손·옷·구도는 `idle`과 같고 입 모양만 다르다. 5장이 모두 있어야 적용된다. |
-| `greeting.mp4` | 나비 인사 영상. `char1.m4a`의 음성("안녕하세요, 나비예요! 오늘도 저랑 기분 좋게 시작해 봐요.")을 포함한다. 같은 규칙으로 `night.mp4`, `schedule_pending.mp4`, `schedule_complete.mp4`, `rain.mp4`, `snow.mp4`, `thunder.mp4`도 인식한다. |
+| `mouth_a.png`, `mouth_e.png`, `mouth_i.png`, `mouth_o.png`, `mouth_u.png` | 같은 캐릭터의 `<id>_idle.jpg`와 같은 810×1080, 배경 투명 PNG. 얼굴·손·옷·구도는 `idle`과 같고 입 모양만 다르다. 5장이 모두 있어야 적용된다. |
+| `greeting.mp4` | 인사 영상. 해당 캐릭터의 `greeting` 음원(`<id>.m4a`)을 포함한다. 같은 규칙으로 `night.mp4`, `schedule_pending.mp4`, `schedule_complete.mp4`, `rain.mp4`, `snow.mp4`, `thunder.mp4`도 인식한다. |
 
-### 이번 작업 반영 현황
+입 모양 PNG는 생성 이미지에서 입 주변 타원 영역만 잘라 `<id>_idle.jpg` 위에 합성해 만든다. 그래서 얼굴 위치, 손, 옷, 구도는 `idle`과 픽셀 단위로 같다. 화면에 그릴 때는 윤곽선 클리핑 없이 PNG의 투명 채널을 그대로 쓰고, 입을 닫은 프레임은 `idle` JPG를 `characterOutlines.json`의 `<id>_idle` 윤곽선으로 잘라 보여 준다. 두 테두리가 같아야 프레임이 바뀔 때 흔들리지 않으므로 PNG의 투명 영역도 같은 윤곽선으로 만든다.
 
-| 파일 | 상태 |
-| --- | --- |
-| `mouth_a.png` | 반영 완료. 810×1080 RGBA PNG |
-| `mouth_i.png`, `mouth_o.png` | 반영 완료. 기존 `char1_mouth_i.jpg`, `char1_mouth_o.jpg`의 입 영역을 같은 방식으로 합성 |
-| `mouth_e.png`, `mouth_u.png` | 미반영. 생성 도구의 일일 한도 소진 |
-| `greeting.mp4` | 미반영. 생성 도구의 일일 한도 소진 |
+### 현재 반영 현황
 
-`mouth_a.png`는 Gemini로 만든 '아' 입 모양 이미지에서 입 주변 타원 영역만 잘라 `char1_idle.jpg` 위에 합성했다. 그래서 얼굴 위치, 손, 옷, 구도는 `idle`과 픽셀 단위로 같다. 투명 영역은 `characterOutlines.json`의 `char1_idle` 윤곽선으로 만들었다. 5장이 모두 모이기 전까지 앱은 기존 `mouth_a`·`idle` JPG 2프레임 방식으로 동작한다.
+| 캐릭터 | 입 모양 PNG | 5모음 립싱크 | `greeting.mp4` | `encourage` 포즈 |
+| --- | --- | --- | --- | --- |
+| 나비 | 아·에·이·오·우 | 적용 | 미반영 | 있음 |
+| 서윤 | 아·에·이·오·우 | 적용 | 미반영 | 있음 |
+| 지은 | 아 | 미적용 (에·이·오·우 필요) | 미반영 | 없음 (`idle`로 대체) |
+| 준호 | 아·에·이·오 | 미적용 (우 필요) | 미반영 | 없음 (`idle`로 대체) |
+| 도윤 | 아·에 | 미적용 (이·오·우 필요) | 미반영 | 없음 (`idle`로 대체) |
 
-추가 방법은 다음과 같다. 위 규격에 맞춘 파일을 `assets/characters/char1/dialogue/`에 정확한 파일명으로 넣는다. `npm test`로 규격 검사를 통과하는지 확인한 뒤 Expo를 다시 시작한다(`npm start -- --clear`). 코드는 고칠 필요가 없다.
+'아'(전원)와 나비 '이'·'오', 서윤 '오'는 기존 `<id>_mouth_*.jpg`에서, 나머지는 Gemini로 생성한 이미지에서 입 영역을 합성했다. 5장이 모이지 않은 캐릭터는 기존 `mouth_a`·`idle` JPG 2프레임 방식으로 동작한다.
 
-입 모양 PNG는 화면에 그릴 때 윤곽선 클리핑을 쓰지 않고 PNG의 투명 채널을 그대로 쓴다. 입을 닫은 프레임은 `char1_idle.jpg`를 `characterOutlines.json`의 `char1_idle` 윤곽선으로 잘라 보여 준다. 그래서 PNG의 투명 영역을 같은 윤곽선으로 만들어야 프레임이 바뀔 때 테두리가 흔들리지 않는다.
+추가 방법은 다음과 같다. 규격에 맞춘 파일을 `assets/characters/<id>/dialogue/`에 정확한 파일명으로 넣는다. `npm test`로 규격 검사를 통과하는지 확인한 뒤 Expo를 다시 시작한다(`npm start -- --clear`). 코드는 고칠 필요가 없다.
 
 ## 5. 주요 파일 구조
 
@@ -94,10 +107,10 @@ npm start             # Expo 개발 서버
 | `src/features/avatar/useHomeDialogue.ts`, `useHomeDialogueAudio.ts` | 홈 대사 상태 관리, 음원 재생과 입 모양 큐 계산 |
 | `src/features/avatar/visemes.ts` | 한글 음절 분해, 3모음(`vowelMouth`)·5모음(`fiveVowelMouth`) 입 모양 분류, 큐 생성(`estimateFiveVowelCues`, `mouthAt`) |
 | `src/features/avatar/characterMotion.ts` | 200ms 입 프레임 전환, 짝 없는 포즈의 모션 결정 |
-| `src/features/avatar/nabiMedia.ts` | 나비 선택형 에셋(입 모양 PNG, 대사 영상) 탐색 |
+| `src/features/avatar/dialogueMedia.ts` | 캐릭터별 선택형 에셋(입 모양 PNG, 대사 영상) 탐색 |
 | `src/features/avatar/characterAssets.ts`, `characterOutlines.json` | 포즈 이미지 연결, 포즈 대체, 배경 투명 처리용 윤곽 |
 | `src/components/home/DialogueAvatar.tsx` | 영상 재생과 음원·이미지 재생 분기 |
 | `src/components/home/DialogueVideo.tsx`, `DialogueVideo.web.tsx` | `expo-video` 기반 대사 영상 재생(네이티브·웹) |
 | `src/components/home/AvatarView.tsx`, `CharacterImage.tsx` | 포즈·입 프레임 렌더링, 비율과 여백 |
 | `tests/avatar*.test.mjs` | 상황 선택, 모션, 입 모양 큐, 선택형 에셋 탐색 테스트 |
-| `tests/avatar-nabi-assets.test.mjs` | `dialogue/` 폴더의 파일명, PNG 크기(`char1_idle`과 동일)·투명 채널, MP4 형식 검사 |
+| `tests/avatar-dialogue-assets.test.mjs` | 5명의 `dialogue/` 폴더 파일명, PNG 크기(각 `idle`과 동일)·투명 채널, MP4 형식 검사 |

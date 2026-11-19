@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Animated, Easing, Platform, StyleSheet } from 'react-native';
 import { characterMotion } from '../../features/avatar/characterMotion';
 import type { CharacterDef, Mouth, Pose } from '../../features/avatar/characterTypes';
-import type { MouthFrames } from '../../features/avatar/nabiMedia';
+import type { MouthFrames } from '../../features/avatar/dialogueMedia';
 import { CharacterImage } from './CharacterImage';
 
 interface AvatarViewProps {
