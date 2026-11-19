@@ -20,5 +20,5 @@ test('each character has a local mouth region and idle and open image sources', 
 });
 
 test('older mouth assets fall back to the closest available vowel shape', () => {
-  assert.deepEqual(legacyMouthPoses, { a: 'mouth_a', e: 'mouth_i', i: 'mouth_i', o: 'mouth_o', u: 'mouth_o' });
+  assert.deepEqual(legacyMouthPoses, { a: 'mouth_a', i: 'mouth_i', o: 'mouth_o' });
 });

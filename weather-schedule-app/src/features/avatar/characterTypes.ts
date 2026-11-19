@@ -5,7 +5,7 @@ export type CharacterAction = 'none' | 'nod' | 'laugh' | 'shy' | 'worry' | 'chee
 export type Pose = 'profile' | 'idle' | 'wave' | 'ok' | 'encourage' | 'mouth_a' | 'mouth_o' | 'mouth_i';
 export type HomeDialogueSituation = 'greeting' | 'night' | 'schedulePending' | 'scheduleComplete' | 'rain' | 'snow' | 'thunder';
 /** 입 모양: rest=다문 입(idle), a=아·어, o=오·우, i=이·에, m=ㅁㅂㅍ(입술 닫힘) */
-export type SpokenVowel = 'a' | 'e' | 'i' | 'o' | 'u';
+export type SpokenVowel = 'a' | 'i' | 'o';
 export type Mouth = 'rest' | SpokenVowel | 'm';
 export type Honorific = '할머니' | '할아버지';
 

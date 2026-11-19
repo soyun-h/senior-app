@@ -7,7 +7,7 @@ export function isMouthOpen(elapsedSeconds: number) {
 }
 
 export const legacyMouthPoses: Record<SpokenVowel, Pose> = {
-  a: 'mouth_a', e: 'mouth_i', i: 'mouth_i', o: 'mouth_o', u: 'mouth_o',
+  a: 'mouth_a', i: 'mouth_i', o: 'mouth_o',
 };
 
 // Bounds in the original 810 × 1080 idle frame's coordinates.

@@ -8,8 +8,9 @@ import { estimateFiveVowelCues, mouthAt } from './visemes';
 export function useHomeDialogueAudio(source: AudioSource, dialogueForMouthFrames?: string) {
   const player = useAudioPlayer(source, { updateInterval: 100 });
   const status = useAudioPlayerStatus(player);
+  const [finishedPlayer, setFinishedPlayer] = useState<string>();
   const isSpeaking = status.id === player.id && status.playing && status.currentTime > 0
-    && !status.isBuffering && !status.didJustFinish;
+    && !status.isBuffering && !status.didJustFinish && finishedPlayer !== player.id;
   const [mouth, setMouth] = useState<Mouth>('rest');
   const cues = useMemo(
     () => dialogueForMouthFrames ? estimateFiveVowelCues(dialogueForMouthFrames, status.duration) : undefined,
@@ -20,6 +21,11 @@ export function useHomeDialogueAudio(source: AudioSource, dialogueForMouthFrames
     if (!isSpeaking) return;
     const updateFrame = () => {
       const time = player.currentTime;
+      // A web media element can reach the end without a final playback status event.
+      if (player.duration > 0 && time >= player.duration) {
+        setFinishedPlayer(player.id);
+        return;
+      }
       setMouth(cues ? mouthAt(cues, time) : isMouthOpen(time) ? 'a' : 'rest');
     };
     updateFrame();

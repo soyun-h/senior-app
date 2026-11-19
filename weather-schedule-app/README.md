@@ -40,9 +40,9 @@ npm start             # Expo 개발 서버
    - `getDialogueMedia()`(`dialogueMedia.ts`)가 해당 캐릭터의 `dialogue/` 폴더에서 상황 키에 맞는 영상(`<situation>.mp4`)을 찾으면 영상을 재생한다. 영상 속 음성을 쓰고, 끝나면 `idle` 포즈로 돌아간다.
    - 영상이 없거나 재생에 실패하면 `useHomeDialogueAudio`로 `.m4a`를 재생하고 이미지로 입을 움직인다.
 4. 이미지로 입을 움직이는 방식은 두 가지다.
-   - 입 모양 PNG 5장(`mouth_a`~`mouth_u`)이 모두 있으면, `visemes.ts`의 `estimateFiveVowelCues()`가 대사의 한글 음절과 음원 길이로 아·에·이·오·우 큐를 만든다. 쉼표, 마침표, 끝에서는 입을 닫는다.
+   - 아·이·오 PNG 3장이 있으면 `estimateFiveVowelCues()`가 한글 음절과 음원 길이로 입 모양을 고른다. 에는 이, 우는 오로 표시한다. 110ms 미만 모양은 앞 모양에 합치고, 중간 쉼은 150ms 이상일 때만 표시한다. ㅁ·ㅂ·ㅍ은 받침에서만 닫힌 입 후보가 된다.
    - PNG 세트가 불완전하면 기존 `mouth_a` JPG로 200ms 간격의 입 모양 전환을 적용한다.
-   - 이미지 재생에서는 `idle` 자세를 고정하고 음성이 나오는 동안 입 주변 영역만 바꾼다. 쉼이나 음성 종료 시에는 기본 입 모양이 보인다.
+   - 이미지 재생에서는 `idle` 자세를 고정하고 음성이 나오는 동안 입 주변 영역만 약 60ms에 걸쳐 전환한다. 쉼이나 음성 종료 시에는 기본 입 모양이 보인다.
 
 ## 4. 에셋 규격 및 현재 반영 현황
 
@@ -74,22 +74,22 @@ npm start             # Expo 개발 서버
 
 | 파일 | 규격 |
 | --- | --- |
-| `mouth_a.png`, `mouth_e.png`, `mouth_i.png`, `mouth_o.png`, `mouth_u.png` | 같은 캐릭터의 `<id>_idle.jpg`와 같은 810×1080, 배경 투명 PNG. 얼굴·손·옷·구도는 `idle`과 같고 입 모양만 다르다. 5장이 모두 있어야 적용된다. |
+| `mouth_a.png`, `mouth_i.png`, `mouth_o.png` | 같은 캐릭터의 `<id>_idle.jpg`와 같은 810×1080, 배경 투명 PNG. 아·이·오 3장이 모두 있을 때 적용한다. 저장소의 `mouth_e.png`와 `mouth_u.png`는 예전 에셋이며 재생에 쓰이지 않는다. |
 | `greeting.mp4` | 인사 영상. 해당 캐릭터의 `greeting` 음원(`<id>.m4a`)을 포함한다. 같은 규칙으로 `night.mp4`, `schedule_pending.mp4`, `schedule_complete.mp4`, `rain.mp4`, `snow.mp4`, `thunder.mp4`도 인식한다. |
 
 기본 자세는 `characterOutlines.json`의 `<id>_idle` 윤곽선으로 잘라 표시한다. 열린 입 프레임은 같은 810×1080 좌표에 맞추고, 입 주변만 가장자리가 부드러운 마스크로 합성한다. 기본 자세의 얼굴과 몸 위치는 고정된다.
 
 ### 현재 반영 현황
 
-| 캐릭터 | 입 모양 PNG | 5모음 립싱크 | `greeting.mp4` | `encourage` 포즈 |
+| 캐릭터 | 사용 대상 PNG | 아·이·오 립싱크 | `greeting.mp4` | `encourage` 포즈 |
 | --- | --- | --- | --- | --- |
-| 나비 | 아·에·이·오·우 | 적용 | 미반영 | 있음 |
-| 서윤 | 아·에·이·오·우 | 적용 | 미반영 | 있음 |
-| 지은 | 아 | 미적용 (에·이·오·우 필요) | 미반영 | 없음 (`idle`로 대체) |
-| 준호 | 아·에·이·오 | 미적용 (우 필요) | 미반영 | 없음 (`idle`로 대체) |
-| 도윤 | 아·에 | 미적용 (이·오·우 필요) | 미반영 | 없음 (`idle`로 대체) |
+| 나비 | 아·이·오 | 적용 | 미반영 | 있음 |
+| 서윤 | 아·이·오 | 적용 | 미반영 | 있음 |
+| 지은 | 아 | 기본 JPG 사용 (이·오 필요) | 미반영 | 없음 (`idle`로 대체) |
+| 준호 | 아·이·오 | 적용 | 미반영 | 없음 (`idle`로 대체) |
+| 도윤 | 아 | 기본 JPG 사용 (이·오 필요) | 미반영 | 없음 (`idle`로 대체) |
 
-'아'(전원)와 나비 '이'·'오', 서윤 '오'는 기존 `<id>_mouth_*.jpg`에서, 나머지는 Gemini로 생성한 이미지에서 입 영역을 합성했다. 5장이 모이지 않은 캐릭터는 기존 `mouth_a`·`idle` JPG 2프레임 방식으로 동작한다.
+'아'(전원)와 나비 '이'·'오', 서윤 '오'는 기존 `<id>_mouth_*.jpg`에서, 나머지는 Gemini로 생성한 이미지에서 입 영역을 합성했다. 아·이·오 세 장이 다 갖춰지지 않은 캐릭터는 기존 `mouth_a`·`idle` JPG의 입 영역을 사용한다.
 
 추가 방법은 다음과 같다. 규격에 맞춘 파일을 `assets/characters/<id>/dialogue/`에 정확한 파일명으로 넣는다. `npm test`로 규격 검사를 통과하는지 확인한 뒤 Expo를 다시 시작한다(`npm start -- --clear`). 코드는 고칠 필요가 없다.
 
@@ -103,7 +103,7 @@ npm start             # Expo 개발 서버
 | `src/features/avatar/homeDialoguePresentation.ts` | 상황 키 선택 우선순위, 상황별 포즈 매핑, 데모 순서 |
 | `src/features/avatar/characterVoices.ts` | 캐릭터 × 상황 키별 `.m4a` 음원 매핑 |
 | `src/features/avatar/useHomeDialogue.ts`, `useHomeDialogueAudio.ts` | 홈 대사 상태 관리, 음원 재생과 입 모양 큐 계산 |
-| `src/features/avatar/visemes.ts` | 한글 음절 분해, 3모음(`vowelMouth`)·5모음(`fiveVowelMouth`) 입 모양 분류, 큐 생성(`estimateFiveVowelCues`, `mouthAt`) |
+| `src/features/avatar/visemes.ts` | 한글 음절 분해, 아·이·오 분류, 최소 유지 시간이 적용된 입 모양 큐 |
 | `src/features/avatar/characterMotion.ts` | 200ms 입 프레임 전환, 캐릭터별 입 마스크 위치와 대체 프레임 |
 | `src/features/avatar/dialogueMedia.ts` | 캐릭터별 선택형 에셋(입 모양 PNG, 대사 영상) 탐색 |
 | `src/features/avatar/characterAssets.ts`, `characterOutlines.json` | 포즈 이미지 연결, 포즈 대체, 배경 투명 처리용 윤곽 |
