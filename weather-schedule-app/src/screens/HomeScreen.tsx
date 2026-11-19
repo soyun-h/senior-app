@@ -38,7 +38,7 @@ export function HomeScreen({ avatar }: { avatar?: AvatarDefinition }) {
           <HomeText style={styles.credit}>{credit}</HomeText>
         </View>
         <WeatherMessage weather={weather} notice={notice}/>
-        <BottomNavigation/>
+        <BottomNavigation activeTab="home"/>
       </View>
     </View>
   </View></GlassBlurContext.Provider>;
