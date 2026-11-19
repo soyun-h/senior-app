@@ -4,20 +4,22 @@ import { test } from 'node:test';
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-// 날씨 안내 영역은 날씨 담당 브랜치의 구성을 그대로 쓴다.
-// 캐릭터 작업에서 이 조건이 깨지면 테스트가 실패한다.
-test('home screen keeps the shared weather message layout', () => {
+test('home keeps weather context and attribution above a character-only dialogue area', () => {
   const home = read('src/screens/HomeScreen.tsx');
-  assert.match(home, /<WeatherMessage weather=\{weather\} notice=\{notice\}\/>/);
+  assert.match(home, /useWeather\(\)/);
+  assert.match(home, /<WeatherBackground condition=\{weather\?\.condition/);
   assert.match(home, /<HomeText style=\{styles\.credit\}>\{credit\}<\/HomeText>/);
-  assert.doesNotMatch(home, /features\/weather\/presentation/, 'HomeScreen이 날씨 문구를 직접 만들면 안 됩니다');
-
-  const message = read('src/components/home/WeatherMessage.tsx');
-  assert.match(message, /panel: \{ position: 'absolute', bottom: 90,/);
+  assert.match(home, /<CharacterDialogue name=\{character\.name\} text=\{text\}\/>/);
+  assert.doesNotMatch(home, /WeatherMessage|features\/weather\/presentation/);
 });
 
-test('character dialogue sits above the weather message instead of on top of it', () => {
-  const dialogue = read('src/components/home/CharacterDialogue.tsx');
-  const bottom = Number(dialogue.match(/panel: \{ position: 'absolute', bottom: (\d+),/)?.[1]);
-  assert.ok(bottom >= 90 + 85, `대사창 bottom(${bottom})이 날씨 안내(bottom 90, 높이 85)와 겹칩니다`);
+test('the home still plays dialogue audio while rendering a static idle image', () => {
+  const playback = read('src/components/home/DialogueAvatar.tsx');
+  assert.match(playback, /useHomeDialogueAudio\(characterVoices\[character\.id\]\[situation\]\)/);
+  assert.match(playback, /<AvatarView character=\{character\} \/>/);
+  assert.doesNotMatch(playback, /DialogueVideo|mouthFrames/);
+
+  const image = read('src/components/home/CharacterImage.tsx');
+  assert.match(image, /imageFor\(characterId, 'idle'\)/);
+  assert.doesNotMatch(image, /mouthFrame|requestAnimationFrame/);
 });

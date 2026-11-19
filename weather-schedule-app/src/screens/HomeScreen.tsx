@@ -12,7 +12,6 @@ import { useHomeDialogue } from '../features/avatar/useHomeDialogue';
 import { HomeText } from '../components/home/HomeText';
 import { HomeButton } from '../components/home/HomeButton';
 import { ScheduleCard, type HomeSchedule } from '../components/home/ScheduleCard';
-import { WeatherMessage } from '../components/home/WeatherMessage';
 import { BottomNavigation } from '../components/home/BottomNavigation';
 import { useWeather } from '../features/weather/useWeather';
 const demoSchedules: HomeSchedule[] = [
@@ -39,7 +38,7 @@ export function HomeScreen({ characterId, schedules = demoSchedules }: HomeScree
       <View style={{ width: 360, height: canvasHeight, transform: [{ scale }], transformOrigin: 'top left' }}>
         <BlurTargetView ref={blurTarget} style={StyleSheet.absoluteFill}>
           <WeatherBackground condition={weather?.condition ?? 'unknown'}/>
-          <DialogueAvatar key={`${character.id}:${situation}`} character={character} situation={situation} text={text}/>
+          <DialogueAvatar key={`${character.id}:${situation}`} character={character} situation={situation}/>
         </BlurTargetView>
         <View style={styles.settings}><HomeButton icon="settings" label="설정"/></View>
         <View style={styles.scheduleSection}>
@@ -47,8 +46,6 @@ export function HomeScreen({ characterId, schedules = demoSchedules }: HomeScree
           <View style={styles.cards}>{schedules.map(schedule => <ScheduleCard key={schedule.id} schedule={schedule}/>)}</View>
           <HomeText style={styles.credit}>{credit}</HomeText>
         </View>
-        {/* 날씨 안내는 날씨 담당 브랜치의 WeatherMessage 배치를 그대로 쓴다. 캐릭터 작업에서 위치와 내용을 바꾸지 않는다. */}
-        <WeatherMessage weather={weather} notice={notice}/>
         <CharacterDialogue name={character.name} text={text}/>
         <BottomNavigation/>
       </View>

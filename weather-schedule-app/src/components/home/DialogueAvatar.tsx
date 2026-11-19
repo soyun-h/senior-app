@@ -1,40 +1,9 @@
-import { useState } from 'react';
-import { View } from 'react-native';
 import type { CharacterDef, HomeDialogueSituation } from '../../features/avatar/characterTypes';
 import { characterVoices } from '../../features/avatar/characterVoices';
-import { getDialogueMedia, type MouthFrames } from '../../features/avatar/dialogueMedia';
 import { useHomeDialogueAudio } from '../../features/avatar/useHomeDialogueAudio';
-import { AvatarView, avatarFrameStyle } from './AvatarView';
-import { DialogueVideo } from './DialogueVideo';
+import { AvatarView } from './AvatarView';
 
-interface DialogueAvatarProps {
-  character: CharacterDef;
-  situation: HomeDialogueSituation;
-  text: string;
-}
-
-function AudioAvatar({ character, situation, text, mouthFrames }: DialogueAvatarProps & { mouthFrames?: MouthFrames }) {
-  const speech = useHomeDialogueAudio(characterVoices[character.id][situation], mouthFrames ? text : undefined);
-  return <AvatarView character={character} mouthFrames={mouthFrames} {...speech} />;
-}
-
-export function DialogueAvatar(props: DialogueAvatarProps) {
-  const { character, situation } = props;
-  const { mouthFrames, video } = getDialogueMedia(character.id, situation);
-  const [videoState, setVideoState] = useState<'waiting' | 'playing' | 'ended' | 'failed'>('waiting');
-
-  if (video === undefined || videoState === 'failed') {
-    return <AudioAvatar {...props} mouthFrames={mouthFrames} />;
-  }
-
-  return (
-    <>
-      {videoState !== 'playing' && <AvatarView character={character} isSpeaking={false} mouth="rest" />}
-      {videoState !== 'ended' && (
-        <View style={[avatarFrameStyle, { opacity: videoState === 'playing' ? 1 : 0 }]}>
-          <DialogueVideo source={video} label={character.name} onPlaybackState={setVideoState} />
-        </View>
-      )}
-    </>
-  );
+export function DialogueAvatar({ character, situation }: { character: CharacterDef; situation: HomeDialogueSituation }) {
+  useHomeDialogueAudio(characterVoices[character.id][situation]);
+  return <AvatarView character={character} />;
 }

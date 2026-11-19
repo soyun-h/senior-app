@@ -1,38 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, type AudioSource } from 'expo-audio';
+import { useEffect } from 'react';
+import { setAudioModeAsync, useAudioPlayer, type AudioSource } from 'expo-audio';
 import { Platform } from 'react-native';
-import { isMouthOpen } from './characterMotion';
-import type { Mouth } from './characterTypes';
-import { mouthSet } from './dialogueMedia';
-import { estimateMouthCues, mouthAt } from './visemes';
 
-export function useHomeDialogueAudio(source: AudioSource, dialogueForMouthFrames?: string) {
-  const player = useAudioPlayer(source, { updateInterval: 100 });
-  const status = useAudioPlayerStatus(player);
-  const [finishedPlayer, setFinishedPlayer] = useState<string>();
-  const isSpeaking = status.id === player.id && status.playing && status.currentTime > 0
-    && !status.isBuffering && !status.didJustFinish && finishedPlayer !== player.id;
-  const [mouth, setMouth] = useState<Mouth>('rest');
-  const cues = useMemo(
-    () => dialogueForMouthFrames ? estimateMouthCues(dialogueForMouthFrames, status.duration, mouthSet) : undefined,
-    [dialogueForMouthFrames, status.duration],
-  );
-
-  useEffect(() => {
-    if (!isSpeaking) return;
-    const updateFrame = () => {
-      const time = player.currentTime;
-      // A web media element can reach the end without a final playback status event.
-      if (player.duration > 0 && time >= player.duration) {
-        setFinishedPlayer(player.id);
-        return;
-      }
-      setMouth(cues ? mouthAt(cues, time) : isMouthOpen(time) ? 'a' : 'rest');
-    };
-    updateFrame();
-    const timer = setInterval(updateFrame, 50);
-    return () => clearInterval(timer);
-  }, [cues, isSpeaking, player]);
+export function useHomeDialogueAudio(source: AudioSource) {
+  const player = useAudioPlayer(source);
 
   useEffect(() => {
     let active = true;
@@ -61,6 +32,4 @@ export function useHomeDialogueAudio(source: AudioSource, dialogueForMouthFrames
       player.pause();
     };
   }, [player]);
-
-  return { isSpeaking, mouth: isSpeaking ? mouth : 'rest' as const };
 }
