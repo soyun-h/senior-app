@@ -11,9 +11,6 @@ export const CHARACTER_IMAGES: Record<CharacterId, Partial<Record<Pose, ImageSou
     wave: require('../../../assets/characters/char1/char1_wave.jpg'),
     ok: require('../../../assets/characters/char1/char1_ok.jpg'),
     encourage: require('../../../assets/characters/char1/char1_encourage.jpg'),
-    mouth_a: require('../../../assets/characters/char1/char1_mouth_a.jpg'),
-    mouth_o: require('../../../assets/characters/char1/char1_mouth_o.jpg'),
-    mouth_i: require('../../../assets/characters/char1/char1_mouth_i.jpg'),
   },
   char2: {
     profile: require('../../../assets/characters/char2/char2_profile.jpg'),
@@ -21,38 +18,36 @@ export const CHARACTER_IMAGES: Record<CharacterId, Partial<Record<Pose, ImageSou
     wave: require('../../../assets/characters/char2/char2_wave.jpg'),
     ok: require('../../../assets/characters/char2/char2_ok.jpg'),
     encourage: require('../../../assets/characters/char2/char2_encourage.jpg'),
-    mouth_a: require('../../../assets/characters/char2/char2_mouth_a.jpg'),
-    mouth_o: require('../../../assets/characters/char2/char2_mouth_o.jpg'),
   },
   char3: {
     profile: require('../../../assets/characters/char3/char3_profile.jpg'),
     idle: require('../../../assets/characters/char3/char3_idle.jpg'),
     wave: require('../../../assets/characters/char3/char3_wave.jpg'),
     ok: require('../../../assets/characters/char3/char3_ok.jpg'),
-    mouth_a: require('../../../assets/characters/char3/char3_mouth_a.jpg'),
+    encourage: require('../../../assets/characters/char3/char3_encourage.jpg'),
   },
   char4: {
     profile: require('../../../assets/characters/char4/char4_profile.jpg'),
     idle: require('../../../assets/characters/char4/char4_idle.jpg'),
     wave: require('../../../assets/characters/char4/char4_wave.jpg'),
     ok: require('../../../assets/characters/char4/char4_ok.jpg'),
-    mouth_a: require('../../../assets/characters/char4/char4_mouth_a.jpg'),
+    encourage: require('../../../assets/characters/char4/char4_encourage.jpg'),
   },
   char5: {
     profile: require('../../../assets/characters/char5/char5_profile.jpg'),
     idle: require('../../../assets/characters/char5/char5_idle.jpg'),
     wave: require('../../../assets/characters/char5/char5_wave.jpg'),
     ok: require('../../../assets/characters/char5/char5_ok.jpg'),
-    mouth_a: require('../../../assets/characters/char5/char5_mouth_a.jpg'),
+    encourage: require('../../../assets/characters/char5/char5_encourage.jpg'),
   },
 };
 
 /** 없는 포즈는 대체 포즈로 연결한다. 예: encourage가 없으면 idle. */
-const FALLBACK: Partial<Record<Pose, Pose>> = { encourage: 'idle', mouth_o: 'mouth_a', mouth_i: 'mouth_a', mouth_a: 'idle', wave: 'idle', ok: 'idle', profile: 'idle' };
+const FALLBACK: Partial<Record<Pose, Pose>> = { encourage: 'idle', wave: 'idle', ok: 'idle', profile: 'idle' };
 export function hasImage(id: CharacterId, pose: Pose): boolean { return !!CHARACTER_IMAGES[id]?.[pose]; }
 export function resolvePose(id: CharacterId, pose: Pose): Pose {
   let current: Pose | undefined = pose;
-  for (let i = 0; i < 4 && current; i++) {
+  for (let i = 0; i < 2 && current; i++) {
     if (hasImage(id, current)) return current;
     current = FALLBACK[current];
   }

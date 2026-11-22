@@ -9,7 +9,7 @@ export interface HomeDialogueContext {
 }
 
 /**
- * 상황별 기준 포즈. 홈 화면은 몸을 idle로 고정하고 입 모양만 바꾸므로 지금은 화면에 쓰지 않는다.
+ * 상황별 기준 포즈. 홈 화면은 idle 이미지만 표시하므로 지금은 화면에 쓰지 않는다.
  * 대사 영상(<situation>.mp4)을 만들 때 idle에서 이 포즈로 갔다가 idle로 돌아오는 중간 동작 기준으로 쓴다.
  */
 export const homePoses: Record<HomeDialogueSituation, Pose> = {
@@ -17,9 +17,9 @@ export const homePoses: Record<HomeDialogueSituation, Pose> = {
   night: 'idle',
   schedulePending: 'encourage',
   scheduleComplete: 'ok',
-  rain: 'mouth_o',
-  snow: 'mouth_i',
-  thunder: 'mouth_a',
+  rain: 'idle',
+  snow: 'idle',
+  thunder: 'idle',
 };
 
 interface DemoStep {
@@ -31,7 +31,7 @@ interface DemoStep {
 const firstDemoStep: DemoStep = { characterId: 'char1', situation: 'greeting' };
 const demoSteps: Partial<Record<WeatherCondition, DemoStep>> = {
   cloudy: { characterId: 'char2', situation: 'night' },
-  rain: { characterId: 'char3', situation: 'rain', pose: 'mouth_a' },
+  rain: { characterId: 'char3', situation: 'rain' },
   snow: { characterId: 'char4', situation: 'snow', pose: 'ok' },
   thunder: { characterId: 'char5', situation: 'thunder' },
 };

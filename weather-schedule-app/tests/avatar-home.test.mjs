@@ -22,7 +22,7 @@ test('home dialogue changes at night and prioritizes current rain, snow and ligh
   assert.equal(homeDialogue('char1', { now: at(5, 59), schedules: upcoming }).pose, 'idle');
   assert.equal(homeDialogue('char1', { now: at(6), schedules: upcoming }).pose, 'wave');
   assert.equal(homeDialogue('char1', { now: at(22), schedules: upcoming }).situation, 'night');
-  for (const [condition, pose] of [['rain', 'mouth_o'], ['snow', 'mouth_i'], ['thunder', 'mouth_a']]) {
+  for (const [condition, pose] of [['rain', 'idle'], ['snow', 'idle'], ['thunder', 'idle']]) {
     const line = homeDialogue('char1', { now: at(22), schedules: upcoming, condition });
     assert.equal(line.situation, condition);
     assert.equal(line.pose, pose);
@@ -36,7 +36,7 @@ test('the demo weather cycle shows five characters with matching dialogue and av
   const steps = weatherCycle.map(condition => homeDemoDialogue(condition));
   assert.deepEqual(steps.map(step => step.characterId), ['char1', 'char2', 'char3', 'char4', 'char5']);
   assert.deepEqual(steps.map(step => step.situation), ['greeting', 'night', 'rain', 'snow', 'thunder']);
-  assert.deepEqual(steps.map(step => step.pose), ['wave', 'idle', 'mouth_a', 'ok', 'mouth_a']);
+  assert.deepEqual(steps.map(step => step.pose), ['wave', 'idle', 'idle', 'ok', 'idle']);
   for (const { characterId, situation, text, pose } of steps) {
     const character = config.characters.find(option => option.id === characterId);
     assert.ok(character.assets[pose], characterId + ' ' + pose);

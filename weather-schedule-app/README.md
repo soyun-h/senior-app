@@ -38,7 +38,7 @@ npm start             # Expo 개발 서버
    - 음원: `characterVoices[characterId][situation]`(`assets/voices/*.m4a`)
 3. `DialogueAvatar.tsx`는 캐릭터의 기본 이미지를 고정해 표시하고 `useHomeDialogueAudio`로 해당 음원을 재생한다. 하단에는 캐릭터 대사만 표시한다. 날씨 상태는 배경과 대사 선택에 쓰고 출처는 할 일 카드 아래에 표시한다.
 
-입 모양과 영상 에셋 규격은 아래에 정리했다. 현재 홈에서는 기본 이미지와 별도 음원을 사용한다.
+대사 영상 규격은 아래에 정리했다. 현재 홈에서는 기본 이미지와 별도 음원을 사용하고, 입 모양 이미지는 저장소에 두지 않는다.
 
 ## 4. 에셋 규격 및 현재 반영 현황
 
@@ -46,11 +46,13 @@ npm start             # Expo 개발 서버
 
 | 캐릭터 | 포즈 이미지 (`assets/characters/<id>/`, 810×1080 JPG) | 음원 (`assets/voices/`) |
 | --- | --- | --- |
-| `char1` 나비 | `idle`, `wave`, `ok`, `encourage`, `mouth_a`, `mouth_o`, `mouth_i`, `profile`(512×512) | `char1.m4a` 외 6개 |
-| `char2` 서윤 | `idle`, `wave`, `ok`, `encourage`, `mouth_a`, `mouth_o`, `profile` | `char2.m4a` 외 6개 |
-| `char3` 지은 | `idle`, `wave`, `ok`, `mouth_a`, `profile` | `char3.m4a` 외 6개 |
-| `char4` 준호 | `idle`, `wave`, `ok`, `mouth_a`, `profile` | `char4.m4a` 외 6개 |
-| `char5` 도윤 | `idle`, `wave`, `ok`, `mouth_a`, `profile` | `char5.m4a` 외 6개 |
+| `char1` 나비 | `idle`, `wave`, `ok`, `encourage`, `profile`(512×512) | `char1.m4a` 외 6개 |
+| `char2` 서윤 | `idle`, `wave`, `ok`, `encourage`, `profile` | `char2.m4a` 외 6개 |
+| `char3` 지은 | `idle`, `wave`, `ok`, `encourage`, `profile` | `char3.m4a` 외 6개 |
+| `char4` 준호 | `idle`, `wave`, `ok`, `encourage`, `profile` | `char4.m4a` 외 6개 |
+| `char5` 도윤 | `idle`, `wave`, `ok`, `encourage`, `profile` | `char5.m4a` 외 6개 |
+
+다섯 캐릭터 모두 `idle`, `wave`, `ok`, `encourage` 네 자세가 있다. 지은의 네 자세와 준호·도윤의 `ok`·`wave`·`encourage`는 잘린 어깨와 팔을 보완한 이미지로 교체했다. 나비의 `wave`·`encourage`는 왼쪽 어깨가 이미지 끝에 닿아 있어 보완본을 받으면 교체한다.
 
 ### 캐릭터 ID와 이름
 
@@ -64,27 +66,19 @@ npm start             # Expo 개발 서버
 | `char4` | 준호 | `assets/characters/char4/` |
 | `char5` | 도윤 | `assets/characters/char5/` |
 
-### 선택형 에셋 규격
+### 대사 영상 폴더
 
-경로는 캐릭터마다 `assets/characters/<id>/dialogue/`이다. `dialogueMedia.ts`의 `require.context`가 이 폴더에서 아래 이름만 읽는다.
+경로는 캐릭터마다 `assets/characters/<id>/dialogue/`이다. 지금은 비어 있다(`.gitkeep`만 있음). `dialogueMedia.ts`의 `require.context`가 이 폴더에서 아래 이름만 읽는다.
 
 | 파일 | 규격 |
 | --- | --- |
-| `mouth_a.png`, `mouth_i.png`, `mouth_o.png` | 같은 캐릭터의 `<id>_idle.jpg`와 같은 810×1080, 배경 투명 PNG. 기본 입 모양 세트의 세 프레임이다. |
-| `mouth_e.png`, `mouth_u.png` | 같은 규격의 5모음용 추가 프레임이다. |
 | `greeting.mp4` | 인사 영상. 해당 캐릭터의 `greeting` 음원(`<id>.m4a`)을 포함한다. 같은 규칙으로 `night.mp4`, `schedule_pending.mp4`, `schedule_complete.mp4`, `rain.mp4`, `snow.mp4`, `thunder.mp4`도 인식한다. |
 
 홈은 `characterOutlines.json`의 기본 자세 윤곽선으로 배경을 잘라 표시한다.
 
-### 보관 중인 에셋
+### 입 모양 이미지
 
-| 캐릭터 | 보관 중인 입 모양 PNG |
-| --- | --- |
-| 나비 | 아·에·이·오·우 |
-| 서윤 | 아·에·이·오·우 |
-| 지은 | 아 |
-| 준호 | 아·에·이·오 |
-| 도윤 | 아·에 |
+홈에서 입을 움직이지 않기로 해 입 모양 이미지(`mouth_*.png`, `<id>_mouth_*.jpg`)와 립싱크 코드(`visemes.ts`, `characterMotion.ts`)를 저장소에서 뺐다. 다섯 캐릭터의 아·에·이·오·우 이미지는 저장소 밖에 따로 보관한다.
 
 ## 5. 대사 영상 제작 규격
 
@@ -96,12 +90,12 @@ npm start             # Expo 개발 서버
 | 상황 | 영상 파일 | 중간 동작 기준 포즈 |
 | --- | --- | --- |
 | 인사 | `greeting.mp4` | `wave` |
-| 남은 일정 | `schedule_pending.mp4` | `encourage` (없는 캐릭터는 `idle`) |
+| 남은 일정 | `schedule_pending.mp4` | `encourage` |
 | 일정 완료 | `schedule_complete.mp4` | `ok` |
 | 밤 | `night.mp4` | `idle` |
-| 비·눈·낙뢰 | `rain.mp4`, `snow.mp4`, `thunder.mp4` | `idle` (말하는 입 모양만) |
+| 비·눈·낙뢰 | `rain.mp4`, `snow.mp4`, `thunder.mp4` | `idle` |
 
-- 포즈 JPG(`wave`, `ok`, `encourage`)와 5모음 PNG는 홈 화면에서 지금 쓰지 않지만 영상 제작 기준 이미지로 보관한다.
+- 포즈 JPG(`wave`, `ok`, `encourage`)는 홈 화면에서 지금 쓰지 않지만 영상 제작 기준 이미지로 둔다.
 - 음성은 `assets/voices/<id>_<situation>.m4a`(인사는 `<id>.m4a`)를 그대로 쓴다.
 - mp4는 배경이 투명하지 않아 `idle`의 회색 배경이 그대로 보인다. 홈 화면에 넣을 때는 배경을 지운 투명 애니메이션으로 바꾸거나, 영상통화 카드 형태로 표시하는 방식을 정해야 한다.
 
@@ -115,19 +109,17 @@ npm start             # Expo 개발 서버
 
 | 파일 | 역할 |
 | --- | --- |
-| `src/features/avatar/characterTypes.ts` | `CharacterId`, `Pose`, `HomeDialogueSituation`, `SpokenVowel`, `Mouth`, `MouthCue` 등 캐릭터 모듈 타입 |
+| `src/features/avatar/characterTypes.ts` | `CharacterId`, `Pose`, `HomeDialogueSituation` 등 캐릭터 모듈 타입 |
 | `src/features/avatar/characters.json`, `characterConfig.ts` | 캐릭터 5인 설정, `poseFallback`, 공통 대화 규칙 |
 | `src/features/avatar/homeDialogueLines.ts` | 캐릭터 × 상황 키별 홈 대사 35줄 |
 | `src/features/avatar/homeDialoguePresentation.ts` | 상황 키 선택 우선순위, 영상 제작용 상황별 포즈(`homePoses`), 데모 순서 |
 | `src/features/avatar/characterVoices.ts` | 캐릭터 × 상황 키별 `.m4a` 음원 매핑 |
 | `src/features/avatar/useHomeDialogue.ts`, `useHomeDialogueAudio.ts` | 홈 대사 상태 관리와 음원 재생 |
-| `src/features/avatar/visemes.ts` | 한글 음절 분해, 아·이·오 또는 5모음 분류, 최소 유지 시간이 적용된 입 모양 큐 |
-| `src/features/avatar/characterMotion.ts` | 200ms 입 프레임 전환, 캐릭터별 입 마스크 위치와 대체 프레임 |
-| `src/features/avatar/dialogueMedia.ts` | 입 모양 세트 설정(`mouthSet`), 캐릭터별 입 모양 PNG와 대사 영상 탐색 |
+| `src/features/avatar/dialogueMedia.ts` | 캐릭터별 대사 영상 탐색(홈에는 아직 연결하지 않음) |
 | `src/features/avatar/characterAssets.ts`, `characterOutlines.json` | 포즈 이미지 연결, 포즈 대체, 배경 투명 처리용 윤곽 |
 | `src/components/home/DialogueAvatar.tsx` | 홈 기본 이미지와 대사 음원 연결 |
-| `src/components/home/DialogueVideo.tsx`, `DialogueVideo.web.tsx` | `expo-video` 기반 대사 영상 재생(네이티브·웹) |
+| `src/components/home/DialogueVideo.tsx`, `DialogueVideo.web.tsx` | `expo-video` 기반 대사 영상 재생(네이티브·웹, 홈에는 아직 연결하지 않음) |
 | `src/components/home/AvatarView.tsx`, `CharacterImage.tsx` | 기본 이미지 렌더링, 비율과 여백 |
-| `tests/avatar*.test.mjs` | 상황 선택, 모션, 입 모양 큐, 선택형 에셋 탐색 테스트 |
-| `tests/avatar-dialogue-assets.test.mjs` | 5명의 `dialogue/` 폴더 파일명, PNG 크기(각 `idle`과 동일)·투명 채널, MP4 형식 검사 |
-| `tests/home-weather-layout.test.mjs` | 날씨 안내 영역 구성과 대사창 위치 검사 |
+| `tests/avatar*.test.mjs` | 캐릭터 설정, 상황 선택, 대사 영상 탐색 테스트 |
+| `tests/avatar-dialogue-assets.test.mjs` | 5명의 `dialogue/` 폴더 파일명과 MP4 형식 검사 |
+| `tests/home-weather-layout.test.mjs` | 홈 구성(날씨 배경·출처, 대사창)과 정적 이미지 표시 검사 |
