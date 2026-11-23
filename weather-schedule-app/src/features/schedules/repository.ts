@@ -50,7 +50,8 @@ export class LocalScheduleRepository implements ScheduleRepository {
     if (!id) return Promise.reject(new Error('삭제할 일정을 확인해 주세요.'));
     return this.mutate(items => items.filter(schedule => schedule.id !== id));
   }
+  /** The list switch selects video-call when on, none when off; other modes remain intact until used. */
   setNotifications(id: string, enabled: boolean, now = Date.now()): Promise<Schedule[]> {
-    return this.mutate(items => items.map(s => s.id===id ? { ...s, notificationsEnabled:s.notificationMethod==='none'?false:enabled,updatedAt:new Date(now).toISOString() } : s));
+    return this.mutate(items => items.map(s => s.id===id ? { ...s, notificationMethod:enabled?'video-call':'none', notificationsEnabled:enabled,updatedAt:new Date(now).toISOString() } : s));
   }
 }

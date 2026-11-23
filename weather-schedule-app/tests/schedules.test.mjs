@@ -130,3 +130,27 @@ test('failed deletion retains data and serialized deletion cannot resurrect remo
  assert.deepEqual((await repo.list()).map(s=>s.id),['new']);
  await assert.rejects(repo.delete(''));
 });
+
+test('video toggle converts none/alarm only on action, persists weekly state and never changes completion',async()=>{
+ const storage=new MemoryStorage(),repo=new LocalScheduleRepository(storage);
+ for(const method of ['none','alarm','video-call'])await repo.create(draft({notificationMethod:method,recurrence:{mode:'weekly',startDate:'2026-11-19',weekdays:[4]}}),method,now);
+ await repo.toggleCompletion('none','2026-11-19',now);
+ const legacy=(await repo.list()).find(s=>s.id==='alarm');assert.equal(legacy.notificationMethod,'alarm');assert.equal(legacy.notificationsEnabled,true);
+ for(const method of ['none','alarm','video-call']){
+  const before=(await repo.list()).find(s=>s.id===method);
+  await repo.setNotifications(method,true,now+1000);
+  let s=(await new LocalScheduleRepository(storage).list()).find(s=>s.id===method);
+  assert.equal(s.notificationMethod,'video-call');assert.equal(s.notificationsEnabled,true);assert.deepEqual(s.completedDates,before.completedDates);assert.deepEqual(s.recurrence,before.recurrence);
+  await repo.setNotifications(method,false,now+2000);
+  s=(await new LocalScheduleRepository(storage).list()).find(s=>s.id===method);
+  assert.equal(s.notificationMethod,'none');assert.equal(s.notificationsEnabled,false);assert.deepEqual(s.completedDates,before.completedDates);
+ }
+});
+test('failed video toggle preserves saved method, enabled flag, completion and unrelated records',async()=>{
+ const storage=new MemoryStorage(),repo=new LocalScheduleRepository(storage);
+ await repo.create(draft({notificationMethod:'alarm'}),'legacy',now);await repo.create(draft({notificationMethod:'none'}),'off',now);
+ const before=storage.data.get(SCHEDULE_STORAGE_KEY);storage.fail=true;
+ await assert.rejects(repo.setNotifications('legacy',true,now+1000));assert.equal(storage.data.get(SCHEDULE_STORAGE_KEY),before);
+ storage.fail=false;await repo.setNotifications('off',true,now+1000);
+ assert.deepEqual((await repo.list()).find(s=>s.id==='legacy'),JSON.parse(before).items.find(s=>s.id==='legacy'));
+});
