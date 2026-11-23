@@ -42,6 +42,14 @@ export class LocalScheduleRepository implements ScheduleRepository {
       return { ...s, completedDates:s.completedDates.includes(date)?s.completedDates.filter(d=>d!==date):[...s.completedDates,date],updatedAt:new Date(now).toISOString() };
     }));
   }
+  /** Delete the whole schedule, including every completion date of a recurrence.
+   * The serialized write must finish before a caller publishes success.
+   * Retrying the same deletion is safe and never removes another record.
+   */
+  delete(id: string): Promise<Schedule[]> {
+    if (!id) return Promise.reject(new Error('삭제할 일정을 확인해 주세요.'));
+    return this.mutate(items => items.filter(schedule => schedule.id !== id));
+  }
   setNotifications(id: string, enabled: boolean, now = Date.now()): Promise<Schedule[]> {
     return this.mutate(items => items.map(s => s.id===id ? { ...s, notificationsEnabled:s.notificationMethod==='none'?false:enabled,updatedAt:new Date(now).toISOString() } : s));
   }

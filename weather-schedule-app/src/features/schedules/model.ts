@@ -2,7 +2,10 @@ export type ScheduleType = 'medication' | 'general';
 export type NotificationMethod = 'video-call' | 'alarm' | 'none';
 export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7; // Monday=1, Sunday=7
 export type DateKey = string; // validated YYYY-MM-DD in Asia/Seoul
-export type Recurrence = { mode: 'once'; date: DateKey } | { mode: 'weekly'; weekdays: Weekday[]; startDate: DateKey };
+export type Recurrence =
+  | { mode: 'once'; date: DateKey }
+  | { mode: 'range'; startDate: DateKey; endDate: DateKey }
+  | { mode: 'weekly'; weekdays: Weekday[]; startDate: DateKey };
 export interface ScheduleDraft {
   title: string;
   type: ScheduleType;
@@ -25,6 +28,7 @@ export interface ScheduleRepository {
   list(): Promise<Schedule[]>;
   create(draft: ScheduleDraft, id: string, now?: number): Promise<Schedule[]>;
   toggleCompletion(id: string, date: DateKey, now?: number): Promise<Schedule[]>;
+  delete(id: string): Promise<Schedule[]>;
   setNotifications(id: string, enabled: boolean, now?: number): Promise<Schedule[]>;
 }
 export function dateKeyAt(now = Date.now()): DateKey { return new Date(now + 9 * 3_600_000).toISOString().slice(0, 10); }
@@ -43,7 +47,11 @@ export function classifyTitle(title: string): ScheduleType {
   return /복약|복용|약\s*(먹|드|챙)|(?:혈압|당뇨|감기|진통|수면|처방)\s*약|영양제|비타민/u.test(title) ? 'medication' : 'general';
 }
 export function onDate(schedule: Schedule, date: DateKey): boolean {
-  return schedule.recurrence.mode === 'once' ? schedule.recurrence.date === date : date >= schedule.recurrence.startDate && schedule.recurrence.weekdays.includes(weekday(date));
+  if (!validDate(date)) return false;
+  const recurrence = schedule.recurrence;
+  if (recurrence.mode === 'once') return recurrence.date === date;
+  if (recurrence.mode === 'range') return date >= recurrence.startDate && date <= recurrence.endDate;
+  return date >= recurrence.startDate && recurrence.weekdays.includes(weekday(date));
 }
 export function schedulesForDate(items: Schedule[], date: DateKey): Schedule[] {
   return items.filter(s => onDate(s, date)).sort((a, b) => a.hour - b.hour || a.minute - b.minute || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
@@ -58,10 +66,13 @@ export function validateDraft(draft: ScheduleDraft, now = Date.now()): void {
   if (!Number.isInteger(draft.hour) || draft.hour < 0 || draft.hour > 23 || !Number.isInteger(draft.minute) || draft.minute < 0 || draft.minute > 59) throw new Error('시와 분을 올바르게 선택해 주세요.');
   if (![5,10,30].includes(draft.reminderMinutes) || !['video-call','alarm','none'].includes(draft.notificationMethod)) throw new Error('알림 설정을 확인해 주세요.');
   const r = draft.recurrence;
-  if (!r || !['once','weekly'].includes(r.mode)) throw new Error('날짜 또는 요일 반복을 선택해 주세요.');
+  if (!r || !['once','range','weekly'].includes(r.mode)) throw new Error('날짜 또는 요일 반복을 선택해 주세요.');
   if (r.mode === 'once') {
     if (!validDate(r.date)) throw new Error('올바른 날짜를 선택해 주세요.');
     if (Date.parse(`${r.date}T${String(draft.hour).padStart(2,'0')}:${String(draft.minute).padStart(2,'0')}:00+09:00`) <= now) throw new Error('현재보다 뒤의 날짜와 시각을 선택해 주세요.');
+  } else if (r.mode === 'range') {
+    if (!validDate(r.startDate) || !validDate(r.endDate) || r.endDate < r.startDate) throw new Error('올바른 시작 날짜와 종료 날짜를 선택해 주세요.');
+    if (r.startDate < dateKeyAt(now) || Date.parse(`${r.endDate}T${String(draft.hour).padStart(2,'0')}:${String(draft.minute).padStart(2,'0')}:00+09:00`) <= now) throw new Error('현재보다 뒤의 날짜와 시각을 선택해 주세요.');
   } else {
     if (!validDate(r.startDate) || r.startDate !== dateKeyAt(now)) throw new Error('날짜가 바뀌었습니다. 다시 등록해 주세요.');
     if (!Array.isArray(r.weekdays) || !r.weekdays.length || new Set(r.weekdays).size !== r.weekdays.length || r.weekdays.some(d => !Number.isInteger(d) || d < 1 || d > 7)) throw new Error('반복할 요일을 하나 이상 선택해 주세요.');
@@ -81,9 +92,13 @@ export function parseSchedules(raw: string | null): Schedule[] {
       if (!Number.isInteger(s.hour) || s.hour<0 || s.hour>23 || !Number.isInteger(s.minute) || s.minute<0 || s.minute>59) throw new Error();
       if (![5,10,30].includes(s.reminderMinutes) || !['video-call','alarm','none'].includes(s.notificationMethod) || typeof s.notificationsEnabled !== 'boolean' || (s.notificationMethod==='none' && s.notificationsEnabled)) throw new Error();
       if ((s.medicationNote !== undefined && (typeof s.medicationNote !== 'string' || s.medicationNote.length>500)) || ![s.createdAt,s.updatedAt].every(d=>typeof d==='string' && Number.isFinite(Date.parse(d)))) throw new Error();
+      if (!s.recurrence || !['once','range','weekly'].includes(s.recurrence.mode)) throw new Error();
       if (!Array.isArray(s.completedDates) || s.completedDates.some(d=>!validDate(d) || !onDate(s,d)) || new Set(s.completedDates).size !== s.completedDates.length) throw new Error();
       const r=s.recurrence;
       if (r.mode==='once') { if (!validDate(r.date)) throw new Error(); }
+      else if (r.mode==='range') {
+        if (!validDate(r.startDate) || !validDate(r.endDate) || r.endDate<r.startDate) throw new Error();
+      }
       else if (r.mode==='weekly') {
         if (!validDate(r.startDate) || !Array.isArray(r.weekdays) || !r.weekdays.length || r.weekdays.some(d=>!Number.isInteger(d)||d<1||d>7) || new Set(r.weekdays).size!==r.weekdays.length) throw new Error();
       } else throw new Error();

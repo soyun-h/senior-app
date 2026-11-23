@@ -87,3 +87,46 @@ test('memo-free new schedules and legacy memos coexist without losing existing d
  assert.equal(items[0].medicationNote,undefined);assert.equal(items[1].medicationNote,'기존 메모');
  assert.equal(schedulesForDate(items,'2026-11-19').length,2);
 });
+
+test('range schedules include both endpoints, survive reload, and keep completion per date',async()=>{
+ const storage=new MemoryStorage(),repo=new LocalScheduleRepository(storage);
+ await repo.create(draft({recurrence:{mode:'range',startDate:'2026-11-19',endDate:'2026-11-21'}}),'range',now);
+ await repo.toggleCompletion('range','2026-11-19',now);
+ const loaded=await new LocalScheduleRepository(storage).list();
+ for(const date of ['2026-11-19','2026-11-20','2026-11-21'])assert.equal(schedulesForDate(loaded,date).length,1);
+ for(const date of ['2026-11-18','2026-11-22'])assert.equal(schedulesForDate(loaded,date).length,0);
+ assert.deepEqual(loaded[0].completedDates,['2026-11-19']);
+ await repo.toggleCompletion('range','2026-11-20',now+86_400_000);
+ assert.deepEqual((await repo.list())[0].completedDates,['2026-11-19','2026-11-20']);
+});
+test('invalid or entirely elapsed ranges cannot be saved; persisted past ranges remain readable',async()=>{
+ for(const r of [
+  {mode:'range',startDate:'2026-11-21',endDate:'2026-11-19'},
+  {mode:'range',startDate:'2026-02-30',endDate:'2026-11-21'},
+  {mode:'range',startDate:'2026-11-18',endDate:'2026-11-21'},
+  {mode:'range',startDate:'2026-11-19',endDate:'2026-11-19'},
+ ])assert.throws(()=>validateDraft(draft({recurrence:r,hour:8}),now));
+ const repo=new LocalScheduleRepository(new MemoryStorage());
+ await repo.create(draft({recurrence:{mode:'range',startDate:'2026-11-19',endDate:'2026-11-21'}}),'range',now);
+ assert.equal((await repo.list()).length,1);
+});
+test('deletion persists, removes all recurring occurrences, and leaves old records byte-for-byte unchanged',async()=>{
+ const storage=new MemoryStorage(),repo=new LocalScheduleRepository(storage);
+ await repo.create(draft({medicationNote:'원래 자료'}),'once',now);
+ await repo.create(draft({recurrence:{mode:'weekly',weekdays:[4,6],startDate:'2026-11-19'}}),'weekly',now);
+ await repo.toggleCompletion('weekly','2026-11-19',now);
+ const before=await repo.list();const remaining=await repo.delete('weekly');
+ assert.deepEqual(remaining,[before[0]]);
+ assert.deepEqual(await new LocalScheduleRepository(storage).list(),remaining);
+ assert.equal(schedulesForDate(remaining,'2026-11-21').length,0);
+ assert.deepEqual(await repo.delete('weekly'),remaining);
+});
+test('failed deletion retains data and serialized deletion cannot resurrect removed schedules',async()=>{
+ const storage=new MemoryStorage(),repo=new LocalScheduleRepository(storage);
+ await repo.create(draft(),'original',now);const before=storage.data.get(SCHEDULE_STORAGE_KEY);
+ storage.fail=true;await assert.rejects(repo.delete('original'));assert.equal(storage.data.get(SCHEDULE_STORAGE_KEY),before);
+ storage.fail=false;
+ await Promise.all([repo.create(draft(),'new',now),repo.delete('original')]);
+ assert.deepEqual((await repo.list()).map(s=>s.id),['new']);
+ await assert.rejects(repo.delete(''));
+});

@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { ScheduleText as Text } from '../components/schedule/ScheduleText';
+import { StyleSheet, View } from 'react-native';
 import { ScheduleShell } from '../components/schedule/ScheduleShell';
 import { RegisterButton } from '../components/schedule/ScheduleControls';
 import type { BottomTabId } from '../navigation/bottomTabs';
