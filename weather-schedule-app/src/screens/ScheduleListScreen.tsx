@@ -1,3 +1,4 @@
+import { ScheduleSkeleton } from '../components/schedule/ScheduleSkeleton';
 import { ScheduleCompletionMark } from '../components/schedule/ScheduleCompletionMark';
 import { ScheduleText as Text } from '../components/schedule/ScheduleText';
 import { useEffect, useRef, useState } from 'react';
@@ -59,7 +60,7 @@ export function ScheduleListScreen({ onAdd, onNavigate, registrationNotice=false
     <View style={styles.heading}><HomeIcon name="alarm"/><Text accessibilityRole="header" style={styles.title}>일정</Text></View>
     <Text style={styles.date}>{formatDate(today)}</Text>
     <Pressable accessibilityRole="button" accessibilityLabel="할 일 추가" disabled={loading||!!loadError} onPress={onAdd} style={styles.add}><View style={styles.plus}><ScheduleAsset name="plus"/></View><Text style={styles.addText}>할일 추가</Text></Pressable>
-    {loading&&<Text style={styles.empty}>일정을 불러오고 있어요.</Text>}
+    {loading&&<ScheduleSkeleton/>}
     {loadError&&<View><Text accessibilityRole="alert" style={styles.error}>{loadError}</Text><Pressable accessibilityRole="button" onPress={()=>void reload()} style={styles.retry}><Text>다시 불러오기</Text></Pressable></View>}
     {error&&<Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     {!loading&&!loadError&&schedules.length===0&&<Text style={styles.empty}>오늘 날짜에 해당하는 일정이 없어요.{ '\n' }다른 날짜의 일정은 해당 날짜에 표시돼요.</Text>}

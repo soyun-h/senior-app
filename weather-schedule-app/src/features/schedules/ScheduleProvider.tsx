@@ -10,14 +10,23 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const [items,setItems] = useState<Schedule[]>([]);
   const [loading,setLoading] = useState(true);
   const [loadError,setError] = useState<string>();
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try { setItems(await repository.list()); setError(undefined); }
-    catch (e) { setError(e instanceof Error ? e.message : '일정을 불러오지 못했어요.'); }
-    finally { setLoading(false); }
-  }, [repository]);
+  const ready = useRef(false);
+  const pending = useRef<Promise<void> | null>(null);
+  const accept = useCallback((items: Schedule[]) => { ready.current = true; setItems(items); setLoading(false); setError(undefined); }, []);
+  const reload = useCallback(() => {
+    if (pending.current) return pending.current;
+    // Cached empty lists are ready too. Background reads never hide ready content.
+    if (!ready.current) setLoading(true);
+    const request = (async () => {
+      try { accept(await repository.list()); }
+      catch (e) { setError(e instanceof Error ? e.message : '일정을 불러오지 못했어요.'); }
+      finally { setLoading(false); pending.current = null; }
+    })();
+    pending.current = request;
+    return request;
+  }, [repository, accept]);
   useEffect(() => { void reload(); }, [reload]);
-  return <Context.Provider value={{items,loading,loadError,reload,repository,accept:setItems}}>{children}</Context.Provider>;
+  return <Context.Provider value={{items,loading,loadError,reload,repository,accept}}>{children}</Context.Provider>;
 }
 export function useSchedules() { const value=useContext(Context);if (!value) throw new Error('ScheduleProvider is required');return value; }
 export function useToday() {

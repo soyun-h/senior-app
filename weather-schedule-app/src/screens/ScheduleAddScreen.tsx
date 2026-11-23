@@ -3,6 +3,7 @@ import { ScheduleText as Text } from '../components/schedule/ScheduleText';
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { ScheduleShell } from '../components/schedule/ScheduleShell';
+import { NotificationMethodControl } from '../components/schedule/NotificationMethodControl';
 import { ScheduleAsset } from '../components/schedule/ScheduleAsset';
 import { RegisterButton, SectionTitle } from '../components/schedule/ScheduleControls';
 import { SelectionSurface } from '../components/schedule/SelectionSurface';
@@ -112,11 +113,7 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange 
           <SectionTitle>어떻게 알려드릴까요?</SectionTitle>
           <View testID="schedule-method-card" style={styles.methods}>
             <View style={styles.methodIcon}><ScheduleAsset name="bell"/></View>
-            <View style={styles.methodOptions}>
-            {([{ id: 'video-call', label: '영상통화' }, { id: 'alarm', label: '알람' }, { id: 'none', label: '알람 끄기' }] as const).map(item => <Pressable key={item.id} accessibilityRole="radio" accessibilityLabel={item.label} aria-checked={method === item.id} accessibilityState={{ checked: method === item.id }} disabled={saving} onPress={() => setMethod(item.id)} style={styles.method}>
-              {method === item.id && <View pointerEvents="none" style={[styles.methodSurface,{width:item.id==='alarm'?52:81,marginLeft:item.id==='alarm'?-26:-40.5}]}><SelectionSurface/></View>}<Text numberOfLines={1} style={[styles.methodText, method === item.id && styles.selectedDayText]}>{item.label}</Text>
-            </Pressable>)}
-            </View>
+            <NotificationMethodControl value={method} onChange={setMethod} disabled={saving}/>
           </View>
         </View>
         {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
@@ -136,6 +133,6 @@ const styles = StyleSheet.create({
   tabs: { height: 52, flexDirection: 'row', borderBottomWidth: 2, borderColor: '#D1D1D1' }, tab: { flex: 1, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 2, borderColor: 'transparent', marginBottom: -2 }, activeTab: { borderColor: '#00765E' }, tabText: { fontSize: 16, color: '#C4C4C4', fontWeight: '500' }, activeTabText: { color: '#00765E',fontWeight:'600' },
   dateRow: { marginTop: 23, height: 40 }, timeRow: { height: 40, marginTop: 9 }, selector: { height: 40, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 11, gap: 9, borderRadius: 10, borderWidth: 1, borderColor: '#D6D6D6', backgroundColor: '#FFFFFF' }, selectorText: { fontSize: 16, lineHeight:20,fontWeight:'500', color: '#006954', flex: 1 },
   weekdays: { height: 34, flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, marginBottom: 9 }, day: { width: 34, height: 34, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderRadius: 10 }, dayText: { fontSize: 16, color: '#666', fontWeight: '600' }, sunday: { color: '#4EA674' }, selectedDayText: { color: '#006954' },
-  methodSection: { marginBottom: 39 }, methods: { height: 64, flexDirection: 'row', alignItems: 'center', paddingLeft:17,paddingRight:20.5, backgroundColor: '#FFFFFFDC', borderRadius: 12, boxShadow: '0px 4px 18px #6C9B741A' }, methodIcon:{width:27,height:32,alignItems:'center',justifyContent:'center'},methodOptions:{flex:1,minWidth:0,marginLeft:17.5,flexDirection:'row',alignItems:'center'},method: { flex:1,minWidth:0,height:30,justifyContent:'center',alignItems:'center' },methodSurface:{position:'absolute',left:'50%',top:0,height:30,borderRadius:10,overflow:'hidden'},methodText: { fontSize:16,lineHeight:20,textAlign:'center',color:'#858585' },
+  methodSection: { marginBottom: 39 }, methods: { height: 64, flexDirection: 'row', alignItems: 'center', paddingLeft:17,paddingRight:20.5, backgroundColor: '#FFFFFFDC', borderRadius: 12, boxShadow: '0px 4px 18px #6C9B741A' }, methodIcon:{width:27,height:32,alignItems:'center',justifyContent:'center'},
   error: { color: '#A32727', fontSize: 16, lineHeight: 25, marginBottom: 12 },
 });
