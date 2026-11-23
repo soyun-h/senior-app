@@ -20,22 +20,24 @@ interface AvatarViewProps {
  * 1) 등장: 아래에서 12px 올라오며 나타남(300ms)
  * 2) 말하는 중: 상황 자세를 유지하고 작게 위아래로 움직임(한 번에 450ms)
  * 3) 대사 끝: 기본 자세로 겹쳐 바뀜(300ms), 이후 천천히 떠 있는 움직임(1.6s)
- * 기기의 '동작 줄이기'가 켜져 있으면 움직임 없이 자세만 바꾼다.
+ * 기기의 '동작 줄이기'가 켜져 있으면 움직임 없이 자세만 바꾼다. 설정을 확인하기 전에는 움직임을 시작하지 않는다.
  */
 export function AvatarView({ character, pose, phase, onPress }: AvatarViewProps) {
   const reduced = useReducedMotion();
-  const enter = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  const enter = useRef(new Animated.Value(0)).current;
   const bob = useRef(new Animated.Value(0)).current;
   const gesture = useRef(new Animated.Value(pose === 'idle' ? 0 : 1)).current;
   const speaking = phase === 'speaking';
 
   useEffect(() => {
-    Animated.timing(enter, { toValue: 1, duration: reduced ? 0 : 300, easing: Easing.out(Easing.cubic), useNativeDriver }).start();
+    if (reduced === null) return;
+    if (reduced) enter.setValue(1);
+    else Animated.timing(enter, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver }).start();
   }, [enter, reduced]);
 
   useEffect(() => {
     bob.setValue(0);
-    if (reduced) return;
+    if (reduced !== false) return;
     const half = speaking ? 225 : 1600;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(bob, { toValue: 1, duration: half, easing: Easing.inOut(Easing.sin), useNativeDriver }),
@@ -47,7 +49,7 @@ export function AvatarView({ character, pose, phase, onPress }: AvatarViewProps)
 
   useEffect(() => {
     const target = pose !== 'idle' && phase !== 'done' ? 1 : 0;
-    Animated.timing(gesture, { toValue: target, duration: reduced ? 0 : 300, easing: Easing.inOut(Easing.quad), useNativeDriver }).start();
+    Animated.timing(gesture, { toValue: target, duration: reduced === false ? 300 : 0, easing: Easing.inOut(Easing.quad), useNativeDriver }).start();
   }, [gesture, phase, pose, reduced]);
 
   const translateY = Animated.add(

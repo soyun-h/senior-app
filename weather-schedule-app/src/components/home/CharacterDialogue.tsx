@@ -12,9 +12,11 @@ const useNativeDriver = Platform.OS !== 'web';
  */
 export function CharacterDialogue({ name, text }: { name: string; text: string }) {
   const reduced = useReducedMotion();
-  const appear = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  const appear = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(appear, { toValue: 1, duration: reduced ? 0 : 250, delay: reduced ? 0 : 150, easing: Easing.out(Easing.cubic), useNativeDriver }).start();
+    if (reduced === null) return;
+    if (reduced) appear.setValue(1);
+    else Animated.timing(appear, { toValue: 1, duration: 250, delay: 150, easing: Easing.out(Easing.cubic), useNativeDriver }).start();
   }, [appear, reduced]);
 
   return (

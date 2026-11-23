@@ -33,4 +33,5 @@ test('the character shows the situation pose while speaking and can replay the l
   const view = read('src/components/home/AvatarView.tsx');
   assert.match(view, /pose !== 'idle' && phase !== 'done'/, '대사가 끝나면 기본 자세로 돌아가야 합니다');
   assert.match(view, /useReducedMotion\(\)/);
+  assert.match(view, /if \(reduced === null\) return;/, '동작 줄이기 설정을 확인하기 전에는 움직이면 안 됩니다');
 });
