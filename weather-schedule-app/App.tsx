@@ -6,12 +6,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ScheduleListScreen } from './src/screens/ScheduleListScreen';
 import { ScheduleAddScreen } from './src/screens/ScheduleAddScreen';
-import { ScheduleSuccessScreen } from './src/screens/ScheduleSuccessScreen';
 import { ScheduleProvider } from './src/features/schedules/ScheduleProvider';
 import type { BottomTabId } from './src/navigation/bottomTabs';
-type Screen = 'home' | 'schedule' | 'schedule-add' | 'schedule-success';
+type Screen = 'home' | 'schedule' | 'schedule-add';
 export default function App() {
-  const [savedMessage,setSavedMessage]=useState('');
+  const [registrationNotice,setRegistrationNotice]=useState(false);
   const [saving,setSaving]=useState(false);
   const [screen,setScreen]=useState<Screen>('home');
   function navigate(tab: BottomTabId) { if(!saving&&(tab==='home'||tab==='schedule'))setScreen(tab); }
@@ -24,8 +23,7 @@ export default function App() {
   },[screen,saving]);
   return <SafeAreaProvider><ScheduleProvider><StatusBar hidden/>
     {screen==='home'&&<HomeScreen onNavigate={navigate}/>}
-    {screen==='schedule'&&<ScheduleListScreen onAdd={()=>setScreen('schedule-add')} onNavigate={navigate}/>}
-    {screen==='schedule-add'&&<ScheduleAddScreen onSavingChange={setSaving} onBack={()=>setScreen('schedule')} onSaved={message=>{setSavedMessage(message);setScreen('schedule-success');}} onNavigate={navigate}/>}
-    {screen==='schedule-success'&&<ScheduleSuccessScreen message={savedMessage} onList={()=>setScreen('schedule')} onNavigate={navigate}/>}
+    {screen==='schedule'&&<ScheduleListScreen registrationNotice={registrationNotice} onRegistrationNoticeConsumed={()=>setRegistrationNotice(false)} onAdd={()=>setScreen('schedule-add')} onNavigate={navigate}/>}
+    {screen==='schedule-add'&&<ScheduleAddScreen onSavingChange={setSaving} onBack={()=>setScreen('schedule')} onSaved={()=>{setRegistrationNotice(true);setScreen('schedule');}} onNavigate={navigate}/>}
   </ScheduleProvider></SafeAreaProvider>;
 }

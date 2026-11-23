@@ -39,3 +39,15 @@ export function pickerTimeLabel(hour: number, minute: number): string {
   if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) throw new Error('시각을 확인해 주세요.');
   return `${hour < 12 ? '오전' : '오후'} ${String(hour % 12 || 12).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
+
+/** A tap is a one-day range; dragging extends from the original touched day. */
+export function dragDateSelection(anchor: DateKey, date: DateKey): DateSelection {
+  if (!validDate(anchor) || !validDate(date)) throw new Error('날짜를 확인해 주세요.');
+  return { startDate: anchor < date ? anchor : date, endDate: anchor < date ? date : anchor, awaitingEnd: false };
+}
+/** Coordinates relative to the actual seven-column date grid, excluding its top padding. */
+export function calendarDateAtPoint(dates: DateKey[], width: number, height: number, x: number, y: number): DateKey | undefined {
+  if (width <= 0 || height <= 0 || x < 0 || y < 0 || x >= width || y >= height) return undefined;
+  const row = Math.floor(y / (height / (dates.length / 7)));
+  return dates[row * 7 + Math.floor(x / (width / 7))];
+}

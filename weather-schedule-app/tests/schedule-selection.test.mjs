@@ -24,3 +24,17 @@ test('wheel values cover midnight, noon and every hour and minute without locale
  }
  assert.throws(()=>to24Hour('오후',0));assert.throws(()=>pickerTimeLabel(24,0));assert.throws(()=>pickerTimeLabel(12,60));
 });
+
+test('drag hit testing follows measured Sunday grid and ignores outside positions', async()=>{
+ const {calendarDateAtPoint,dragDateSelection}=await import('../src/features/schedules/selection.ts');
+ const dates=calendarDates('2026-10','sunday'), width=242,height=207.5;
+ const point=(column,row)=>calendarDateAtPoint(dates,width,height,(column+.5)*width/7,(row+.5)*height/5);
+ assert.equal(point(0,1),'2026-10-04');assert.equal(point(4,1),'2026-10-08');
+ assert.deepEqual(dragDateSelection(point(0,1),point(4,1)),{startDate:'2026-10-04',endDate:'2026-10-08',awaitingEnd:false});
+ assert.deepEqual(dragDateSelection('2026-10-14','2026-10-04'),{startDate:'2026-10-04',endDate:'2026-10-14',awaitingEnd:false});
+ assert.deepEqual(dragDateSelection('2026-10-08','2026-10-08'),{startDate:'2026-10-08',endDate:'2026-10-08',awaitingEnd:false});
+ for(const [x,y] of [[-1,0],[0,-1],[width,0],[0,height]])assert.equal(calendarDateAtPoint(dates,width,height,x,y),undefined);
+ assert.equal(calendarDateAtPoint(dates,0,height,0,0),undefined);
+ assert.equal(selectionLabel('2026-10-04','2026-10-08'),'2026.10.04 - 10.08');
+ assert.throws(()=>dragDateSelection('2026-13-01','2026-10-08'));
+});

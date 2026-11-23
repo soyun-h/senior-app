@@ -1,18 +1,50 @@
 import { ScheduleText as Text } from './ScheduleText';
 import { ScheduleBlurContext } from './ScheduleBlurContext';
 import { BlurView } from 'expo-blur';
-import { useContext, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { calendarDates, selectDate, type DateSelection } from '../../features/schedules/selection';
+import { useContext, useRef, useState, type ComponentRef } from 'react';
+import { Platform, Pressable, StyleSheet, View, type ViewStyle, type GestureResponderEvent } from 'react-native';
+import { calendarDates, calendarDateAtPoint, dragDateSelection, type DateSelection } from '../../features/schedules/selection';
 import { ScheduleAsset } from './ScheduleAsset';
 import { SelectionSurface } from './SelectionSurface';
 
+const webGestureStyle: ViewStyle & { touchAction: string; userSelect: string } = { touchAction: 'none', userSelect: 'none' };
 const days = ['일', '월', '화', '수', '목', '금', '토'];
 export function ScheduleCalendar({ selection, onChange }: { selection: DateSelection; onChange: (selection: DateSelection) => void }) {
   const blurTarget=useContext(ScheduleBlurContext);
   const [month, setMonth] = useState(selection.startDate.slice(0, 7));
   const [year, number] = month.split('-').map(Number);
   const dates = calendarDates(month, 'sunday');
+  const grid = useRef<ComponentRef<typeof View>>(null);
+  const gesture = useRef<{ anchor?: string; x: number; y: number; ended: boolean; bounds?: { x: number; y: number; width: number; height: number } } | null>(null);
+  function updateGesture() {
+    const current = gesture.current;
+    if (!current?.bounds) return;
+    const { bounds } = current;
+    const date = calendarDateAtPoint(dates, bounds.width, bounds.height - 4, current.x - bounds.x, current.y - bounds.y - 4);
+    // Outside the grid: retain the last valid range rather than selecting unrelated dates.
+    if (date) {
+      current.anchor ??= date;
+      onChange(dragDateSelection(current.anchor, date));
+    }
+    if (current.ended) gesture.current = null;
+  }
+  function startGesture(event: GestureResponderEvent) {
+    const startX = event.nativeEvent.pageX, startY = event.nativeEvent.pageY;
+    const current = { x: startX, y: startY, ended: false };
+    gesture.current = current;
+    // Measure in the same window coordinate space as pageX/pageY, including modal positioning.
+    grid.current?.measureInWindow((x, y, width, height) => {
+      if (gesture.current !== current) return;
+      const date = calendarDateAtPoint(dates, width, height - 4, startX - x, startY - y - 4);
+      Object.assign(current, { bounds: { x, y, width, height }, anchor: date });
+      updateGesture();
+    });
+  }
+  function moveGesture(event: GestureResponderEvent, ended = false) {
+    if (!gesture.current) return;
+    Object.assign(gesture.current, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY, ended });
+    updateGesture();
+  }
   function move(delta: number) {
     const date = new Date(Date.UTC(year, number - 1 + delta, 1));
     setMonth(`${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`);
@@ -25,7 +57,14 @@ export function ScheduleCalendar({ selection, onChange }: { selection: DateSelec
       <Pressable accessibilityRole="button" accessibilityLabel="다음 달" onPress={() => move(1)} style={styles.move}><ScheduleAsset name="month-right"/></Pressable>
     </View>
     <View style={styles.week}>{days.map((day, index) => <View key={day} style={styles.weekday}><Text style={[styles.weekText, index === 0 && styles.sunday]}>{day}</Text></View>)}</View>
-    <View style={styles.grid}>
+    <View ref={grid} collapsable={false} style={[styles.grid, Platform.OS === 'web' && webGestureStyle]}
+      onStartShouldSetResponderCapture={() => true}
+      onResponderGrant={startGesture}
+      onResponderMove={event => moveGesture(event)}
+      onResponderRelease={event => moveGesture(event, true)}
+      onResponderTerminationRequest={() => false}
+      onResponderTerminate={() => { gesture.current = null; }}
+    >
       {Array.from({length:dates.length/7},(_,row)=>{
         const week=dates.slice(row*7,row*7+7);
         const selected=week.map((date,index)=>date>=selection.startDate&&date<=selection.endDate?index:-1).filter(index=>index>=0);
@@ -33,7 +72,7 @@ export function ScheduleCalendar({ selection, onChange }: { selection: DateSelec
           {!!selected.length&&<View pointerEvents="none" style={[styles.range,{left:`${selected[0]*100/7}%`,width:`${selected.length*100/7}%`}]}><SelectionSurface variant={selected.length===1?'date':'pill'}/></View>}
           {week.map((date,index)=>{
             const active=date>=selection.startDate&&date<=selection.endDate;
-            return <Pressable key={date} accessibilityRole="button" accessibilityLabel={`${date} 날짜`} accessibilityState={{selected:active}} aria-selected={active} onPress={()=>onChange(selectDate(selection,date))} style={styles.cell}>
+            return <Pressable key={date} accessibilityRole="button" accessibilityLabel={`${date} 날짜`} accessibilityState={{selected:active}} aria-selected={active} onPress={()=>onChange(dragDateSelection(date,date))} style={styles.cell}>
               <Text style={[styles.dateText,index===0&&styles.sunday,!date.startsWith(month)&&styles.adjacent,active&&styles.activeText]}>{Number(date.slice(8))}</Text>
             </Pressable>;
           })}

@@ -1,7 +1,7 @@
 import { ScheduleCompletionMark } from '../components/schedule/ScheduleCompletionMark';
 import { ScheduleText as Text } from '../components/schedule/ScheduleText';
 import { useEffect, useRef, useState } from 'react';
-import { ImageBackground, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Easing, ImageBackground, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ScheduleShell } from '../components/schedule/ScheduleShell';
 import { ScheduleAsset } from '../components/schedule/ScheduleAsset';
 import { ScheduleDeleteDialog } from '../components/schedule/ScheduleDeleteDialog';
@@ -9,9 +9,28 @@ import { HomeIcon } from '../components/home/HomeIcon';
 import { formatDate, formatTime, schedulesForDate, type Schedule } from '../features/schedules/model';
 import { useSchedules, useToday } from '../features/schedules/ScheduleProvider';
 import type { BottomTabId } from '../navigation/bottomTabs';
-export function ScheduleListScreen({ onAdd, onNavigate }: { onAdd:()=>void; onNavigate:(tab:BottomTabId)=>void }) {
+export function ScheduleListScreen({ onAdd, onNavigate, registrationNotice=false, onRegistrationNoticeConsumed }: { onAdd:()=>void; onNavigate:(tab:BottomTabId)=>void; registrationNotice?:boolean; onRegistrationNoticeConsumed?:()=>void }) {
   const { items,loading,loadError,reload,repository,accept }=useSchedules();const today=useToday();
   const [error,setError]=useState<string>();const [busy,setBusy]=useState<string[]>([]);const locks=useRef(new Set<string>());
+  const [registrationToastVisible,setRegistrationToastVisible]=useState(false);
+  const registrationOpacity=useRef(new Animated.Value(1)).current;
+  useEffect(()=>{
+    if(registrationNotice){
+      registrationOpacity.setValue(1);
+      setRegistrationToastVisible(true);
+      onRegistrationNoticeConsumed?.();
+    }
+  },[registrationNotice,onRegistrationNoticeConsumed,registrationOpacity]);
+  useEffect(()=>{
+    if(!registrationToastVisible)return;
+    // Same 2200ms total as deletion toast: hold 1600ms, fade for 600ms.
+    const animation=Animated.sequence([
+      Animated.delay(1600),
+      Animated.timing(registrationOpacity,{toValue:0,duration:600,easing:Easing.linear,useNativeDriver:Platform.OS!=='web'}),
+    ]);
+    animation.start(({finished})=>{if(finished)setRegistrationToastVisible(false);});
+    return ()=>animation.stop();
+  },[registrationToastVisible,registrationOpacity]);
   const [deleting,setDeleting]=useState<Schedule|null>(null);
   const [deleteBusy,setDeleteBusy]=useState(false);
   const [deleteError,setDeleteError]=useState<string>();
@@ -23,7 +42,7 @@ export function ScheduleListScreen({ onAdd, onNavigate }: { onAdd:()=>void; onNa
     if(!deleting||deletingRef.current)return;
     deletingRef.current=true;setDeleteBusy(true);setDeleteError(undefined);
     try{
-      accept(await repository.delete(deleting.id));setDeleting(null);setToast(true);
+      accept(await repository.delete(deleting.id));setDeleting(null);setRegistrationToastVisible(false);setToast(true);
       clearTimeout(toastTimer.current);toastTimer.current=setTimeout(()=>setToast(false),2200);
     }catch{setDeleteError('삭제하지 못했어요. 다시 시도해 주세요.');}
     finally{deletingRef.current=false;setDeleteBusy(false);}
@@ -55,6 +74,7 @@ export function ScheduleListScreen({ onAdd, onNavigate }: { onAdd:()=>void; onNa
       </ImageBackground></Pressable>;
     })}
   </ScrollView>
+    {registrationToastVisible&&<Animated.View testID="schedule-registration-toast" pointerEvents="none" accessibilityRole="alert" style={[styles.toast,{opacity:registrationOpacity,transform:[{translateX:2}]}]}><Text style={styles.toastText}>일정을 추가했습니다.</Text></Animated.View>}
     {toast&&<View pointerEvents="none" accessibilityRole="alert" style={styles.toast}><Text style={styles.toastText}>삭제되었습니다</Text></View>}
     <ScheduleDeleteDialog schedule={deleting} busy={deleteBusy} error={deleteError} onCancel={()=>setDeleting(null)} onDelete={()=>void remove()}/>
   </ScheduleShell>;
