@@ -9,6 +9,6 @@ export function ScheduleCompletionMark() {
       <Stop offset="0" stopColor="#3DA369"/><Stop offset="1" stopColor="#1BC464"/>
     </LinearGradient></Defs>
     <Circle cx={17} cy={17} r={17} fill={`url(#${id})`}/>
-    <Path d="M8 16L13 21L23 10" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"/>
+    <Path transform="translate(1.5 1.5)" d="M8 16L13 21L23 10" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"/>
   </Svg>;
 }

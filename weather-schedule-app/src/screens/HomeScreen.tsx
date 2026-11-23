@@ -2,22 +2,24 @@ import type { BottomTabId } from '../navigation/bottomTabs';
 import { useRef, type ComponentRef } from 'react';
 import { BlurTargetView } from 'expo-blur';
 import { GlassBlurContext } from '../components/home/GlassSurface';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WeatherBackground } from '../components/home/WeatherBackground';
 import { AvatarView } from '../components/home/AvatarView';
 import type { AvatarDefinition } from '../features/avatar/types';
 import { HomeText } from '../components/home/HomeText';
 import { HomeButton } from '../components/home/HomeButton';
-import { ScheduleCard, type HomeSchedule } from '../components/home/ScheduleCard';
+import { ScheduleCard } from '../components/home/ScheduleCard';
 import { WeatherMessage } from '../components/home/WeatherMessage';
 import { BottomNavigation } from '../components/home/BottomNavigation';
 import { useWeather } from '../features/weather/useWeather';
-const demoSchedules: HomeSchedule[] = [
-  { id: '1', time: '9:00', title: '당뇨약', completed: true },
-  { id: '2', time: '10:20', title: '연속극', completed: false },
-];
+import { useSchedules, useToday } from '../features/schedules/ScheduleProvider';
+import { homeSchedules } from '../features/schedules/home';
 export function HomeScreen({ avatar, onNavigate }: { avatar?: AvatarDefinition; onNavigate?: (tab: BottomTabId) => void }) {
+  const { items, loading, loadError } = useSchedules();
+  const today = useToday();
+  const schedules = homeSchedules(items, today);
+  const openSchedules = () => onNavigate?.('schedule');
   const blurTarget = useRef<ComponentRef<typeof View>>(null);
   const { weather, notice, credit } = useWeather();
   const { width, height } = useWindowDimensions();
@@ -34,11 +36,13 @@ export function HomeScreen({ avatar, onNavigate }: { avatar?: AvatarDefinition; 
         </BlurTargetView>
         <View style={styles.settings}><HomeButton icon="settings" label="설정"/></View>
         <View style={styles.scheduleSection}>
-          <HomeText accessibilityRole="header" style={styles.heading}>오늘의 할 일</HomeText>
-          <View style={styles.cards}>{demoSchedules.map(schedule => <ScheduleCard key={schedule.id} schedule={schedule}/>)}</View>
+          <Pressable accessibilityRole="button" accessibilityLabel="오늘의 할 일 목록 보기" onPress={openSchedules}><HomeText style={styles.heading}>오늘의 할 일</HomeText></Pressable>
+          <View testID="home-schedules" style={styles.cards}>{!loading && !loadError && schedules.map(schedule => <ScheduleCard key={schedule.id} schedule={schedule} onPress={openSchedules}/>)}
+            {(loading || loadError || schedules.length === 0) && <View style={styles.emptyCard}><HomeText accessibilityRole={loadError ? 'alert' : undefined} style={styles.emptyText}>{loading ? '일정을 불러오고 있어요.' : loadError ? '일정을 불러오지 못했어요.' : '오늘 일정이 없어요.'}</HomeText></View>}
+          </View>
           <HomeText style={styles.credit}>{credit}</HomeText>
         </View>
-        <WeatherMessage weather={weather} notice={notice}/>
+        <WeatherMessage weather={weather} notice={notice} displayScale={scale}/>
         <BottomNavigation activeTab="home" onNavigate={onNavigate} enabledTabs={['schedule', 'home']}/>
       </View>
     </View>
@@ -50,5 +54,7 @@ const styles = StyleSheet.create({
   scheduleSection: { position: 'absolute', top: 108, left: 28, right: 28 },
   heading: { fontSize: 17, fontWeight: '700', marginLeft: 8, marginBottom: 7 },
   cards: { flexDirection: 'row', gap: 6 },
+  emptyCard: { flex: 1, height: 74, justifyContent: 'center', paddingHorizontal: 18 },
+  emptyText: { color: '#5C6260', fontSize: 14, textAlign: 'center' },
   credit: { color: '#FFF', fontSize: 10, marginTop: 7, marginLeft: 8 },
 });

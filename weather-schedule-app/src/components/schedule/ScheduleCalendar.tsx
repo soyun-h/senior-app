@@ -14,6 +14,7 @@ export function ScheduleCalendar({ selection, onChange }: { selection: DateSelec
   const [month, setMonth] = useState(selection.startDate.slice(0, 7));
   const [year, number] = month.split('-').map(Number);
   const dates = calendarDates(month, 'sunday');
+  const [gridWidth, setGridWidth] = useState(0);
   const grid = useRef<ComponentRef<typeof View>>(null);
   const gesture = useRef<{ anchor?: string; x: number; y: number; ended: boolean; bounds?: { x: number; y: number; width: number; height: number } } | null>(null);
   function updateGesture() {
@@ -57,7 +58,7 @@ export function ScheduleCalendar({ selection, onChange }: { selection: DateSelec
       <Pressable accessibilityRole="button" accessibilityLabel="다음 달" onPress={() => move(1)} style={styles.move}><ScheduleAsset name="month-right"/></Pressable>
     </View>
     <View style={styles.week}>{days.map((day, index) => <View key={day} style={styles.weekday}><Text style={[styles.weekText, index === 0 && styles.sunday]}>{day}</Text></View>)}</View>
-    <View ref={grid} collapsable={false} style={[styles.grid, Platform.OS === 'web' && webGestureStyle]}
+    <View ref={grid} onLayout={event => setGridWidth(event.nativeEvent.layout.width)} collapsable={false} style={[styles.grid, Platform.OS === 'web' && webGestureStyle]}
       onStartShouldSetResponderCapture={() => true}
       onResponderGrant={startGesture}
       onResponderMove={event => moveGesture(event)}
@@ -69,7 +70,7 @@ export function ScheduleCalendar({ selection, onChange }: { selection: DateSelec
         const week=dates.slice(row*7,row*7+7);
         const selected=week.map((date,index)=>date>=selection.startDate&&date<=selection.endDate?index:-1).filter(index=>index>=0);
         return <View key={week[0]} style={styles.calendarRow}>
-          {!!selected.length&&<View pointerEvents="none" style={[styles.range,{left:`${selected[0]*100/7}%`,width:`${selected.length*100/7}%`}]}><SelectionSurface variant={selected.length===1?'date':'pill'}/></View>}
+          {!!selected.length&&gridWidth>0&&<View pointerEvents="none" style={[styles.range,{left:selected[0]*gridWidth/7,width:selected.length*gridWidth/7}]}><SelectionSurface width={selected.length*gridWidth/7} height={31.5} variant={selected.length===1?'date':'pill'}/></View>}
           {week.map((date,index)=>{
             const active=date>=selection.startDate&&date<=selection.endDate;
             return <Pressable key={date} accessibilityRole="button" accessibilityLabel={`${date} 날짜`} accessibilityState={{selected:active}} aria-selected={active} onPress={()=>onChange(dragDateSelection(date,date))} style={styles.cell}>
