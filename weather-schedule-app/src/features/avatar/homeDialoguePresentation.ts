@@ -9,8 +9,8 @@ export interface HomeDialogueContext {
 }
 
 /**
- * 상황별 기준 포즈. 홈 화면은 idle 이미지만 표시하므로 지금은 화면에 쓰지 않는다.
- * 대사 영상(<situation>.mp4)을 만들 때 idle에서 이 포즈로 갔다가 idle로 돌아오는 중간 동작 기준으로 쓴다.
+ * 상황별 제스처 자세. 홈 화면은 대사를 말하는 동안 이 자세를 보여 주고, 대사가 끝나면 idle로 돌아간다.
+ * 대사 영상(<situation>.mp4)을 만들 때도 idle → 이 자세 → idle의 중간 동작 기준으로 쓴다.
  */
 export const homePoses: Record<HomeDialogueSituation, Pose> = {
   greeting: 'wave',

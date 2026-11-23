@@ -36,9 +36,15 @@ npm start             # Expo 개발 서버
 2. 캐릭터 ID와 상황 키로 대사와 음원을 정한다.
    - 대사: `homeDialogueLines[characterId][situation]`
    - 음원: `characterVoices[characterId][situation]`(`assets/voices/*.m4a`)
-3. `DialogueAvatar.tsx`는 캐릭터의 기본 이미지를 고정해 표시하고 `useHomeDialogueAudio`로 해당 음원을 재생한다. 하단에는 캐릭터 대사만 표시한다. 날씨 상태는 배경과 대사 선택에 쓰고 출처는 할 일 카드 아래에 표시한다.
+3. `DialogueAvatar.tsx`가 `useHomeDialogueAudio`로 음원을 재생하고, 재생 상태(`waiting`·`speaking`·`done`)를 `AvatarView`에 넘긴다.
+4. 캐릭터 제스처(`AvatarView.tsx`)
+   - 등장: 아래에서 12px 올라오며 나타남(300ms)
+   - 말하는 중: 상황 자세(`homePoses`: 인사=`wave`, 남은 일정=`encourage`, 일정 완료=`ok`, 밤·날씨=`idle`)를 보여 주고 작게 위아래로 움직임(450ms 주기)
+   - 대사 끝: 기본 자세로 겹쳐 바뀜(300ms), 이후 천천히 떠 있는 움직임(3.2s 주기)
+   - 캐릭터를 누르면 대사를 처음부터 다시 재생한다. 기기의 '동작 줄이기'가 켜져 있으면 움직임 없이 자세만 바꾼다.
+5. 대사 출력(`CharacterDialogue.tsx`): 날씨 안내 위(bottom 183)에 대사창을 두고, 대사가 바뀔 때마다 아래에서 8px 올라오며 나타난다(250ms).
 
-대사 영상 규격은 아래에 정리했다. 현재 홈에서는 기본 이미지와 별도 음원을 사용하고, 입 모양 이미지는 저장소에 두지 않는다.
+대사 영상 규격은 아래에 정리했다. 현재 홈에서는 자세 이미지와 별도 음원을 사용하고, 입 모양 이미지는 저장소에 두지 않는다.
 
 ## 4. 에셋 규격 및 현재 반영 현황
 
@@ -95,15 +101,15 @@ npm start             # Expo 개발 서버
 | 밤 | `night.mp4` | `idle` |
 | 비·눈·낙뢰 | `rain.mp4`, `snow.mp4`, `thunder.mp4` | `idle` |
 
-- 포즈 JPG(`wave`, `ok`, `encourage`)는 홈 화면에서 지금 쓰지 않지만 영상 제작 기준 이미지로 둔다.
+- 포즈 JPG(`wave`, `ok`, `encourage`)는 홈 제스처에 쓰고, 영상 제작 기준 이미지로도 쓴다.
 - 음성은 `assets/voices/<id>_<situation>.m4a`(인사는 `<id>.m4a`)를 그대로 쓴다.
 - mp4는 배경이 투명하지 않아 `idle`의 회색 배경이 그대로 보인다. 홈 화면에 넣을 때는 배경을 지운 투명 애니메이션으로 바꾸거나, 영상통화 카드 형태로 표시하는 방식을 정해야 한다.
 
 ## 6. 홈의 날씨 표시
 
-- 할 일 카드 아래에 기상청 출처 또는 데모 표시를 둔다.
-- 하단에는 캐릭터 대사창을 표시한다. 날씨 상태는 기존 훅을 통해 배경과 대사 선택에 전달한다.
-- `tests/home-weather-layout.test.mjs`가 홈 구성과 정적 이미지 표시를 확인한다.
+- 날씨 안내(`WeatherMessage`, bottom 90)와 하단 내비게이션(`BottomNavigation activeTab="home"`)은 허소윤/members의 구성을 그대로 쓴다. 캐릭터 작업에서 위치와 내용을 바꾸지 않는다.
+- 할 일 카드 아래에 기상청 출처 또는 데모 표시를 둔다. 캐릭터 대사창은 날씨 안내 위에 둔다.
+- `tests/home-weather-layout.test.mjs`가 이 배치와 캐릭터 제스처·다시 듣기 연결을 확인한다.
 
 ## 7. 주요 파일 구조
 
@@ -117,9 +123,9 @@ npm start             # Expo 개발 서버
 | `src/features/avatar/useHomeDialogue.ts`, `useHomeDialogueAudio.ts` | 홈 대사 상태 관리와 음원 재생 |
 | `src/features/avatar/dialogueMedia.ts` | 캐릭터별 대사 영상 탐색(홈에는 아직 연결하지 않음) |
 | `src/features/avatar/characterAssets.ts`, `characterOutlines.json` | 포즈 이미지 연결, 포즈 대체, 배경 투명 처리용 윤곽 |
-| `src/components/home/DialogueAvatar.tsx` | 홈 기본 이미지와 대사 음원 연결 |
+| `src/components/home/DialogueAvatar.tsx`, `AvatarView.tsx` | 대사 음원 재생 상태와 캐릭터 자세·제스처 연결 |
 | `src/components/home/DialogueVideo.tsx`, `DialogueVideo.web.tsx` | `expo-video` 기반 대사 영상 재생(네이티브·웹, 홈에는 아직 연결하지 않음) |
 | `src/components/home/AvatarView.tsx`, `CharacterImage.tsx` | 기본 이미지 렌더링, 비율과 여백 |
 | `tests/avatar*.test.mjs` | 캐릭터 설정, 상황 선택, 대사 영상 탐색 테스트 |
 | `tests/avatar-dialogue-assets.test.mjs` | 5명의 `dialogue/` 폴더 파일명과 MP4 형식 검사 |
-| `tests/home-weather-layout.test.mjs` | 홈 구성(날씨 배경·출처, 대사창)과 정적 이미지 표시 검사 |
+| `tests/home-weather-layout.test.mjs` | 홈 구성(날씨 안내·내비게이션·대사창 위치)과 캐릭터 제스처 연결 검사 |

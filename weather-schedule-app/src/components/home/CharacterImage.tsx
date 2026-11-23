@@ -1,17 +1,23 @@
 import { useId } from 'react';
 import Svg, { ClipPath, Defs, Image, Path } from 'react-native-svg';
-import { imageFor } from '../../features/avatar/characterAssets';
+import { imageFor, resolvePose } from '../../features/avatar/characterAssets';
 import outlines from '../../features/avatar/characterOutlines.json';
-import type { CharacterId } from '../../features/avatar/characterTypes';
+import type { CharacterId, Pose } from '../../features/avatar/characterTypes';
+
+interface Outline { width: number; height: number; path: string }
+const characterOutlines: Record<string, Outline | undefined> = outlines;
 
 interface CharacterImageProps {
   characterId: CharacterId;
+  pose?: Pose;
   label?: string;
 }
 
-export function CharacterImage({ characterId, label }: CharacterImageProps) {
+/** 캐릭터 자세 이미지를 윤곽선대로 잘라 배경 없이 그린다. */
+export function CharacterImage({ characterId, pose = 'idle', label }: CharacterImageProps) {
   const clipId = `character-${useId()}`;
-  const outline = outlines[`${characterId}_idle`];
+  const resolved = resolvePose(characterId, pose);
+  const outline = characterOutlines[`${characterId}_${resolved}`] ?? characterOutlines[`${characterId}_idle`]!;
 
   return (
     <Svg
@@ -27,7 +33,7 @@ export function CharacterImage({ characterId, label }: CharacterImageProps) {
         </ClipPath>
       </Defs>
       <Image
-        href={imageFor(characterId, 'idle')}
+        href={imageFor(characterId, resolved)}
         width={outline.width}
         height={outline.height}
         preserveAspectRatio="xMidYMid meet"

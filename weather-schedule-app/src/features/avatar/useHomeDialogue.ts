@@ -20,6 +20,6 @@ export function useHomeDialogue(characterId: CharacterId | undefined, context: O
 
   const demoDialogue = demo ? homeDemoDialogue(context.condition) : undefined;
   const character = getCharacter(demoDialogue?.characterId ?? characterId);
-  const { situation, text } = demoDialogue ?? homeDialogue(character.id, { ...context, now });
-  return { character, situation, text };
+  const { situation, text, pose } = demoDialogue ?? homeDialogue(character.id, { ...context, now });
+  return { character, situation, text, pose };
 }
