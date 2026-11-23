@@ -91,16 +91,14 @@ export function ScheduleListScreen({ onAdd, onNavigate, registrationNotice=false
     <ScheduleDeleteDialog schedule={deleting} busy={deleteBusy} error={deleteError} onCancel={()=>setDeleting(null)} onDelete={()=>void remove()}/>
   </ScheduleShell>;
 }
-/** Keep the existing content grid; only the background gets measured border-box dimensions.
- * Native Yoga resolves percentage image width against the padded content box.
+/** Background only: an unpadded absolute layer fills the card's border box.
+ * Always mount the original image; do not gate it on an onLayout callback.
  */
 function CardFrame({ source, children }: { source: ImageSourcePropType; children: ReactNode }) {
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  return <View style={styles.card} onLayout={({ nativeEvent: { layout } }) => {
-    setSize(previous => previous.width === layout.width && previous.height === layout.height
-      ? previous : { width: layout.width, height: layout.height });
-  }}>
-    {size.width > 0 && <Image accessible={false} pointerEvents="none" source={source} resizeMode="stretch" style={[StyleSheet.absoluteFill, size]}/>}
+  return <View style={styles.card}>
+    <View pointerEvents="none" collapsable={false} style={StyleSheet.absoluteFill}>
+      <Image accessible={false} source={source} resizeMode="stretch" style={{ width: '100%', height: '100%' }}/>
+    </View>
     {children}
   </View>;
 }
