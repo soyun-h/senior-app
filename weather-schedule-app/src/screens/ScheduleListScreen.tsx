@@ -74,9 +74,9 @@ export function ScheduleListScreen({ onAdd, onNavigate, registrationNotice=false
     {loadError&&<View><Text accessibilityRole="alert" style={styles.error}>{loadError}</Text><Pressable accessibilityRole="button" onPress={()=>void reload()} style={styles.retry}><Text>다시 불러오기</Text></Pressable></View>}
     {error&&<Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     {!loading&&!loadError&&schedules.length===0&&<Text style={styles.empty}>오늘 날짜에 해당하는 일정이 없어요.{ '\n' }다른 날짜의 일정은 해당 날짜에 표시돼요.</Text>}
-    {!loading&&!loadError&&schedules.map(schedule=>{
+    {!loading&&!loadError&&schedules.map((schedule,row)=>{
       const complete=schedule.completedDates.includes(today),disabled=busy.includes(schedule.id),enabled=schedule.notificationsEnabled&&schedule.notificationMethod==='video-call';
-      return <Pressable key={schedule.id} accessibilityRole="button" accessibilityLabel={`${schedule.title} 일정 카드`} accessibilityHint="길게 눌러 일정을 삭제합니다" disabled={disabled} delayLongPress={500} onLongPress={()=>{setDeleting(schedule);setDeleteError(undefined);setToast(false);}}><CardFrame source={deleting?.id===schedule.id?(enabled?require('../../assets/schedule/images/card-on-selected.png'):require('../../assets/schedule/images/card-off-selected.png')):enabled?require('../../assets/schedule/images/card-on.png'):require('../../assets/schedule/images/card-off.png')}>
+      return <Pressable onLayout={event=>cardImageTrace('parent-layout',{row,width:event.nativeEvent.layout.width,height:event.nativeEvent.layout.height})} key={schedule.id} accessibilityRole="button" accessibilityLabel={`${schedule.title} 일정 카드`} accessibilityHint="길게 눌러 일정을 삭제합니다" disabled={disabled} delayLongPress={500} onLongPress={()=>{setDeleting(schedule);setDeleteError(undefined);setToast(false);}}><CardFrame row={row} source={deleting?.id===schedule.id?(enabled?require('../../assets/schedule/images/card-on-selected.png'):require('../../assets/schedule/images/card-off-selected.png')):enabled?require('../../assets/schedule/images/card-on.png'):require('../../assets/schedule/images/card-off.png')}>
         <Pressable accessibilityRole="checkbox" accessibilityLabel={`${schedule.title} 완료`} accessibilityState={{checked:complete,disabled}} aria-checked={complete} disabled={disabled} onPress={()=>void change(schedule.id,()=>repository.toggleCompletion(schedule.id,today))} style={styles.checkTouch}>
           <View style={[styles.check,!enabled&&{borderColor:'#D8D8D8'},complete&&styles.complete]}>{complete&&<ScheduleCompletionMark/>}</View>
         </Pressable>
@@ -94,10 +94,33 @@ export function ScheduleListScreen({ onAdd, onNavigate, registrationNotice=false
 /** Background only: an unpadded absolute layer fills the card's border box.
  * Always mount the original image; do not gate it on an onLayout callback.
  */
-function CardFrame({ source, children }: { source: ImageSourcePropType; children: ReactNode }) {
-  return <View style={styles.card}>
-    <View pointerEvents="none" collapsable={false} style={StyleSheet.absoluteFill}>
-      <Image accessible={false} source={source} resizeMode="stretch" style={{ width: '100%', height: '100%' }}/>
+// Temporary development-only diagnostics: never log titles, schedule IDs, URLs or raw errors.
+function cardImageTrace(event: string, fields: Record<string, string | number | boolean | undefined>) {
+  if (__DEV__) console.info('[ScheduleCard native-diag-1]', JSON.stringify({ platform: Platform.OS, event, ...fields }));
+}
+function CardFrame({ source, children, row }: { source: ImageSourcePropType; children: ReactNode; row: number }) {
+  useEffect(() => {
+    if (!__DEV__) return;
+    const resolved = typeof Image.resolveAssetSource === 'function' ? Image.resolveAssetSource(source) : undefined;
+    const uri = resolved?.uri ?? '';
+    const asset = uri.match(/card-(?:on|off)(?:-selected)?(?:\.[a-f0-9]+)?\.png(?=[?\s]|$)/)?.[0] ?? 'unresolved';
+    cardImageTrace('source-resolved', { row, available: !!resolved, asset,
+      width: resolved?.width, height: resolved?.height, scale: resolved?.scale,
+      transport: !uri ? 'unresolved' : /^https?:/.test(uri) ? 'network' : 'local',
+      sourceType: typeof source, declaredOpacity: 1, backgroundOrder: 'before-content' });
+  }, [source, row]);
+  return <View style={styles.card} onLayout={event=>cardImageTrace('card-layout',{row,width:event.nativeEvent.layout.width,height:event.nativeEvent.layout.height})}>
+    <View pointerEvents="none" collapsable={false} style={StyleSheet.absoluteFill} onLayout={event=>cardImageTrace('background-layout',{row,width:event.nativeEvent.layout.width,height:event.nativeEvent.layout.height})}>
+      <Image accessible={false} source={source} resizeMode="stretch" style={{ width: '100%', height: '100%' }}
+        onLayout={event=>cardImageTrace('image-layout',{row,width:event.nativeEvent.layout.width,height:event.nativeEvent.layout.height})}
+        onLoadStart={()=>cardImageTrace('load-start',{row})}
+        onLoad={event=>cardImageTrace('load-success',{row,width:event.nativeEvent.source?.width,height:event.nativeEvent.source?.height})}
+        onLoadEnd={()=>cardImageTrace('load-end',{row})}
+        onError={event=>{
+          const error=event.nativeEvent.error ?? '';
+          const http=error.match(/\b(?:400|401|403|404|408|429|500|502|503|504)\b/)?.[0];
+          cardImageTrace('load-error',{row,reason:http?`http-${http}`:/decode|format|corrupt/i.test(error)?'decode':/network|connect|timeout|host/i.test(error)?'network':'unknown'});
+        }}/>
     </View>
     {children}
   </View>;
