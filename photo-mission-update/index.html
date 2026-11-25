@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFF8EE">
+<title>오느른 · 사진 미션 인증</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./photo-proof.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<script type="importmap">
+{"imports":{
+  "react":"https://esm.sh/react@18.3.1",
+  "react-dom/client":"https://esm.sh/react-dom@18.3.1/client",
+  "lucide-react":"https://esm.sh/lucide-react@0.453.0?external=react"
+}}
+</script>
+<style>html,body{margin:0;background:#E9DACA}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-type="module">
+import React, { useState, useEffect, useLayoutEffect, useRef, useId } from "react";
+import { createRoot } from "react-dom/client";
+import { ArrowUp, Camera, Check, ChevronLeft, SwitchCamera, X, Zap } from "lucide-react";
+
+const PROOF_MISSIONS = [
+  { name: "당뇨약", time: "오전 9:00", message: "9시 당뇨약 복용을 완료했어요!", share: "오전 9:00 당뇨약 복용을 완료했어요!" },
+  { name: "연속극", time: "오전 10:20" },
+  { name: "경로당 가기", time: "오전 11:00" },
+  { name: "아들 방문", time: "오후 06:30" },
+];
+
+const PROOF_NOTES = [
+  "오늘도 건강하게 챙기고 있다는 걸 전해주세요.",
+  "약을 잘 드셨다는 소식이 가족에게는 큰 안심이 돼요.",
+  "가족들이 오늘도 걱정 없이 지낼 수 있도록 알려주세요.",
+  "오늘도 잘 지내고 있다는 반가운 소식을 보내보세요.",
+];
+
+function ProofCamera({ onPhoto, onClose }) {
+  const video = useRef(null);
+  const liveTrack = useRef(null);
+  const active = useRef(false);
+  const busy = useRef(false);
+  const [facing, setFacing] = useState("environment");
+  const [ready, setReady] = useState(false);
+  const [torch, setTorch] = useState(false);
+  const [message, setMessage] = useState("");
+  const [cameraError, setCameraError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let stream;
+    let retryTimer;
+    active.current = true;
+    const preview = video.current;
+    const fail = (error) => {
+      if (cancelled) return;
+      setReady(false);
+      setCameraError(true);
+      setMessage(error?.name === "NotAllowedError"
+        ? "브라우저에서 카메라 권한을 허용한 뒤 새로고침해 주세요."
+        : "카메라를 열 수 없어요. 카메라 연결을 확인해 주세요.");
+    };
+    async function start(retry = true) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing === "user" ? { exact: "user" } : { ideal: "environment" } },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        const track = stream.getVideoTracks()[0];
+        liveTrack.current = track;
+        track.addEventListener("ended", fail, { once: true });
+        preview.srcObject = stream;
+        await preview.play();
+        if (!cancelled) setReady(true);
+      } catch (error) {
+        stream?.getTracks().forEach((track) => track.stop());
+        if (!cancelled && retry && ["NotFoundError", "NotReadableError", "AbortError"].includes(error?.name)) {
+          retryTimer = setTimeout(() => start(false), 350);
+          return;
+        }
+        fail(error);
+      }
+    }
+    start();
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+      active.current = false;
+      liveTrack.current = null;
+      stream?.getTracks().forEach((track) => track.stop());
+      preview.srcObject = null;
+    };
+  }, [facing]);
+
+  const switchCamera = () => {
+    if (busy.current) return;
+    setReady(false);
+    setTorch(false);
+    setMessage("");
+    setCameraError(false);
+    setFacing((current) => current === "environment" ? "user" : "environment");
+  };
+
+  const toggleFlash = async () => {
+    const track = liveTrack.current;
+    if (!ready || !track?.getCapabilities?.().torch) {
+      if (!cameraError) setMessage("이 카메라에서 플래시를 켤 수 없어요.");
+      return;
+    }
+    try {
+      await track.applyConstraints({ advanced: [{ torch: !torch }] });
+      if (liveTrack.current !== track) return;
+      setTorch(!!track.getSettings().torch);
+      setMessage("");
+    } catch {
+      if (liveTrack.current === track) setMessage("플래시 설정을 바꿀 수 없어요.");
+    }
+  };
+
+  const capture = async () => {
+    if (busy.current) return;
+    const source = video.current;
+    if (!ready || !source.videoWidth) {
+      if (!cameraError) setMessage("카메라가 준비되면 다시 눌러주세요.");
+      return;
+    }
+    busy.current = true;
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = source.videoWidth;
+      canvas.height = source.videoHeight;
+      canvas.getContext("2d").drawImage(source, 0, 0);
+      const image = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+      if (!image) throw new Error("Photo encoding failed");
+      if (active.current) onPhoto(new File([image], "mission-proof.jpg", { type: image.type }));
+    } catch {
+      if (active.current) setMessage("사진을 찍지 못했어요. 다시 눌러주세요.");
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  return (
+    <div className="mission-camera">
+      <video ref={video} autoPlay muted playsInline aria-label="카메라 실시간 미리보기" />
+      <div className="mission-camera-tools">
+        <button type="button" aria-label="카메라 전환" onClick={switchCamera}><SwitchCamera /></button>
+        <button type="button" aria-label="플래시" aria-pressed={torch} onClick={toggleFlash}>{torch ? <Zap fill="currentColor" /> : <Zap />}</button>
+        <button type="button" aria-label="닫기" onClick={onClose}><X /></button>
+      </div>
+      <h1>사진 인증 촬영</h1>
+      <div className="mission-guides"><i /><i /><i /><i /><p>네모 안에 맞춰주세요</p></div>
+      <div className="mission-camera-status">
+        {message && <p role="status">{message}</p>}
+      </div>
+      <button type="button" className="mission-shutter" aria-label="사진 촬영" onClick={capture}><span><Camera /></span></button>
+    </div>
+  );
+}
+
+function ProofBack({ onClick }) {
+  return <button type="button" className="mission-back" aria-label="뒤로가기" onClick={onClick}><ChevronLeft /></button>;
+}
+
+function PhotoProof({ onConfirm, onCancel }) {
+  const historyId = useId();
+  const scrollFrame = useRef(null);
+  const [step, setStep] = useState("camera");
+  const [photo, setPhoto] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [note, setNote] = useState("");
+  const [message, setMessage] = useState("");
+  const [fallback, setFallback] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const confirmed = useRef(false);
+  const mission = PROOF_MISSIONS[step === "complete" ? history.state?.missionIndex : selected];
+  const shareText = mission?.share ?? (mission ? `${mission.time} ${mission.name} 완료했어요!` : "");
+
+  useLayoutEffect(() => { scrollFrame.current.scrollTop = 0; }, [step]);
+
+  useEffect(() => {
+    if (!photo) return;
+    const url = URL.createObjectURL(photo);
+    setPhotoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+
+  const showStep = (next) => {
+    if (next === "camera") {
+      setPhoto(null);
+      setPhotoUrl("");
+    }
+    if (next === "complete") setNote(PROOF_NOTES[Math.floor(Math.random() * PROOF_NOTES.length)]);
+    setMessage("");
+    setFallback(false);
+    setStep(next);
+  };
+
+  useEffect(() => {
+    const navigate = ({ state }) => showStep(state?.photoProof === historyId && photo ? state.step : "camera");
+    window.addEventListener("popstate", navigate);
+    return () => window.removeEventListener("popstate", navigate);
+  }, [historyId, photo]);
+
+  const advance = (next) => {
+    history.pushState({ ...history.state, photoProof: historyId, step: next, missionIndex: next === "complete" ? selected : null }, "");
+    showStep(next);
+  };
+  const back = () => history.back();
+  const receivePhoto = (file) => {
+    history.replaceState({ ...history.state, photoProof: historyId, step: "camera", missionIndex: null }, "");
+    setPhoto(file);
+    advance("review");
+  };
+
+  const register = (event) => {
+    event.preventDefault();
+    if (!mission || !photo) return;
+    if (!confirmed.current) {
+      confirmed.current = true;
+      onConfirm?.();
+    }
+    advance("complete");
+  };
+
+  const share = async () => {
+    if (sharing) return;
+    const data = { title: "미션 인증 완료", text: shareText, files: [photo] };
+    setSharing(true);
+    try {
+      if (navigator.share && navigator.canShare?.(data)) {
+        await navigator.share(data);
+        return;
+      }
+      setFallback(true);
+    } catch (error) {
+      if (error.name !== "AbortError") setFallback(true);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const copyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setMessage("인증 메시지를 복사했어요.");
+    } catch {
+      setMessage("아래 문구를 길게 누르거나 선택해 복사해 주세요.");
+    }
+  };
+
+  return (
+    <section ref={scrollFrame} className={`mission-proof mission-step-${step}`} aria-label="사진 인증" tabIndex={0}>
+      {step === "camera" && <ProofCamera onPhoto={receivePhoto} onClose={() => onCancel(confirmed.current)} />}
+      {step === "review" && (
+        <form className="mission-review" onSubmit={register}>
+          <header><ProofBack onClick={back} /><h1>인증하기</h1></header>
+          <div className="mission-preview">
+            {photoUrl && <img src={photoUrl} alt="인증할 사진" />}
+            <button type="button" className="mission-retake" onClick={back}><Camera />재촬영</button>
+          </div>
+          <fieldset className="mission-options">
+            <legend><Check />무엇을 수행했나요?</legend>
+            <div className="mission-rows">
+              {PROOF_MISSIONS.map(({ name, time }, index) => (
+                <label className="mission-option" key={name}>
+                  <input type="radio" name="proof-mission" checked={selected === index}
+                    onChange={() => setSelected(index)} />
+                  <span className="mission-radio"><Check /></span>
+                  <strong>{name}</strong><span className="mission-time">{time}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <button type="submit" className="mission-register" disabled={!mission || !photo}>등록하기</button>
+        </form>
+      )}
+      {step === "complete" && mission && (
+        <div className="mission-complete">
+          <div className="mission-stack">
+            <span className="mission-sparkles" aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
+            {photoUrl && <div className="mission-photo"><img src={photoUrl} alt="인증 완료 사진" /></div>}
+          </div>
+          <h1>인증 완료!</h1>
+          <section className="mission-family" aria-label="가족 공유">
+            <h2>명숙(큰딸)님에게 공유해보아요</h2>
+            <p>{note}</p>
+            <button className="mission-share" type="button" onClick={share} disabled={sharing}>
+              <span title={`${mission.name} ${mission.time}`}>{mission.message ?? shareText}</span><span><ArrowUp /></span>
+            </button>
+          </section>
+          {fallback && <div className="mission-share-fallback">
+            <p>사진을 저장하고 메시지를 복사해 가족에게 보내세요.</p>
+            <div>
+              <a href={photoUrl} download={photo.name}>사진 저장</a>
+              <button type="button" onClick={copyMessage}>메시지 복사</button>
+              <button type="button" onClick={() => { setFallback(false); setMessage(""); }}>닫기</button>
+            </div>
+            <p role="status">{message}</p>
+            <p>{shareText}</p>
+          </div>}
+        </div>
+      )}
+      <footer className="mission-system-bar">
+        <span className="mission-system-recent" aria-hidden="true" />
+        <span className="mission-system-home" aria-hidden="true" />
+        <button type="button" aria-label="이전 화면" onClick={step === "camera" ? () => onCancel(confirmed.current) : back}>
+          <ChevronLeft />
+        </button>
+      </footer>
+    </section>
+  );
+}
+
+
+function App() {
+  const [cameraOpen, setCameraOpen] = useState(true);
+  return (
+    <main className="min-h-screen flex justify-center items-center md:py-6" style={{ background: "#eef1ef", fontFamily: "'Pretendard','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif", fontSize: 18 }}>
+      <div className="mission-frame">
+        {cameraOpen
+          ? <PhotoProof onCancel={() => setCameraOpen(false)} />
+          : <div className="grid h-full place-items-center">
+              <button type="button" className="rounded-full bg-green-700 px-6 py-3 font-bold text-white" onClick={() => setCameraOpen(true)}>사진 인증 촬영 시작</button>
+            </div>}
+      </div>
+    </main>
+  );
+}
+
+createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
