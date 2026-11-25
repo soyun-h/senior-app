@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "오느른 사진 기록",
+    "slug": "oneureun-photo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": { "bundleIdentifier": "com.oneureun.photo" },
+    "android": { "package": "com.oneureun.photo" },
+    "plugins": [
+      ["expo-camera", {
+        "cameraPermission": "오느른에서 사진을 기록하려면 카메라 접근을 허용해 주세요.",
+        "microphonePermission": false,
+        "recordAudioAndroid": false,
+        "barcodeScannerEnabled": false
+      }]
+    ]
+  }
+}
