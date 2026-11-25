@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "오느른 달력",
+    "slug": "oneureun-calendar",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "androidNavigationBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#F0F0F0"
+    },
+    "android": {
+      "package": "com.oneureun.calendar"
+    },
+    "ios": {
+      "bundleIdentifier": "com.oneureun.calendar"
+    },
+    "plugins": [
+      ["expo-image-picker", {
+        "cameraPermission": "오느른 기록 사진을 찍을 수 있도록 카메라 접근을 허용해 주세요.",
+        "microphonePermission": false
+      }]
+    ]
+  }
+}
