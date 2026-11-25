@@ -27,6 +27,7 @@ export interface Schedule extends ScheduleDraft {
 export interface ScheduleRepository {
   list(): Promise<Schedule[]>;
   create(draft: ScheduleDraft, id: string, now?: number): Promise<Schedule[]>;
+  update(id: string, draft: ScheduleDraft, now?: number, options?: { notificationEdited?: boolean }): Promise<Schedule[]>;
   toggleCompletion(id: string, date: DateKey, now?: number): Promise<Schedule[]>;
   delete(id: string): Promise<Schedule[]>;
   setNotifications(id: string, enabled: boolean, now?: number): Promise<Schedule[]>;
@@ -60,7 +61,7 @@ export function formatTime(hour: number, minute: number): string { return `${hou
 export function formatDate(date: DateKey): string {
   return `${date.slice(2,4)}년 ${Number(date.slice(5,7))}월 ${Number(date.slice(8))}일 (${['월','화','수','목','금','토','일'][weekday(date)-1]}요일)`;
 }
-export function validateDraft(draft: ScheduleDraft, now = Date.now()): void {
+export function validateDraft(draft: ScheduleDraft, now = Date.now(), editing = false): void {
   if (typeof draft.title !== 'string' || !draft.title.trim() || draft.title.trim().length > 80) throw new Error('일정 제목을 1~80자로 입력해 주세요.');
   if (!['general','medication'].includes(draft.type)) throw new Error('일정 유형을 선택해 주세요.');
   if (!Number.isInteger(draft.hour) || draft.hour < 0 || draft.hour > 23 || !Number.isInteger(draft.minute) || draft.minute < 0 || draft.minute > 59) throw new Error('시와 분을 올바르게 선택해 주세요.');
@@ -69,16 +70,17 @@ export function validateDraft(draft: ScheduleDraft, now = Date.now()): void {
   if (!r || !['once','range','weekly'].includes(r.mode)) throw new Error('날짜 또는 요일 반복을 선택해 주세요.');
   if (r.mode === 'once') {
     if (!validDate(r.date)) throw new Error('올바른 날짜를 선택해 주세요.');
-    if (Date.parse(`${r.date}T${String(draft.hour).padStart(2,'0')}:${String(draft.minute).padStart(2,'0')}:00+09:00`) <= now) throw new Error('현재보다 뒤의 날짜와 시각을 선택해 주세요.');
+    if (!editing && Date.parse(`${r.date}T${String(draft.hour).padStart(2,'0')}:${String(draft.minute).padStart(2,'0')}:00+09:00`) <= now) throw new Error('현재보다 뒤의 날짜와 시각을 선택해 주세요.');
   } else if (r.mode === 'range') {
     if (!validDate(r.startDate) || !validDate(r.endDate) || r.endDate < r.startDate) throw new Error('올바른 시작 날짜와 종료 날짜를 선택해 주세요.');
-    if (r.startDate < dateKeyAt(now) || Date.parse(`${r.endDate}T${String(draft.hour).padStart(2,'0')}:${String(draft.minute).padStart(2,'0')}:00+09:00`) <= now) throw new Error('현재보다 뒤의 날짜와 시각을 선택해 주세요.');
+    if (!editing && (r.startDate < dateKeyAt(now) || Date.parse(`${r.endDate}T${String(draft.hour).padStart(2,'0')}:${String(draft.minute).padStart(2,'0')}:00+09:00`) <= now)) throw new Error('현재보다 뒤의 날짜와 시각을 선택해 주세요.');
   } else {
-    if (!validDate(r.startDate) || r.startDate !== dateKeyAt(now)) throw new Error('날짜가 바뀌었습니다. 다시 등록해 주세요.');
+    if (!validDate(r.startDate) || (!editing && r.startDate !== dateKeyAt(now))) throw new Error('날짜가 바뀌었습니다. 다시 등록해 주세요.');
     if (!Array.isArray(r.weekdays) || !r.weekdays.length || new Set(r.weekdays).size !== r.weekdays.length || r.weekdays.some(d => !Number.isInteger(d) || d < 1 || d > 7)) throw new Error('반복할 요일을 하나 이상 선택해 주세요.');
   }
 }
 /** Strict stored-data boundary. Past dates are allowed when loading previously saved records. */
+// Completion dates remain historical records even after recurrence edits.
 export function parseSchedules(raw: string | null): Schedule[] {
   if (raw === null) return [];
   try {
@@ -93,7 +95,7 @@ export function parseSchedules(raw: string | null): Schedule[] {
       if (![5,10,30].includes(s.reminderMinutes) || !['video-call','alarm','none'].includes(s.notificationMethod) || typeof s.notificationsEnabled !== 'boolean' || (s.notificationMethod==='none' && s.notificationsEnabled)) throw new Error();
       if ((s.medicationNote !== undefined && (typeof s.medicationNote !== 'string' || s.medicationNote.length>500)) || ![s.createdAt,s.updatedAt].every(d=>typeof d==='string' && Number.isFinite(Date.parse(d)))) throw new Error();
       if (!s.recurrence || !['once','range','weekly'].includes(s.recurrence.mode)) throw new Error();
-      if (!Array.isArray(s.completedDates) || s.completedDates.some(d=>!validDate(d) || !onDate(s,d)) || new Set(s.completedDates).size !== s.completedDates.length) throw new Error();
+      if (!Array.isArray(s.completedDates) || s.completedDates.some(d=>!validDate(d)) || new Set(s.completedDates).size !== s.completedDates.length) throw new Error();
       const r=s.recurrence;
       if (r.mode==='once') { if (!validDate(r.date)) throw new Error(); }
       else if (r.mode==='range') {

@@ -1,3 +1,4 @@
+import { ScheduleNotificationSummary } from '../components/schedule/ScheduleNotificationSummary';
 import { ScheduleSkeleton } from '../components/schedule/ScheduleSkeleton';
 import { ScheduleCompletionMark } from '../components/schedule/ScheduleCompletionMark';
 import { ScheduleText as Text } from '../components/schedule/ScheduleText';
@@ -10,7 +11,7 @@ import { HomeIcon } from '../components/home/HomeIcon';
 import { formatDate, formatTime, schedulesForDate, type Schedule } from '../features/schedules/model';
 import { useSchedules, useToday } from '../features/schedules/ScheduleProvider';
 import type { BottomTabId } from '../navigation/bottomTabs';
-export function ScheduleListScreen({ onAdd, onNavigate, registrationNotice=false, onRegistrationNoticeConsumed }: { onAdd:()=>void; onNavigate:(tab:BottomTabId)=>void; registrationNotice?:boolean; onRegistrationNoticeConsumed?:()=>void }) {
+export function ScheduleListScreen({ onAdd, onEdit, onNavigate, registrationNotice=false, onRegistrationNoticeConsumed }: { onAdd:()=>void; onEdit:(schedule:Schedule)=>void; onNavigate:(tab:BottomTabId)=>void; registrationNotice?:boolean; onRegistrationNoticeConsumed?:()=>void }) {
   const { items,loading,loadError,reload,repository,accept }=useSchedules();const today=useToday();
   const [error,setError]=useState<string>();const [busy,setBusy]=useState<string[]>([]);const locks=useRef(new Set<string>());
   const [registrationToastVisible,setRegistrationToastVisible]=useState(false);
@@ -33,6 +34,21 @@ export function ScheduleListScreen({ onAdd, onNavigate, registrationNotice=false
     animation.start(({finished})=>{if(finished)setRegistrationToastVisible(false);});
     return ()=>animation.stop();
   },[registrationToastVisible,registrationOpacity]);
+  const [completionToast,setCompletionToast]=useState<{id:string;serial:number}|null>(null);
+  const completionSerial=useRef(0);
+  const completionOpacity=useRef(new Animated.Value(0)).current;
+  const longPressHandled=useRef(new Set<string>());
+  useEffect(()=>{
+    if(!completionToast)return;
+    completionOpacity.setValue(0);
+    const animation=Animated.sequence([
+      Animated.timing(completionOpacity,{toValue:1,duration:250,easing:Easing.linear,useNativeDriver:Platform.OS!=='web'}),
+      Animated.delay(1600),
+      Animated.timing(completionOpacity,{toValue:0,duration:600,easing:Easing.linear,useNativeDriver:Platform.OS!=='web'}),
+    ]);
+    animation.start(({finished})=>{if(finished)setCompletionToast(current=>current?.serial===completionToast.serial?null:current);});
+    return ()=>animation.stop();
+  },[completionToast,completionOpacity]);
   const [deleting,setDeleting]=useState<Schedule|null>(null);
   const [deleteBusy,setDeleteBusy]=useState(false);
   const [deleteError,setDeleteError]=useState<string>();
@@ -54,15 +70,25 @@ export function ScheduleListScreen({ onAdd, onNavigate, registrationNotice=false
     if(!deleting||deletingRef.current)return;
     deletingRef.current=true;setDeleteBusy(true);setDeleteError(undefined);
     try{
-      accept(await repository.delete(deleting.id));setDeleting(null);setRegistrationToastVisible(false);deletionOpacity.stopAnimation();deletionOpacity.setValue(0);setToast(true);
+      accept(await repository.delete(deleting.id));setDeleting(null);setRegistrationToastVisible(false);setCompletionToast(null);deletionOpacity.stopAnimation();deletionOpacity.setValue(0);setToast(true);
 
     }catch{setDeleteError('삭제하지 못했어요. 다시 시도해 주세요.');}
     finally{deletingRef.current=false;setDeleteBusy(false);}
   }
   async function change(id:string,action:()=>Promise<typeof items>) {
     if(locks.current.has(id))return;locks.current.add(id);setBusy([...locks.current]);setError(undefined);
-    try{accept(await action());}catch{setError('변경 내용을 저장하지 못했어요. 다시 시도해 주세요.');}
+    try{const updated=await action();accept(updated);return updated;}catch{setError('변경 내용을 저장하지 못했어요. 다시 시도해 주세요.');}
     finally{locks.current.delete(id);setBusy([...locks.current]);}
+  }
+  async function completeSchedule(schedule:Schedule){
+    const wasComplete=schedule.completedDates.includes(today);
+    const updated=await change(schedule.id,()=>repository.toggleCompletion(schedule.id,today));
+    if(!updated)return;
+    if(!wasComplete&&updated.find(item=>item.id===schedule.id)?.completedDates.includes(today)){
+      setRegistrationToastVisible(false);setToast(false);
+      completionOpacity.stopAnimation();completionOpacity.setValue(0);
+      setCompletionToast({id:schedule.id,serial:++completionSerial.current});
+    }else if(completionToast?.id===schedule.id)setCompletionToast(null);
   }
   useEffect(()=>{void reload();},[reload,today]);
   const schedules=schedulesForDate(items,today);
@@ -75,19 +101,19 @@ export function ScheduleListScreen({ onAdd, onNavigate, registrationNotice=false
     {error&&<Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     {!loading&&!loadError&&schedules.length===0&&<Text style={styles.empty}>오늘 날짜에 해당하는 일정이 없어요.{ '\n' }다른 날짜의 일정은 해당 날짜에 표시돼요.</Text>}
     {!loading&&!loadError&&schedules.map(schedule=>{
-      const complete=schedule.completedDates.includes(today),disabled=busy.includes(schedule.id),enabled=schedule.notificationsEnabled&&schedule.notificationMethod==='video-call';
-      return <Pressable key={schedule.id} accessibilityRole="button" accessibilityLabel={`${schedule.title} 일정 카드`} accessibilityHint="길게 눌러 일정을 삭제합니다" disabled={disabled} delayLongPress={500} onLongPress={()=>{setDeleting(schedule);setDeleteError(undefined);setToast(false);}}><CardFrame source={deleting?.id===schedule.id?(enabled?require('../../assets/schedule/images/card-on-selected.png'):require('../../assets/schedule/images/card-off-selected.png')):enabled?require('../../assets/schedule/images/card-on.png'):require('../../assets/schedule/images/card-off.png')}>
-        <Pressable accessibilityRole="checkbox" accessibilityLabel={`${schedule.title} 완료`} accessibilityState={{checked:complete,disabled}} aria-checked={complete} disabled={disabled} onPress={()=>void change(schedule.id,()=>repository.toggleCompletion(schedule.id,today))} style={styles.checkTouch}>
-          <View style={[styles.check,!enabled&&{borderColor:'#D8D8D8'},complete&&styles.complete]}>{complete&&<ScheduleCompletionMark/>}</View>
+      const complete=schedule.completedDates.includes(today),disabled=busy.includes(schedule.id);
+      return <Pressable key={schedule.id} accessibilityRole="button" accessibilityLabel={`${schedule.title} 일정 카드`} accessibilityHint="짧게 눌러 수정하고 길게 눌러 삭제합니다" onPressIn={()=>longPressHandled.current.delete(schedule.id)} onPress={()=>{if(!longPressHandled.current.has(schedule.id))onEdit(schedule);}} disabled={disabled} delayLongPress={500} onLongPress={()=>{longPressHandled.current.add(schedule.id);setCompletionToast(null);setDeleting(schedule);setDeleteError(undefined);setToast(false);}}><CardFrame source={deleting?.id===schedule.id?(complete?require('../../assets/schedule/images/card-on-selected.png'):require('../../assets/schedule/images/card-off-selected.png')):complete?require('../../assets/schedule/images/card-on.png'):require('../../assets/schedule/images/card-off.png')}>
+        <Pressable accessibilityRole="checkbox" accessibilityLabel={`${schedule.title} 완료`} accessibilityState={{checked:complete,disabled}} aria-checked={complete} disabled={disabled} onPress={event=>{event.stopPropagation();void completeSchedule(schedule);}} onLongPress={event=>event.stopPropagation()} style={styles.checkTouch}>
+          <View style={[styles.check,!complete&&{borderColor:'#D8D8D8'},complete&&styles.complete]}>{complete&&<ScheduleCompletionMark/>}</View>
         </Pressable>
-        <View style={styles.cardText}><Text numberOfLines={2} style={[styles.cardTitle,!enabled&&styles.offText]}>{schedule.title}</Text><Text style={[styles.time,!enabled&&styles.offText]}>{formatTime(schedule.hour,schedule.minute)}</Text></View>
-        <View style={[styles.bell,{opacity:enabled?1:0.25}]}><ScheduleAsset name="bell" width={23} height={27}/></View>
-        <Pressable accessibilityRole="switch" accessibilityLabel={`${schedule.title} 알림`} aria-checked={enabled} accessibilityHint={schedule.notificationMethod==='alarm'?'현재 알람 방식입니다. 켜면 영상통화 알림으로 변경합니다.':undefined} accessibilityState={{checked:enabled,disabled}} disabled={disabled} onPress={()=>void change(schedule.id,()=>repository.setNotifications(schedule.id,!enabled))} style={styles.toggleTouch}><ScheduleAsset name={enabled?'toggle-on':'toggle-off'} width={48} height={24}/></Pressable>
+        <View style={styles.cardText}><Text numberOfLines={2} style={[styles.cardTitle,!complete&&styles.offText,complete&&{textDecorationLine:'line-through'}]}>{schedule.title}</Text><Text style={[styles.time,!complete&&styles.offText]}>{formatTime(schedule.hour,schedule.minute)}</Text></View>
+        <ScheduleNotificationSummary schedule={schedule} complete={complete}/>
       </CardFrame></Pressable>;
     })}
   </ScrollView>
     {registrationToastVisible&&<Animated.View testID="schedule-registration-toast" pointerEvents="none" accessibilityRole="alert" style={[styles.toast,{opacity:registrationOpacity,transform:[{translateX:2}]}]}><Text style={styles.toastText}>일정을 추가했습니다.</Text></Animated.View>}
     {toast&&<Animated.View testID="schedule-deletion-toast" pointerEvents="none" accessibilityRole="alert" style={[styles.toast,{opacity:deletionOpacity}]}><Text style={styles.toastText}>삭제되었습니다</Text></Animated.View>}
+    {completionToast&&<Animated.View testID="schedule-completion-toast" pointerEvents="none" accessibilityRole="alert" style={[styles.toast,styles.completionToast,{opacity:completionOpacity}]}><Text style={styles.toastText}>일정을 완료했어요</Text></Animated.View>}
     <ScheduleDeleteDialog schedule={deleting} busy={deleteBusy} error={deleteError} onCancel={()=>setDeleting(null)} onDelete={()=>void remove()}/>
   </ScheduleShell>;
 }
@@ -108,5 +134,6 @@ const styles=StyleSheet.create({
   card:{aspectRatio:316/98,marginBottom:0,flexDirection:'row',alignItems:'center',paddingHorizontal:18},checkTouch:{minWidth:54,minHeight:54,alignItems:'center',justifyContent:'center'},check:{width:34,height:34,borderRadius:17,backgroundColor:'white',borderWidth:1.5,borderColor:'#4EA674',alignItems:'center',justifyContent:'center'},complete:{backgroundColor:'transparent',borderWidth:0},tick:{fontSize:26,color:'white',fontWeight:'700',lineHeight:32},
   cardText:{position:'absolute',left:88,right:114,minWidth:0},cardTitle:{fontSize:20,lineHeight:24,fontWeight:'600',color:'#003C40'},time:{fontSize:16,fontWeight:'500',transform:[{translateY:2}],lineHeight:25,color:'#003C40'},offText:{color:'#666'},bell:{position:'absolute',right:82,top:'50%',marginTop:-13.5,width:25,height:27,alignItems:'center',justifyContent:'center',flexShrink:0},toggleTouch:{position:'absolute',right:30,top:'50%',marginTop:-24,height:48,width:48,flexShrink:0,alignItems:'center',justifyContent:'center'},
   toast:{position:'absolute',bottom:95,alignSelf:'center',width:212,height:38,borderRadius:19,backgroundColor:'#4EA674A6',alignItems:'center',justifyContent:'center'},toastText:{fontSize:14,lineHeight:18,fontWeight:'600',color:'#FFF'},
+  completionToast:{bottom:90,backgroundColor:'#00000033',transform:[{translateX:2}]},
   empty:{fontSize:18,color:'#66786D',textAlign:'center',lineHeight:30,marginTop:26},error:{fontSize:16,color:'#A32727',lineHeight:25},retry:{minHeight:48,alignItems:'center',justifyContent:'center'},
 });

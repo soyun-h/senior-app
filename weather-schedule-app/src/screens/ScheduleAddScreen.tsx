@@ -10,24 +10,25 @@ import { SelectionSurface } from '../components/schedule/SelectionSurface';
 import { ScheduleCalendar } from '../components/schedule/ScheduleCalendar';
 import { ScheduleTimeWheel } from '../components/schedule/ScheduleTimeWheel';
 import { AnchoredPicker } from '../components/schedule/AnchoredPicker';
-import { classifyTitle, dateKeyAt, type NotificationMethod, type ScheduleDraft, type Weekday } from '../features/schedules/model';
+import { classifyTitle, dateKeyAt, type NotificationMethod, type ScheduleDraft, type Schedule, type Weekday } from '../features/schedules/model';
 import { pickerTimeLabel, selectionLabel, type DateSelection } from '../features/schedules/selection';
 import { useSchedules } from '../features/schedules/ScheduleProvider';
 import type { BottomTabId } from '../navigation/bottomTabs';
 
 const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
-export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange }: {
-  onBack: () => void; onSaved: () => void; onNavigate: (tab: BottomTabId) => void; onSavingChange: (busy: boolean) => void;
+export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange, editing }: {
+  editing?: Schedule; onBack: () => void; onSaved: () => void; onNavigate: (tab: BottomTabId) => void; onSavingChange: (busy: boolean) => void;
 }) {
   const { repository, accept } = useSchedules();
-  const [title, setTitle] = useState('');
-  const [mode, setMode] = useState<'once' | 'weekly'>('once');
-  const [selection, setSelection] = useState<DateSelection>(() => ({ startDate: dateKeyAt(Date.now() + 60_000), endDate: dateKeyAt(Date.now() + 60_000), awaitingEnd: false }));
-  const [days, setDays] = useState<Weekday[]>([]);
+  const [title, setTitle] = useState(editing?.title ?? '');
+  const [mode, setMode] = useState<'once' | 'weekly'>(editing?.recurrence.mode === 'weekly' ? 'weekly' : 'once');
+  const [selection, setSelection] = useState<DateSelection>(() => ({ startDate: editing ? editing.recurrence.mode === 'once' ? editing.recurrence.date : editing.recurrence.startDate : dateKeyAt(Date.now() + 60_000), endDate: editing ? editing.recurrence.mode === 'range' ? editing.recurrence.endDate : editing.recurrence.mode === 'once' ? editing.recurrence.date : editing.recurrence.startDate : dateKeyAt(Date.now() + 60_000), awaitingEnd: false }));
+  const [days, setDays] = useState<Weekday[]>(editing?.recurrence.mode === 'weekly' ? [...editing.recurrence.weekdays] : []);
   // Use the current minute in KST, with a small future offset, rather than a fixed sample date/time.
-  const [time, setTime] = useState(() => { const next = new Date(Date.now() + 9 * 3_600_000 + 60_000); return { hour: next.getUTCHours(), minute: next.getUTCMinutes() }; });
+  const [time, setTime] = useState(() => { if (editing) return {hour:editing.hour,minute:editing.minute}; const next = new Date(Date.now() + 9 * 3_600_000 + 60_000); return { hour: next.getUTCHours(), minute: next.getUTCMinutes() }; });
   const [pickerTime, setPickerTime] = useState(time);
-  const [method, setMethod] = useState<NotificationMethod>('video-call');
+  const [method, setMethod] = useState<NotificationMethod>(editing ? editing.notificationsEnabled ? editing.notificationMethod : 'none' : 'video-call');
+  const [methodTouched, setMethodTouched] = useState(false);
   const [picker, setPicker] = useState<'date' | 'time' | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -38,7 +39,7 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange 
   const window = useWindowDimensions();
   const dateAnchor = useRef<ComponentRef<typeof View>>(null);
   const timeAnchor = useRef<ComponentRef<typeof View>>(null);
-  const id = useRef(`schedule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`).current;
+  const id = useRef(editing?.id ?? `schedule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`).current;
   useEffect(() => setError(undefined), [title, mode, selection, days, time, method]);
   function navigate(tab: BottomTabId) { if (!savingRef.current) onNavigate(tab); }
   function closePicker() { if (picker === 'time') setTime(pickerTime); setPicker(null); }
@@ -60,16 +61,16 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange 
     savingRef.current = true; setSaving(true); onSavingChange(true); setError(undefined); setPicker(null);
     try {
       const recurrence: ScheduleDraft['recurrence'] = mode === 'weekly'
-        ? { mode: 'weekly', weekdays: days, startDate: dateKeyAt() }
+        ? { mode: 'weekly', weekdays: days, startDate: editing?.recurrence.mode === 'weekly' ? editing.recurrence.startDate : dateKeyAt() }
         : selection.startDate === selection.endDate
           ? { mode: 'once', date: selection.startDate }
           : { mode: 'range', startDate: selection.startDate, endDate: selection.endDate };
-      const draft: ScheduleDraft = { title, type: classifyTitle(title), recurrence, ...time, reminderMinutes: 30, notificationMethod: method };
-      const items = await repository.create(draft, id);
+      const draft: ScheduleDraft = { title, type: editing?.type ?? classifyTitle(title), recurrence, ...time, reminderMinutes: editing?.reminderMinutes ?? 30, notificationMethod: editing && !methodTouched ? editing.notificationMethod : method };
+      const items = editing ? await repository.update(editing.id, draft, undefined, {notificationEdited:methodTouched}) : await repository.create(draft, id);
       accept(items);
       onSaved();
     } catch (e) {
-      setError(e instanceof Error && /입력|선택|날짜|일정 번호/.test(e.message) ? e.message : '일정을 저장하지 못했어요. 다시 시도해 주세요.');
+      setError(e instanceof Error && /입력|선택|날짜|일정 번호/.test(e.message) ? e.message : editing ? '일정을 수정하지 못했어요. 다시 시도해 주세요.' : '일정을 저장하지 못했어요. 다시 시도해 주세요.');
     } finally { savingRef.current = false; setSaving(false); onSavingChange(false); }
   }
   return <ScheduleShell onNavigate={navigate} form>
@@ -77,7 +78,7 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange 
       <ScrollView ref={scroll} onScroll={event => { scrollOffset.current=event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Pressable accessibilityRole="button" accessibilityLabel="일정 목록으로 돌아가기" disabled={saving} onPress={onBack} style={styles.back}><ScheduleAsset name="back"/></Pressable>
-          <Text accessibilityRole="header" style={styles.title}>일정 추가</Text>
+          <Text accessibilityRole="header" style={styles.title}>{editing ? '일정 수정' : '일정 추가'}</Text>
         </View>
         <View style={styles.titleSection}>
           <SectionTitle>어떤 일정인가요?</SectionTitle>
@@ -113,11 +114,11 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange 
           <SectionTitle>어떻게 알려드릴까요?</SectionTitle>
           <View testID="schedule-method-card" style={styles.methods}>
             <View style={styles.methodIcon}><ScheduleAsset name="bell"/></View>
-            <NotificationMethodControl value={method} onChange={setMethod} disabled={saving}/>
+            <NotificationMethodControl value={method} onChange={value=>{setMethod(value);setMethodTouched(true);}} disabled={saving}/>
           </View>
         </View>
         {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-        <RegisterButton fontSize={18} label={saving ? '저장 중…' : '일정 추가하기'} disabled={saving} onPress={() => void save()}/>
+        <RegisterButton fontSize={18} label={saving ? '저장 중…' : editing ? '수정 완료' : '일정 추가하기'} disabled={saving} onPress={() => void save()}/>
       </ScrollView>
     </KeyboardAvoidingView>
     <AnchoredPicker visible={picker === 'date'} anchor={dateAnchor} onClose={() => setPicker(null)}><ScheduleCalendar selection={selection} onChange={setSelection}/></AnchoredPicker>

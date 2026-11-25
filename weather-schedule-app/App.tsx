@@ -7,10 +7,12 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { ScheduleListScreen } from './src/screens/ScheduleListScreen';
 import { ScheduleAddScreen } from './src/screens/ScheduleAddScreen';
 import { ScheduleProvider } from './src/features/schedules/ScheduleProvider';
+import type { Schedule } from './src/features/schedules/model';
 import type { BottomTabId } from './src/navigation/bottomTabs';
-type Screen = 'home' | 'schedule' | 'schedule-add';
+type Screen = 'home' | 'schedule' | 'schedule-add' | 'schedule-edit';
 export default function App() {
   const [registrationNotice,setRegistrationNotice]=useState(false);
+  const [editing,setEditing]=useState<Schedule>();
   const [saving,setSaving]=useState(false);
   const [screen,setScreen]=useState<Screen>('home');
   function navigate(tab: BottomTabId) { if(!saving&&(tab==='home'||tab==='schedule'))setScreen(tab); }
@@ -23,7 +25,7 @@ export default function App() {
   },[screen,saving]);
   return <SafeAreaProvider><ScheduleProvider><StatusBar hidden/>
     {screen==='home'&&<HomeScreen onNavigate={navigate}/>}
-    {screen==='schedule'&&<ScheduleListScreen registrationNotice={registrationNotice} onRegistrationNoticeConsumed={()=>setRegistrationNotice(false)} onAdd={()=>setScreen('schedule-add')} onNavigate={navigate}/>}
-    {screen==='schedule-add'&&<ScheduleAddScreen onSavingChange={setSaving} onBack={()=>setScreen('schedule')} onSaved={()=>{setRegistrationNotice(true);setScreen('schedule');}} onNavigate={navigate}/>}
+    {screen==='schedule'&&<ScheduleListScreen onEdit={schedule=>{setEditing(schedule);setScreen('schedule-edit');}} registrationNotice={registrationNotice} onRegistrationNoticeConsumed={()=>setRegistrationNotice(false)} onAdd={()=>setScreen('schedule-add')} onNavigate={navigate}/>}
+    {(screen==='schedule-add'||screen==='schedule-edit')&&<ScheduleAddScreen key={screen==='schedule-edit'?editing?.id:'new'} editing={screen==='schedule-edit'?editing:undefined} onSavingChange={setSaving} onBack={()=>setScreen('schedule')} onSaved={()=>{setRegistrationNotice(screen==='schedule-add');setScreen('schedule');}} onNavigate={navigate}/>}
   </ScheduleProvider></SafeAreaProvider>;
 }

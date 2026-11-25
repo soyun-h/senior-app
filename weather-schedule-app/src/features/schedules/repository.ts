@@ -35,6 +35,24 @@ export class LocalScheduleRepository implements ScheduleRepository {
         timeZone: 'Asia/Seoul', notificationsEnabled: copy.notificationMethod !== 'none', completedDates: [], createdAt, updatedAt: createdAt }];
     });
   }
+  update(id: string, draft: ScheduleDraft, now = Date.now(), options: { notificationEdited?: boolean } = {}): Promise<Schedule[]> {
+    const copy = JSON.parse(JSON.stringify(draft)) as ScheduleDraft;
+    return this.mutate(items => {
+      const existing = items.find(item => item.id === id);
+      if (!existing) throw new Error('수정할 일정을 찾을 수 없어요.');
+      // Existing schedules can be edited after their execution time; creation rules stay unchanged.
+      validateDraft(copy, now, true);
+      return items.map(item => item.id !== id ? item : {
+        ...item, ...copy, title: copy.title.trim(),
+        ...(item.medicationNote === undefined ? {} : { medicationNote: item.medicationNote }),
+        id: item.id, timeZone: item.timeZone, createdAt: item.createdAt,
+        completedDates: [...item.completedDates],
+        notificationsEnabled: options.notificationEdited || copy.notificationMethod !== item.notificationMethod
+          ? copy.notificationMethod !== 'none' : item.notificationsEnabled,
+        updatedAt: new Date(now).toISOString(),
+      });
+    });
+  }
   toggleCompletion(id: string, date: string, now = Date.now()): Promise<Schedule[]> {
     return this.mutate(items => items.map(s => {
       if (s.id!==id) return s;
