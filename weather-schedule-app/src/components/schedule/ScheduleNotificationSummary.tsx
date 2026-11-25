@@ -6,7 +6,7 @@ import type { Schedule } from '../../features/schedules/model';
 export function ScheduleNotificationSummary({ schedule, complete }: { schedule: Schedule; complete: boolean }) {
   const method = schedule.notificationsEnabled ? schedule.notificationMethod : 'none';
   const label = method === 'video-call' ? '영상통화' : method === 'alarm' ? '단순알람' : '알람없이';
-  const color = method === 'video-call' && complete ? '#4EA674' : '#BEBEBE';
+  const color = complete ? '#4EA674' : '#BEBEBE';
   return <View accessible accessibilityLabel={`알림 방식: ${label}`} style={styles.summary}>
     <View style={styles.icon}><ScheduleAsset name="bell" width={16} height={19} bellTint={color}/>
       {method === 'none' && <View pointerEvents="none" style={[styles.slash,{backgroundColor:color}]}/>}
