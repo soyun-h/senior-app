@@ -1,3 +1,4 @@
+import { useSoftCardPress, SCHEDULE_LONG_PRESS_MS } from '../components/schedule/useSoftCardPress';
 import { ScheduleNotificationSummary } from '../components/schedule/ScheduleNotificationSummary';
 import { ScheduleSkeleton } from '../components/schedule/ScheduleSkeleton';
 import { ScheduleCompletionMark } from '../components/schedule/ScheduleCompletionMark';
@@ -18,6 +19,7 @@ export function ScheduleListScreen({ onAdd, onEdit, onNavigate, registrationNoti
   const toastSerial=useRef(0);
   const toastOpacity=useRef(new Animated.Value(0)).current;
   const longPressHandled=useRef(new Set<string>());
+  const [pressing,setPressing]=useState<string|null>(null);
   const [deleting,setDeleting]=useState<Schedule|null>(null);
   const [deleteBusy,setDeleteBusy]=useState(false);
   const [deleteError,setDeleteError]=useState<string>();
@@ -45,7 +47,7 @@ export function ScheduleListScreen({ onAdd, onEdit, onNavigate, registrationNoti
     if(!deleting||deletingRef.current)return;
     deletingRef.current=true;setDeleteBusy(true);setDeleteError(undefined);
     try{
-      accept(await repository.delete(deleting.id));setDeleting(null);
+      accept(await repository.delete(deleting.id));setDeleting(null);setPressing(null);
       setToast({kind:'deletion',serial:++toastSerial.current});
 
     }catch{setDeleteError('삭제하지 못했어요. 다시 시도해 주세요.');}
@@ -76,8 +78,9 @@ export function ScheduleListScreen({ onAdd, onEdit, onNavigate, registrationNoti
     {!loading&&!loadError&&schedules.length===0&&<Text style={styles.empty}>오늘 날짜에 해당하는 일정이 없어요.{ '\n' }다른 날짜의 일정은 해당 날짜에 표시돼요.</Text>}
     {!loading&&!loadError&&schedules.map(schedule=>{
       const complete=schedule.completedDates.includes(today),disabled=busy.includes(schedule.id);
-      return <Pressable key={schedule.id} accessibilityRole="button" accessibilityLabel={`${schedule.title} 일정 카드`} accessibilityHint="짧게 눌러 수정하고 길게 눌러 삭제합니다" onPressIn={()=>longPressHandled.current.delete(schedule.id)} onPress={()=>{if(!longPressHandled.current.has(schedule.id))onEdit(schedule);}} disabled={disabled} delayLongPress={500} onLongPress={()=>{longPressHandled.current.add(schedule.id);setToast(current=>current?.kind==='registration'?current:null);setDeleting(schedule);setDeleteError(undefined);}}><CardFrame source={deleting?.id===schedule.id?(complete?require('../../assets/schedule/images/card-on-selected.png'):require('../../assets/schedule/images/card-off-selected.png')):complete?require('../../assets/schedule/images/card-on.png'):require('../../assets/schedule/images/card-off.png')}>
-        <Pressable accessibilityRole="checkbox" accessibilityLabel={`${schedule.title} 완료`} accessibilityState={{checked:complete,disabled}} aria-checked={complete} disabled={disabled} onPress={event=>{event.stopPropagation();void completeSchedule(schedule);}} onLongPress={event=>event.stopPropagation()} style={styles.checkTouch}>
+      // RN Web otherwise adds a 50ms press-in delay; feedback and the 500ms timer start together.
+      return <Pressable key={schedule.id} accessibilityRole="button" accessibilityLabel={`${schedule.title} 일정 카드`} accessibilityHint="짧게 눌러 수정하고 길게 눌러 삭제합니다" onPressIn={()=>{longPressHandled.current.delete(schedule.id);setPressing(schedule.id);}} onPressOut={()=>{if(!longPressHandled.current.has(schedule.id))setPressing(current=>current===schedule.id?null:current);}} onPress={()=>{if(!longPressHandled.current.has(schedule.id))onEdit(schedule);}} disabled={disabled} {...(Platform.OS==='web'?{delayPressIn:0}:{unstable_pressDelay:0})} delayLongPress={SCHEDULE_LONG_PRESS_MS} onLongPress={()=>{longPressHandled.current.add(schedule.id);setToast(current=>current?.kind==='registration'?current:null);setDeleting(schedule);setDeleteError(undefined);}}><CardFrame source={complete?require('../../assets/schedule/images/card-on.png'):require('../../assets/schedule/images/card-off.png')} pressed={pressing===schedule.id} latched={deleting?.id===schedule.id} complete={complete}>
+        <Pressable accessibilityRole="checkbox" accessibilityLabel={`${schedule.title} 완료`} accessibilityState={{checked:complete,disabled}} aria-checked={complete} disabled={disabled} onPressIn={event=>event.stopPropagation()} onPress={event=>{event.stopPropagation();void completeSchedule(schedule);}} onLongPress={event=>event.stopPropagation()} style={styles.checkTouch}>
           <View style={[styles.check,!complete&&{borderColor:'#D8D8D8'},complete&&styles.complete]}>{complete&&<ScheduleCompletionMark/>}</View>
         </Pressable>
         <View style={styles.cardText}><Text numberOfLines={2} style={[styles.cardTitle,!complete&&styles.offText,complete&&{textDecorationLine:'line-through'}]}>{schedule.title}</Text><Text style={[styles.time,!complete&&styles.offText]}>{formatTime(schedule.hour,schedule.minute)}</Text></View>
@@ -86,19 +89,21 @@ export function ScheduleListScreen({ onAdd, onEdit, onNavigate, registrationNoti
     })}
   </ScrollView>
     {toast&&<Animated.View key={toast.serial} testID={`schedule-${toast.kind}-toast`} pointerEvents="none" accessibilityRole="alert" style={[styles.toast,{opacity:toastOpacity}]}><Text style={styles.toastText}>{toastMessages[toast.kind]}</Text></Animated.View>}
-    <ScheduleDeleteDialog schedule={deleting} busy={deleteBusy} error={deleteError} onCancel={()=>setDeleting(null)} onDelete={()=>void remove()}/>
+    <ScheduleDeleteDialog schedule={deleting} busy={deleteBusy} error={deleteError} onCancel={()=>{setPressing(null);setDeleting(null);}} onDelete={()=>void remove()}/>
   </ScheduleShell>;
 }
-/** Background only: an unpadded absolute layer fills the card's border box.
- * Always mount the original image; do not gate it on an onLayout callback.
- */
-function CardFrame({ source, children }: { source: ImageSourcePropType; children: ReactNode }) {
-  return <View style={styles.card}>
+/** Fixed layout with a visual-only transform; original PNGs stay mounted beneath content. */
+function CardFrame({ source, children, pressed, latched, complete }: { source: ImageSourcePropType; children: ReactNode; pressed:boolean; latched:boolean; complete:boolean }) {
+  const {opacity,scale}=useSoftCardPress(pressed,latched);
+  return <Animated.View testID="schedule-card-soft-press" style={[styles.card,{transform:[{scale}]}]}>
     <View pointerEvents="none" collapsable={false} style={StyleSheet.absoluteFill}>
       <Image accessible={false} source={source} resizeMode="stretch" style={{ width: '100%', height: '100%' }}/>
     </View>
+    <Animated.View testID="schedule-card-dim" pointerEvents="none" collapsable={false} style={[StyleSheet.absoluteFill,{opacity}]}>
+      <Image accessible={false} source={complete?require('../../assets/schedule/images/card-on-selected.png'):require('../../assets/schedule/images/card-off-selected.png')} resizeMode="stretch" style={{width:'100%',height:'100%'}}/>
+    </Animated.View>
     {children}
-  </View>;
+  </Animated.View>;
 }
 const toastMessages={registration:'일정을 추가했어요',deletion:'삭제되었어요',completion:'일정을 완료했어요'} as const;
 const styles=StyleSheet.create({

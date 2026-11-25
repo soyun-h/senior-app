@@ -70,7 +70,7 @@ export function ScheduleCalendar({ selection, onChange }: { selection: DateSelec
         const week=dates.slice(row*7,row*7+7);
         const selected=week.map((date,index)=>date>=selection.startDate&&date<=selection.endDate?index:-1).filter(index=>index>=0);
         return <View key={week[0]} style={styles.calendarRow}>
-          {!!selected.length&&gridWidth>0&&<View pointerEvents="none" style={[styles.range,{left:selected[0]*gridWidth/7,width:selected.length*gridWidth/7}]}><SelectionSurface width={selected.length*gridWidth/7} height={31.5} variant={selected.length===1?'date':'pill'}/></View>}
+          {!!selected.length&&gridWidth>0&&<View pointerEvents="none" style={[styles.range,{left:selected[0]*gridWidth/7,width:selected.length*gridWidth/7}]}><SelectionSurface width={selected.length*gridWidth/7} height={36} variant={selected.length===1?'date':'pill'}/></View>}
           {week.map((date,index)=>{
             const active=date>=selection.startDate&&date<=selection.endDate;
             return <Pressable key={date} accessibilityRole="button" accessibilityLabel={`${date} 날짜`} accessibilityState={{selected:active}} aria-selected={active} onPress={()=>onChange(dragDateSelection(date,date))} style={styles.cell}>
@@ -82,13 +82,13 @@ export function ScheduleCalendar({ selection, onChange }: { selection: DateSelec
     </View>
   </View>;
 }
-// Measured estimates from the supplied raster: 270px popup at 360px viewport.
+// Layout estimates from the latest 360px reference; keep 4px grid inset for gesture coordinates.
 const styles = StyleSheet.create({
-  popup: { borderWidth: 1, borderColor: '#D6D6D6', borderRadius: 12, backgroundColor: '#FFFFFFD9', overflow: 'hidden', paddingHorizontal: 13, paddingTop: 8, paddingBottom: 10, boxShadow: '0px 4px 12px #6C9B7418' },
-  month: { height: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  move: { width: 36, height: 42, alignItems: 'center', justifyContent: 'center' }, monthText: { fontSize: 18, fontWeight: '600', color: '#000' },
-  week: { flexDirection: 'row', height: 32 }, weekday: { width: '14.285714%', alignItems: 'center', justifyContent: 'center' }, weekText: { fontSize: 12, color: '#111' },
-  grid: {paddingTop:4}, calendarRow:{flexDirection:'row',height:41.5}, cell: { width: '14.285714%', height: 41.5, alignItems: 'center', justifyContent: 'center' },
-  range: { position: 'absolute', top: 5, bottom: 5, borderRadius:10, overflow: 'hidden' },
+  popup: { borderWidth: 1, borderColor: '#D6D6D6', borderRadius: 12, backgroundColor: '#FFFFFFD9', overflow: 'hidden', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8, boxShadow: '0px 4px 12px #6C9B7418' },
+  month: { height: 50, marginHorizontal:-2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  move: { width: 36, height: 50, alignItems: 'center', justifyContent: 'center' }, monthText: { fontSize: 18, fontWeight: '600', color: '#000' },
+  week: { flexDirection: 'row', height: 40 }, weekday: { width: '14.285714%', alignItems: 'center', justifyContent: 'center' }, weekText: { fontSize: 12, color: '#111' },
+  grid: {paddingTop:4,marginTop:-4}, calendarRow:{flexDirection:'row',height:46.5}, cell: { width: '14.285714%', height: 46.5, alignItems: 'center', justifyContent: 'center' },
+  range: { position: 'absolute', top: 5.25, height:36, borderRadius:10, overflow: 'hidden' },
   dateText: { fontSize: 13, fontWeight: '600', color: '#666' }, sunday: { color: '#4EA674' }, adjacent: { opacity: 0.28 }, activeText: { color: '#006954', opacity: 1 },
 });

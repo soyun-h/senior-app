@@ -8,7 +8,7 @@ test('rendered schedule icons and button surfaces use the exact on-disk source X
   const source = JSON.parse(code.match(/const source = (.+) as const;/)[1]);
   for (const [name, folder] of [
     ['fold','icons'], ['open','icons'], ['month-left','icons'], ['month-right','icons'],
-    ['trash','icons'], ['small-calendar','icons'], ['back','icons'], ['bell','icons'],
+    ['no-alarm','icons'], ['trash','icons'], ['small-calendar','icons'], ['back','icons'], ['bell','icons'],
     ['edit','icons'], ['check','icons'], ['plus','icons'], ['cancel-button','decoration'],
     ['delete-button','decoration'], ['register-button','decoration'], ['toggle-on','decoration'], ['toggle-off','decoration'],
   ]) assert.equal(source[name], await readFile(new URL(`assets/schedule/${folder}/${name}.svg`, base), 'utf8'), name);

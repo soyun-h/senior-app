@@ -3,7 +3,7 @@ import { Image, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 // Original PNG stays untouched. Reuse its complete silhouette, rim and shadow.
-// For non-home tabs, restore only the central house-shaped region using colors
+// Restore only the central house-shaped region using colors
 // sampled beside the original glyph; the opaque raster cannot supply hidden pixels.
 const centerStops = [
   [44, '#4EA674'],
@@ -25,19 +25,22 @@ const centerStops = [
   [108, '#7DCC7D'],
   [112, '#80CE7D'],
 ] as const;
-export function NavigationActiveArtwork({ replaceHomeIcon }: { replaceHomeIcon: boolean }) {
+// Source PNG is 166px including transparent padding and shadow. The colored
+// circle is 94px across, starting at (36,34); fit that disc to the 48dp button.
+const artworkSize = 166 * 48 / 94;
+export function NavigationActiveArtwork() {
   const gradientId = `nav-center-${useId().replaceAll(':', '')}`;
   return <View testID="active-navigation-artwork" pointerEvents="none" style={styles.art}>
     <Image source={require('../../../assets/design/refinement/buttons/Home button.png')} resizeMode="contain" style={styles.image}/>
-    {replaceHomeIcon && <Svg width={75} height={75} viewBox="0 0 166 166" style={StyleSheet.absoluteFill}>
+    <Svg width={artworkSize} height={artworkSize} viewBox="0 0 166 166" style={StyleSheet.absoluteFill}>
       <Defs><LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="166" gradientUnits="userSpaceOnUse">
         {centerStops.map(([y,color])=><Stop key={y} offset={y/166} stopColor={color}/>)}
       </LinearGradient></Defs>
       <Path d="M84 44 L118 76 L118 112 L52 112 L52 76 Z" fill={`url(#${gradientId})`}/>
-    </Svg>}
+    </Svg>
   </View>;
 }
 const styles = StyleSheet.create({
-  art: { position:'absolute',width:75,height:75,left:-13.5,top:-15 },
-  image: { width:75,height:75 },
+  art: { position:'absolute',width:artworkSize,height:artworkSize,left:-36*48/94,top:-34*48/94 },
+  image: { width:artworkSize,height:artworkSize },
 });

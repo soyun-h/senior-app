@@ -9,7 +9,7 @@ import { RegisterButton, SectionTitle } from '../components/schedule/ScheduleCon
 import { SelectionSurface } from '../components/schedule/SelectionSurface';
 import { ScheduleCalendar } from '../components/schedule/ScheduleCalendar';
 import { ScheduleTimeWheel } from '../components/schedule/ScheduleTimeWheel';
-import { AnchoredPicker } from '../components/schedule/AnchoredPicker';
+import { AnchoredPicker, PICKER_GAP } from '../components/schedule/AnchoredPicker';
 import { classifyTitle, dateKeyAt, type NotificationMethod, type ScheduleDraft, type Schedule, type Weekday } from '../features/schedules/model';
 import { pickerTimeLabel, selectionLabel, type DateSelection } from '../features/schedules/selection';
 import { useSchedules } from '../features/schedules/ScheduleProvider';
@@ -50,8 +50,8 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange,
     if (kind === 'date') setSelection(previous => ({ ...previous, awaitingEnd: false }));
     const anchor = kind === 'date' ? dateAnchor : timeAnchor;
     anchor.current?.measureInWindow((_x, y, _width, height) => {
-      const popupHeight = kind === 'date' ? 340 : 196;
-      const excess = Math.max(0, y + height + 4 + popupHeight + 12 - window.height);
+      const popupHeight = kind === 'date' ? 340.5 : 220;
+      const excess = Math.max(0, y + height + PICKER_GAP + popupHeight + 12 - window.height);
       if (excess) scroll.current?.scrollTo({ y: scrollOffset.current + excess, animated: false });
       requestAnimationFrame(() => setPicker(kind));
     });

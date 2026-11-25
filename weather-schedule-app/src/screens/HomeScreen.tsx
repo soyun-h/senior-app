@@ -43,13 +43,16 @@ export function HomeScreen({ avatar, onNavigate }: { avatar?: AvatarDefinition; 
           <HomeText style={styles.credit}>{credit}</HomeText>
         </View>
         <WeatherMessage weather={weather} notice={notice} displayScale={scale}/>
-        <BottomNavigation activeTab="home" onNavigate={onNavigate} enabledTabs={['schedule', 'home']}/>
       </View>
+    </View>
+    <View pointerEvents="box-none" style={[styles.navigationOverlay,{bottom:insets.bottom}]}>
+      <BottomNavigation activeTab="home" onNavigate={onNavigate} enabledTabs={['schedule', 'home']}/>
     </View>
   </View></GlassBlurContext.Provider>;
 }
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E8EDF1', alignItems: 'center', justifyContent: 'center' },
+  navigationOverlay: { position:'absolute',height:66,width:'100%',maxWidth:480,alignSelf:'center',overflow:'visible' },
   settings: { position: 'absolute', top: 46, right: 23 },
   scheduleSection: { position: 'absolute', top: 108, left: 28, right: 28 },
   heading: { fontSize: 17, fontWeight: '700', marginLeft: 8, marginBottom: 7 },
