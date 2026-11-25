@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "오느른 음성 대화",
+    "slug": "oneureun-voice",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": { "package": "com.oneureun.voice" },
+    "ios": { "bundleIdentifier": "com.oneureun.voice" },
+    "plugins": [
+      ["expo-audio", { "microphonePermission": "나비와 대화하려면 마이크 권한을 허용해 주세요." }]
+    ]
+  }
+}

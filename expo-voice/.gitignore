@@ -1,0 +1,4 @@
+node_modules/
+.expo/
+.voice-runtime/
+dist/
