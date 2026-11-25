@@ -1,34 +1,14 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, Platform, StyleSheet } from 'react-native';
-import { useReducedMotion } from '../../features/avatar/useReducedMotion';
+import { StyleSheet, View } from 'react-native';
 import { GlassSurface } from './GlassSurface';
 import { HomeText } from './HomeText';
 
-const useNativeDriver = Platform.OS !== 'web';
-
-/**
- * 캐릭터 대사창. 아래쪽 bottom 90 자리는 WeatherMessage가 쓰므로 그 위에 둔다.
- * 대사가 바뀔 때마다(부모의 key) 아래에서 8px 올라오며 나타난다(250ms).
- */
+/** 캐릭터 대사창. 아래쪽 bottom 90 자리는 WeatherMessage가 쓰므로 그 위에 둔다. */
 export function CharacterDialogue({ name, text }: { name: string; text: string }) {
-  const reduced = useReducedMotion();
-  const appear = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    if (reduced === null) return;
-    if (reduced) appear.setValue(1);
-    else Animated.timing(appear, { toValue: 1, duration: 250, delay: 150, easing: Easing.out(Easing.cubic), useNativeDriver }).start();
-  }, [appear, reduced]);
-
   return (
-    <Animated.View
-      accessible
-      accessibilityLabel={`${name}: ${text}`}
-      accessibilityLiveRegion="polite"
-      style={[styles.panel, { opacity: appear, transform: [{ translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}
-    >
+    <View accessible accessibilityLabel={`${name}: ${text}`} accessibilityLiveRegion="polite" style={styles.panel}>
       <GlassSurface strong />
       <HomeText style={styles.text}>{text}</HomeText>
-    </Animated.View>
+    </View>
   );
 }
 

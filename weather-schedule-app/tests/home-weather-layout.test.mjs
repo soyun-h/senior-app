@@ -22,7 +22,7 @@ test('character dialogue sits above the weather message instead of on top of it'
   assert.ok(bottom >= 90 + 85, `대사창 bottom(${bottom})이 날씨 안내(bottom 90, 높이 85)와 겹칩니다`);
 });
 
-test('the character shows the situation pose while speaking and can replay the line', () => {
+test('the static character shows the situation pose while speaking and can replay the line', () => {
   const home = read('src/screens/HomeScreen.tsx');
   assert.match(home, /<DialogueAvatar key=\{`\$\{character\.id\}:\$\{situation\}`\} character=\{character\} situation=\{situation\} pose=\{pose\}\/>/);
 
@@ -31,7 +31,7 @@ test('the character shows the situation pose while speaking and can replay the l
   assert.match(avatar, /onPress=\{replay\}/);
 
   const view = read('src/components/home/AvatarView.tsx');
-  assert.match(view, /pose !== 'idle' && phase !== 'done'/, '대사가 끝나면 기본 자세로 돌아가야 합니다');
-  assert.match(view, /useReducedMotion\(\)/);
-  assert.match(view, /if \(reduced === null\) return;/, '동작 줄이기 설정을 확인하기 전에는 움직이면 안 됩니다');
+  assert.match(view, /phase === 'done' \? 'idle' : pose/, '대사가 끝나면 기본 자세로 돌아가야 합니다');
+  assert.doesNotMatch(view, /Animated/, '캐릭터는 움직임 없이 고정 이미지로 표시합니다');
+  assert.doesNotMatch(read('src/components/home/CharacterDialogue.tsx'), /Animated/);
 });
