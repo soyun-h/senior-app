@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "오느른 서비스 시작",
+    "slug": "oneureun-service-start",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": { "bundleIdentifier": "com.oneureun.servicestart" },
+    "android": { "package": "com.oneureun.servicestart", "softwareKeyboardLayoutMode": "resize" },
+    "plugins": ["expo-secure-store"]
+  }
+}
