@@ -1,0 +1,1453 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2487.7">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
+</head>
+<body>
+<p class="p1">&lt;!doctype html&gt;</p>
+<p class="p1">&lt;html lang="ko"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1">&lt;meta charset="utf-8"&gt;</p>
+<p class="p1">&lt;meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"&gt;</p>
+<p class="p1">&lt;meta name="theme-color" content="#FFF8EE"&gt;</p>
+<p class="p1">&lt;title&gt;AII IT (올잇)&lt;/title&gt;</p>
+<p class="p1">&lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;</p>
+<p class="p1">&lt;script src="https://unpkg.com/@babel/standalone@7/babel.min.js"&gt;&lt;/script&gt;</p>
+<p class="p1">&lt;script type="importmap"&gt;</p>
+<p class="p1">{"imports":{</p>
+<p class="p1"><span class="Apple-converted-space">  </span>"react":"https://esm.sh/react@18.3.1",</p>
+<p class="p1"><span class="Apple-converted-space">  </span>"react-dom/client":"https://esm.sh/react-dom@18.3.1/client",</p>
+<p class="p1"><span class="Apple-converted-space">  </span>"lucide-react":"https://esm.sh/lucide-react@0.453.0?external=react"</p>
+<p class="p1">}}</p>
+<p class="p1">&lt;/script&gt;</p>
+<p class="p1">&lt;style&gt;html,body{margin:0;background:#E9DACA}&lt;/style&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p1">&lt;body&gt;</p>
+<p class="p1">&lt;div id="root"&gt;&lt;/div&gt;</p>
+<p class="p1">&lt;script type="text/babel" data-type="module"&gt;</p>
+<p class="p1">import React, { useState, useEffect, useRef, useId, useMemo } from "react";</p>
+<p class="p1">import {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>ArrowLeft, Keyboard, Moon, ChevronLeft, Menu, Mic, Check, ChevronRight, ChevronUp, ChevronDown, Camera,</p>
+<p class="p1"><span class="Apple-converted-space">  </span>Pencil, Calendar, X, AlarmClock, Plus, Hand, ArrowDown, Star, Send, Trash2,</p>
+<p class="p1">} from "lucide-react";</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 디자인 토큰 (웜톤 · 고대비) ═════════ */</p>
+<p class="p1">const INK = "#33261C";</p>
+<p class="p1">const SUB = "#6F5A4A";</p>
+<p class="p1">const ORANGE = "#E8743B";</p>
+<p class="p1">const PEACH = "#FFD9BF";</p>
+<p class="p1">const SAND = "#F5E6D3";</p>
+<p class="p1">const SAGE = "#A9C4A3";</p>
+<p class="p1">const SAGE_DEEP = "#4E6F4C";</p>
+<p class="p1">const CREAM = "#FFF8EE";</p>
+<p class="p2"><br></p>
+<p class="p1">const pad = (n) =&gt; String(n).padStart(2, "0");</p>
+<p class="p1">const keyOf = (d) =&gt; `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;</p>
+<p class="p1">const DAY_KR = ["월", "화", "수", "목", "금", "토", "일"]; // 월요일 시작 (와이어프레임)</p>
+<p class="p1">const monIdx = (d) =&gt; (d.getDay() + 6) % 7;</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 캐릭터 목록 · 꾸미기 데이터 ═════════ */</p>
+<p class="p1">const HAIR_COLORS = ["#6B4430", "#2B2220", "#C98A4B", "#9A9A9A"];</p>
+<p class="p1">const HAIRS = [</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ s: "basic", c: 0 }, { s: "basic", c: 1 }, { s: "basic", c: 3 },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ s: "bob", c: 0 }, { s: "bob", c: 1 }, { s: "bob", c: 3 },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ s: "bun", c: 3 }, { s: "curly", c: 1 }, { s: "curly", c: 2 },</p>
+<p class="p1">];</p>
+<p class="p1">const FUR = ["#C98A4B", "#8B5A3C", "#F2E4CF", "#4A3B34", "#B8B8B8", "#E8A87C", "#F6D58A", "#7A6A5F", "#FFFFFF"];</p>
+<p class="p1">const OUTFITS = [</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ c: "#F6A28C", p: "none" }, { c: "#7FA6D9", p: "none" }, { c: "#A9C4A3", p: "none" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ c: "#F6A28C", p: "stripe" }, { c: "#7FA6D9", p: "dot" }, { c: "#FFD66B", p: "none" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ c: "#B58BD9", p: "dot" }, { c: "#E8685A", p: "stripe" }, { c: "#4E6F4C", p: "apron" },</p>
+<p class="p1">];</p>
+<p class="p1">const ACCS = ["glasses", "flower", "heart", "ribbon", "beanie", "scarf", "bowtie", "crown", "shades"];</p>
+<p class="p1">const PRICES = [10, 10, 10, 20, 20, 20, 30, 30, 30];</p>
+<p class="p1">const TAB_META = { hair: "머리", outfit: "옷", acc: "악세사리" };</p>
+<p class="p2"><br></p>
+<p class="p1">/* 함께할 캐릭터 (옆으로 스와이프해서 고르기) */</p>
+<p class="p1">const CHARS = [</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: "손녀", nick: "다솜이", look: { hair: 0, outfit: 0, acc: null }, desc: "재롱 가득, 귀여운 막내 손녀" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: "손자", nick: "든든이", look: { hair: 1, outfit: 1, acc: null }, desc: "씩씩하고 믿음직한 손자" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: "강아지", nick: "몽이", look: { hair: 0, outfit: 5, acc: null }, desc: "졸졸 따라다니는 충성 강아지" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: "고양이", nick: "나비", look: { hair: 5, outfit: 2, acc: null }, desc: "곁에서 그르릉, 포근한 고양이" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: "남편", nick: "여보", look: { hair: 2, outfit: 1, acc: null }, desc: "듬직하게 곁을 지키는 남편" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: "아내", nick: "당신", look: { hair: 6, outfit: 6, acc: null }, desc: "다정하게 챙겨 주는 아내" },</p>
+<p class="p1">];</p>
+<p class="p1">const charOf = (id) =&gt; CHARS.find((c) =&gt; c.id === id) || CHARS[0];</p>
+<p class="p1">const ANIMALS = ["강아지", "고양이"];</p>
+<p class="p1">const tabLabel = (tab, id) =&gt; (tab === "hair" &amp;&amp; ANIMALS.includes(id) ? "털색" : TAB_META[tab]);</p>
+<p class="p1">const ownedFor = (c) =&gt; [`hair-${c.look.hair}`, `outfit-${c.look.outfit}`];</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 캐릭터 SVG ═════════ */</p>
+<p class="p1">const heart = (x, y, s, fill) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;path transform={`translate(${x} ${y}) scale(${s})`} fill={fill}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>d="M0 6 C-10 -2 -10 -10 -4 -10 C-1 -10 0 -8 0 -6 C0 -8 1 -10 4 -10 C10 -10 10 -2 0 6Z" /&gt;</p>
+<p class="p1">);</p>
+<p class="p2"><br></p>
+<p class="p1">function Character({ gender = "손녀", look, speaking, listening, size = 260, head = false }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const uid = useId().replace(/:/g, "");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const animal = ANIMALS.includes(gender);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const cat = gender === "고양이";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const girl = gender === "손녀" || gender === "아내";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const hair = HAIRS[look.hair];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const hc = HAIR_COLORS[hair.c];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const fur = FUR[look.hair % FUR.length];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const out = OUTFITS[look.outfit];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const acc = look.acc === null || look.acc === undefined ? null : ACCS[look.acc];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const body = "M26 296 Q34 172 120 170 Q206 172 214 296 Z";</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;svg viewBox={head ? "34 4 172 192" : "0 0 240 300"} width={size} height={head ? size * 1.1 : size * 1.25}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>className={speaking ? "d-bounce" : "d-float"} role="img" aria-label={`${gender} 캐릭터`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;defs&gt;&lt;clipPath id={`b${uid}`}&gt;&lt;path d={body} /&gt;&lt;/clipPath&gt;&lt;/defs&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 머리카락(뒤) / 동물 귀 */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{!animal &amp;&amp; hair.s === "bob" &amp;&amp; &lt;path d="M46 104 Q46 28 120 28 Q194 28 194 104 L194 156 Q194 168 182 168 L58 168 Q46 168 46 156Z" fill={hc} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{!animal &amp;&amp; hair.s === "basic" &amp;&amp; &lt;ellipse cx="120" cy="100" rx="76" ry="74" fill={hc} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{!animal &amp;&amp; hair.s === "bun" &amp;&amp; &lt;ellipse cx="120" cy="100" rx="74" ry="72" fill={hc} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{!animal &amp;&amp; hair.s === "curly" &amp;&amp; [[52, 90], [48, 120], [188, 90], [192, 120], [70, 50], [170, 50], [120, 34]].map(([x, y], i) =&gt; &lt;circle key={i} cx={x} cy={y} r="26" fill={hc} /&gt;)}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{animal &amp;&amp; !cat &amp;&amp; &lt;g&gt;&lt;ellipse cx="58" cy="90" rx="24" ry="46" transform="rotate(16 58 90)" fill={fur} /&gt;&lt;ellipse cx="182" cy="90" rx="24" ry="46" transform="rotate(-16 182 90)" fill={fur} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;ellipse cx="58" cy="90" rx="24" ry="46" transform="rotate(16 58 90)" fill="#3E2314" opacity=".28" /&gt;&lt;ellipse cx="182" cy="90" rx="24" ry="46" transform="rotate(-16 182 90)" fill="#3E2314" opacity=".28" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{animal &amp;&amp; cat &amp;&amp; &lt;g&gt;&lt;path d="M50 78 L56 8 L108 44Z" fill={fur} /&gt;&lt;path d="M190 78 L184 8 L132 44Z" fill={fur} /&gt;&lt;path d="M62 60 L64 28 L90 46Z" fill="#F4B6B6" /&gt;&lt;path d="M178 60 L176 28 L150 46Z" fill="#F4B6B6" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 몸 */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;path d={body} fill={out.c} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;g clipPath={`url(#b${uid})`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{out.p === "stripe" &amp;&amp; [200, 224, 248, 272].map((y) =&gt; &lt;rect key={y} x="0" y={y} width="240" height="8" fill="#fff" opacity=".55" /&gt;)}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{out.p === "dot" &amp;&amp; [[90, 214], [140, 224], [110, 250], [160, 262], [70, 270], [190, 240]].map(([x, y], i) =&gt; &lt;circle key={i} cx={x} cy={y} r="6" fill="#fff" opacity=".6" /&gt;)}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{out.p === "apron" &amp;&amp; &lt;path d="M84 176 L156 176 L176 300 L64 300Z" fill="#FFF8EE" /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/g&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;path d="M98 172 Q120 196 142 172Z" fill="#FFF3E4" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 얼굴 */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;ellipse cx="120" cy="106" rx="66" ry="68" fill={animal ? fur : "#FFD9B8"} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 앞머리 */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{!animal &amp;&amp; hair.s !== "curly" &amp;&amp; &lt;path d="M52 94 Q62 30 120 32 Q180 30 188 94 Q158 62 120 70 Q84 62 52 94Z" fill={hc} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{!animal &amp;&amp; hair.s === "bob" &amp;&amp; &lt;path d="M50 98 L50 120 Q54 90 62 80Z M190 98 L190 120 Q186 90 178 80Z" fill={hc} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{!animal &amp;&amp; hair.s === "bun" &amp;&amp; &lt;circle cx="120" cy="22" r="22" fill={hc} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{!animal &amp;&amp; hair.s === "curly" &amp;&amp; [[74, 52], [100, 40], [126, 38], [152, 42], [172, 56]].map(([x, y], i) =&gt; &lt;circle key={i} cx={x} cy={y} r="20" fill={hc} /&gt;)}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 눈 · 볼 · 입 */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{(gender === "손자" || gender === "남편") &amp;&amp; &lt;&gt;&lt;path d="M80 86 Q94 80 108 86" stroke={gender === "남편" ? "#7A7A7A" : hc} strokeWidth="5" fill="none" strokeLinecap="round" /&gt;&lt;path d="M132 86 Q146 80 160 86" stroke={gender === "남편" ? "#7A7A7A" : hc} strokeWidth="5" fill="none" strokeLinecap="round" /&gt;&lt;/&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;ellipse cx="94" cy="108" rx="7" ry={speaking ? 9 : 8} fill="#3B2A22" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;ellipse cx="146" cy="108" rx="7" ry={speaking ? 9 : 8} fill="#3B2A22" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;circle cx="96" cy="105" r="2.4" fill="#fff" /&gt;&lt;circle cx="148" cy="105" r="2.4" fill="#fff" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;ellipse cx="76" cy="130" rx="13" ry="8" fill="#FF9C8A" opacity={animal ? 0.35 : 0.55} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;ellipse cx="164" cy="130" rx="13" ry="8" fill="#FF9C8A" opacity={animal ? 0.35 : 0.55} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{animal ? (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;ellipse cx="120" cy="134" rx="30" ry="22" fill="#FFF3E4" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{cat ? &lt;path d="M112 124 L128 124 L120 133Z" fill="#F08A9A" /&gt; : &lt;ellipse cx="120" cy="125" rx="10" ry="7" fill="#3B2A22" /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{speaking ? &lt;ellipse cx="120" cy="147" rx="9" ry="8" fill="#7A2E2E" className="d-mouth" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>: &lt;path d="M106 138 Q113 149 120 138 Q127 149 134 138" stroke="#7A2E2E" strokeWidth="3.5" fill="none" strokeLinecap="round" /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{cat &amp;&amp; &lt;g stroke="#7A6657" strokeWidth="2.5" strokeLinecap="round"&gt;&lt;path d="M92 132 L66 126 M92 138 L66 142 M148 132 L174 126 M148 138 L174 142" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>) : (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{gender === "남편" &amp;&amp; &lt;path d="M101 127 Q111 121 120 126 Q129 121 139 127 Q129 132 120 129 Q111 132 101 127Z" fill="#8A8A8A" /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{gender === "아내" &amp;&amp; &lt;&gt;&lt;circle cx="56" cy="124" r="5" fill="#F6F0E4" stroke="#C9B99A" /&gt;&lt;circle cx="184" cy="124" r="5" fill="#F6F0E4" stroke="#C9B99A" /&gt;&lt;/&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{speaking ? &lt;ellipse cx="120" cy="142" rx="14" ry="11" fill="#7A2E2E" className="d-mouth" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>: listening ? &lt;ellipse cx="120" cy="142" rx="6" ry="7" fill="#7A2E2E" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>: &lt;path d="M100 136 Q120 158 140 136 Q120 144 100 136Z" fill="#7A2E2E" stroke="#7A2E2E" strokeWidth="3" strokeLinejoin="round" /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 악세사리 */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{acc === "glasses" &amp;&amp; &lt;g stroke="#33261C" strokeWidth="5" fill="none"&gt;&lt;circle cx="94" cy="108" r="19" /&gt;&lt;circle cx="146" cy="108" r="19" /&gt;&lt;path d="M113 108 H127" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{acc === "shades" &amp;&amp; &lt;g fill="#2B2220"&gt;&lt;rect x="72" y="92" width="44" height="30" rx="12" /&gt;&lt;rect x="124" y="92" width="44" height="30" rx="12" /&gt;&lt;rect x="114" y="100" width="12" height="5" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{acc === "flower" &amp;&amp; &lt;g transform="translate(170 52)"&gt;{[0, 72, 144, 216, 288].map((a) =&gt; &lt;circle key={a} cx={Math.cos((a * Math.PI) / 180) * 10} cy={Math.sin((a * Math.PI) / 180) * 10} r="9" fill="#FF8FA8" /&gt;)}&lt;circle r="6" fill="#FFD66B" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{acc === "heart" &amp;&amp; &lt;g&gt;&lt;path d="M92 38 Q84 14 70 12 M148 38 Q156 14 170 12" stroke="#7A6657" strokeWidth="5" fill="none" strokeLinecap="round" /&gt;{heart(68, 14, 1.4, "#E8685A")}{heart(172, 14, 1.4, "#E8685A")}&lt;path d="M62 52 Q120 18 178 52" stroke="#7A6657" strokeWidth="5" fill="none" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{acc === "ribbon" &amp;&amp; &lt;g transform="translate(168 48)"&gt;&lt;path d="M0 0 L-24 -14 L-24 14Z M0 0 L24 -14 L24 14Z" fill="#E8685A" /&gt;&lt;circle r="7" fill="#C94F42" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{acc === "beanie" &amp;&amp; &lt;g&gt;&lt;path d="M54 70 Q56 14 120 14 Q184 14 186 70Z" fill="#E8685A" /&gt;&lt;rect x="50" y="64" width="140" height="18" rx="9" fill="#C94F42" /&gt;&lt;circle cx="120" cy="10" r="12" fill="#FFF3E4" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{acc === "scarf" &amp;&amp; &lt;g&gt;&lt;path d="M72 168 Q120 192 168 168 L172 190 Q120 214 68 190Z" fill="#E8B03B" /&gt;&lt;rect x="136" y="188" width="26" height="52" rx="8" fill="#E8B03B" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{acc === "bowtie" &amp;&amp; &lt;g transform="translate(120 182)"&gt;&lt;path d="M0 0 L-24 -14 L-24 14Z M0 0 L24 -14 L24 14Z" fill="#3B5FA8" /&gt;&lt;circle r="7" fill="#2B4780" /&gt;&lt;/g&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{acc === "crown" &amp;&amp; &lt;path d="M64 44 L72 8 L96 30 L120 4 L144 30 L168 8 L176 44Z" fill="#FFC83D" stroke="#D99A1B" strokeWidth="3" strokeLinejoin="round" /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/svg&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 공통 UI ═════════ */</p>
+<p class="p1">const Header = ({ title, onBack, right }) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div className="flex items-center justify-between px-5 pt-12 pb-3 shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{onBack ? (</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button onClick={onBack} aria-label="뒤로" className="w-[52px] h-[52px] rounded-2xl grid place-items-center active:scale-95 transition" style={{ background: SAND }}&gt;&lt;ArrowLeft size={28} color={INK} /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>) : &lt;span className="w-[52px]" /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;h1 className="text-[26px] font-extrabold text-center flex-1 px-2" style={{ color: INK }}&gt;{title}&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{right || &lt;span className="w-[52px]" /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p1">);</p>
+<p class="p2"><br></p>
+<p class="p1">const Pill = ({ children, variant = "primary", className = "", ...p }) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;button {...p}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>className={`h-[68px] rounded-full text-[22px] font-extrabold transition active:scale-[.97] disabled:opacity-40 flex items-center justify-center gap-2 ${className}`}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>style={variant === "primary" ? { background: ORANGE, color: "#fff", boxShadow: "0 6px 16px rgba(232,116,59,.35)" } : { background: SAND, color: INK }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{children}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/button&gt;</p>
+<p class="p1">);</p>
+<p class="p2"><br></p>
+<p class="p1">const Field = ({ label, error, children }) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div className="mb-5"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;label className="block text-[20px] font-bold mb-2" style={{ color: INK }}&gt;{label}&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{children}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{error &amp;&amp; &lt;p className="mt-1 text-[18px] font-bold text-red-700"&gt;{error}&lt;/p&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p1">);</p>
+<p class="p1">const inputCls = "w-full h-[64px] rounded-2xl px-4 text-[20px] font-medium border-2 border-transparent focus:outline-none focus:border-[#E8743B] bg-[#F5E6D3] placeholder:text-[#9B8573]";</p>
+<p class="p2"><br></p>
+<p class="p1">const Toggle = ({ on, onChange, dark }) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;button role="switch" aria-checked={on} onClick={(e) =&gt; { e.stopPropagation(); onChange(!on); }}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>className="w-[76px] h-[44px] rounded-full relative shrink-0 transition" style={{ background: on ? SAGE_DEEP : dark ? "#fff" : "#CDBBA8" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;span className="absolute top-[4px] w-[36px] h-[36px] rounded-full transition-all" style={{ left: on ? 36 : 4, background: on ? "#fff" : dark ? "#33261C" : "#fff" }} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/button&gt;</p>
+<p class="p1">);</p>
+<p class="p2"><br></p>
+<p class="p1">const DayChips = ({ days, small }) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div className="flex gap-1.5 flex-wrap"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{DAY_KR.map((d, i) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span key={d} className={`${small ? "w-[34px] h-[34px] text-[18px]" : ""} rounded-lg grid place-items-center font-bold`}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>style={{ background: days.includes(i) ? "rgba(51,38,28,.78)" : "rgba(51,38,28,.12)", color: days.includes(i) ? "#fff" : "rgba(51,38,28,.5)" }}&gt;{d}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p1">);</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 음성 인식 · 일정 해석 ═════════ */</p>
+<p class="p1">const SpeechRec = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;</p>
+<p class="p2"><br></p>
+<p class="p1">/* 한 번 듣기. 브라우저 음성 인식이 되면 실제 음성을, 안 되면(권한 거부·미지원) 시뮬레이션 문장을 사용 */</p>
+<p class="p1">function listenOnce(fallback, done) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let finished = false;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const fin = (t) =&gt; { if (finished) return; finished = true; done(t); };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const sim = () =&gt; setTimeout(() =&gt; fin(fallback), 1800);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (!SpeechRec) { sim(); return; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const r = new SpeechRec();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>r.lang = "ko-KR"; r.interimResults = false; r.maxAlternatives = 1;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>let heard = false;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>r.onaudiostart = () =&gt; { heard = true; };</p>
+<p class="p1"><span class="Apple-converted-space">    </span>r.onresult = (e) =&gt; fin(e.results[0][0].transcript);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>r.onerror = (e) =&gt; { if (e.error === "no-speech") fin(""); else sim(); };</p>
+<p class="p1"><span class="Apple-converted-space">    </span>r.onend = () =&gt; { if (heard) fin(""); else sim(); };</p>
+<p class="p1"><span class="Apple-converted-space">    </span>r.start();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>} catch { sim(); }</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">const HOUR_WORDS = { 한: 1, 두: 2, 세: 3, 네: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9, 열한: 11, 열두: 12, 열: 10 };</p>
+<p class="p1">const todayKeyNow = () =&gt; keyOf(new Date());</p>
+<p class="p1">const dateLabel = (k) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const t = new Date(todayKeyNow()), d = new Date(k);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const diff = Math.round((d - t) / 86400000);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (diff === 0) return "오늘";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (diff === 1) return "내일";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (diff === 2) return "모레";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return `${d.getMonth() + 1}월 ${d.getDate()}일(${"일월화수목금토"[d.getDay()]})`;</p>
+<p class="p1">};</p>
+<p class="p1">const timeText = (x) =&gt; `${x.pm ? "오후" : "오전"} ${x.h}:${pad(x.m)}`;</p>
+<p class="p1">const spokenTime = (x) =&gt; `${x.pm ? "오후" : "오전"} ${x.h}시${x.m ? ` ${x.m}분` : ""}`;</p>
+<p class="p1">const tmin = (x) =&gt; ((x.h % 12) + (x.pm ? 12 : 0)) * 60 + x.m;</p>
+<p class="p1">const timeLabel = (d) =&gt; `${d.getHours() &lt; 12 ? "오전" : "오후"} ${d.getHours() % 12 || 12}:${pad(d.getMinutes())}`;</p>
+<p class="p2"><br></p>
+<p class="p1">/* "오후 3시", "열두 시", "6시 반" → { h, m, pm, raw } */</p>
+<p class="p1">function readTime(str) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const tm = str.match(/(오전|오후|아침|점심|저녁|밤|새벽)?\s*(\d{1,2}|열한|열두|열|한|두|세|네|다섯|여섯|일곱|여덟|아홉)\s*시\s*(반|\d{1,2}\s*분)?/);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (!tm) return null;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const hr = /^\d/.test(tm[2]) ? +tm[2] : HOUR_WORDS[tm[2]];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const m = tm[3] === "반" ? 30 : tm[3] ? parseInt(tm[3], 10) : 0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const ap = tm[1];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let h, pm;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (hr &gt; 12) { pm = true; h = hr - 12; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>else if (hr === 0) { pm = false; h = 12; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>else { h = hr; pm = ap &amp;&amp; /오전|아침|새벽/.test(ap) ? false : ap ? true : hr === 12 || hr &lt;= 6; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return { h, m, pm: !!pm, raw: tm[0] };</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* "경로당 가기 일정 지워줘" → 지울 일정 찾기: { kind: "none" | "one" | "many", todo?, list? } */</p>
+<p class="p1">const DELETE_INTENT = /(지워|지우|삭제|취소해|취소 해|취소할|빼\s?줘|빼\s?주|없애)/;</p>
+<p class="p1">function findTodoToDelete(raw, todos) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const tm = readTime(raw);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const words = raw.replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g, " ").replace(tm ? tm.raw : "", " ")</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.replace(/(지워|지우|삭제|취소|빼|없애|줘|주세요|해줘|해 줘|해주세요|좀|일정|할 일|할일|오늘|내일|모레|을|를|은|는|이|가|도|에서|에)/g, " ")</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.split(/\s+/).map((w) =&gt; w.trim()).filter((w) =&gt; w.length &gt;= 2);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const ALIAS = { 병원: ["검진", "진료", "내과", "치과", "병원"], 장보기: ["사기", "장"], 약: ["약"] };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const all = words.flatMap((w) =&gt; [w, ...(ALIAS[w] || [])]);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let c = todos.filter((x) =&gt; all.some((w) =&gt; x.text.replace(/\s/g, "").includes(w)));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (!c.length) return { kind: "none" };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (tm) { const byTime = c.filter((x) =&gt; x.h === tm.h &amp;&amp; x.m === tm.m &amp;&amp; x.pm === tm.pm); if (byTime.length) c = byTime; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return c.length === 1 ? { kind: "one", todo: c[0] } : { kind: "many", list: c };</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* "10월 12일 오후 3시에 친구들과 모임이 있어" → { dateKey, h, m, pm, title } */</p>
+<p class="p1">function parseSchedule(raw) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let rest = raw.replace(/\s+/g, " ").trim();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const now = new Date();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let date = null, m;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if ((m = rest.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/))) {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>date = new Date(now.getFullYear(), +m[1] - 1, +m[2]);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (keyOf(date) &lt; keyOf(now)) date.setFullYear(date.getFullYear() + 1);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>rest = rest.replace(m[0], " ");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>} else if ((m = rest.match(/(오늘|내일|모레|글피)/))) {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>date = new Date(now); date.setDate(now.getDate() + { 오늘: 0, 내일: 1, 모레: 2, 글피: 3 }[m[1]]);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>rest = rest.replace(m[0], " ");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>} else if ((m = rest.match(/(이번\s*주|다음\s*주)?\s*([일월화수목금토])요일/))) {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const ti = (("일월화수목금토".indexOf(m[2])) + 6) % 7, mon = new Date(now); mon.setDate(now.getDate() - monIdx(now));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>date = new Date(mon);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (m[1] &amp;&amp; /다음/.test(m[1])) date.setDate(mon.getDate() + 7 + ti);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>else if (m[1]) date.setDate(mon.getDate() + ti);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>else { let diff = (ti - monIdx(now) + 7) % 7; date.setTime(now.getTime()); date.setDate(now.getDate() + (diff === 0 ? 7 : diff)); }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>rest = rest.replace(m[0], " ");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let h = 9, mi = 0, pm = false, noTime = true;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const tm = readTime(rest);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (tm) { noTime = false; ({ h, m: mi, pm } = tm); rest = rest.replace(tm.raw, " "); }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const intent = /(있|약속|모임|만나|가야|가기|예약|검진|병원|행사|잔치|생신|가요|간다|갈|해야|오기로|오는)/.test(raw);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if ((!date &amp;&amp; noTime) || !intent) return null;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let title = rest.replace(/\s+/g, " ").trim().replace(/^(에는|에|은|는|부터|까지)\s*/, "");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>title = title.replace(/[.!?~]+$/g, "").replace(/\s*(이|가|은|는)?\s*(있어요?|있단다|있다|있네|있대|있거든|있어서|있습니다|잡혔어요?|잡혀 있어요?|예정이야|예정이에요|예정입니다)$/, "").trim();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return { dateKey: keyOf(date || now), h, m: mi, pm, title: title || "새 일정", noTime };</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 티키타카 대화: 날씨 · 수수께끼 · 애교 · 되묻기 ═════════ */</p>
+<p class="p1">const pick = (a) =&gt; a[Math.floor(Math.random() * a.length)];</p>
+<p class="p2"><br></p>
+<p class="p1">const WMO = (c) =&gt; (c === 0 ? ["맑음", "☀️"] : c &lt;= 2 ? ["대체로 맑음", "🌤️"] : c === 3 ? ["흐림", "☁️"] : c &lt;= 48 ? ["안개 낀 날씨", "🌫️"] : c &lt;= 67 ? ["비", "🌧️"] : c &lt;= 77 ? ["눈", "❄️"] : c &lt;= 82 ? ["소나기", "🌦️"] : ["천둥번개", "⛈️"]);</p>
+<p class="p1">const rainy = (code, pop) =&gt; (code &gt;= 51 &amp;&amp; code &lt;= 67) || (code &gt;= 80 &amp;&amp; code &lt;= 99) || pop &gt;= 60;</p>
+<p class="p2"><br></p>
+<p class="p1">/* 오늘·내일 날씨 (Open-Meteo, 서울 기준). 불러오지 못하면 null */</p>
+<p class="p1">async function fetchWeather() {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const ctrl = new AbortController(); const to = setTimeout(() =&gt; ctrl.abort(), 5000);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=37.5665&amp;longitude=126.978&amp;current=temperature_2m,weather_code&amp;daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&amp;forecast_days=2&amp;timezone=Asia%2FSeoul", { signal: ctrl.signal });</p>
+<p class="p1"><span class="Apple-converted-space">    </span>clearTimeout(to);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const j = await r.json();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>temp: Math.round(j.current.temperature_2m), code: j.current.weather_code,</p>
+<p class="p1"><span class="Apple-converted-space">      </span>hi: Math.round(j.daily.temperature_2m_max[0]), lo: Math.round(j.daily.temperature_2m_min[0]), pop: j.daily.precipitation_probability_max[0],</p>
+<p class="p1"><span class="Apple-converted-space">      </span>tCode: j.daily.weather_code[1], tHi: Math.round(j.daily.temperature_2m_max[1]), tLo: Math.round(j.daily.temperature_2m_min[1]), tPop: j.daily.precipitation_probability_max[1],</p>
+<p class="p1"><span class="Apple-converted-space">    </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>} catch { return null; }</p>
+<p class="p1">}</p>
+<p class="p1">const tipFor = (code, pop, t) =&gt; (rainy(code, pop) ? "우산 꼭 챙기세요! ☂️" : t &lt;= 5 ? "많이 추워요. 따뜻하게 입으세요! 🧣" : t &gt;= 28 ? "더워요. 물 자주 드세요! 💧" : t &lt;= 12 ? "쌀쌀하니 겉옷 챙기세요!" : "산책하기 딱 좋은 날씨예요! 🚶");</p>
+<p class="p1">const weatherLine = (w) =&gt; { const [d] = WMO(w.code); return `오늘은 ${d}, 지금 ${w.temp}도예요. 낮 최고 ${w.hi}도, 아침엔 ${w.lo}도래요. ${tipFor(w.code, w.pop, w.hi)}`; };</p>
+<p class="p1">const tomorrowLine = (w) =&gt; { const [d] = WMO(w.tCode); return `내일은 ${d}, 최고 ${w.tHi}도예요. ${tipFor(w.tCode, w.tPop, w.tHi)}`; };</p>
+<p class="p2"><br></p>
+<p class="p1">const QUIZ = [</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: "바나나가 웃으면 뭐게요?", a: "바나나킥", keys: ["바나나킥", "킥"] },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: "차가 놀라면 뭐가 될까요?", a: "카놀라유", keys: ["카놀라"] },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: "고기 먹을 때 꼭 따라오는 개는 뭘까요?", a: "이쑤시개", keys: ["이쑤시개", "쑤시개"] },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: "오리가 얼면 뭐라고 할까요?", a: "언덕", keys: ["언덕"] },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: "왕이 넘어지면 뭐게요?", a: "킹콩", keys: ["킹콩"] },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: "소금이 죽으면 뭐가 될까요?", a: "죽염", keys: ["죽염"] },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: "개가 사람을 가르치면 뭐게요?", a: "개인교수", keys: ["개인교수", "개인 교수"] },</p>
+<p class="p1">];</p>
+<p class="p1">const QUIZ_INTENT = /(농담|웃긴|웃겨|재밌는|재미있는|조크|수수께끼|퀴즈|아재|하나 더|장난)/;</p>
+<p class="p1">const WEATHER_INTENT = /(날씨|기온|우산|비\s?와|비가|눈\s?와|더워|추워|춥|덥)/;</p>
+<p class="p1">const YES = /^(응|네|예|그래|좋아|좋지|해\s?봐|해줘|내\s?봐|그러자|어)/;</p>
+<p class="p2"><br></p>
+<p class="p1">const IDLE_LINES = (n) =&gt; [</p>
+<p class="p1"><span class="Apple-converted-space">  </span>`${n}님 목소리 듣고 싶어요~ 저한테 말 좀 걸어 주세요 🥺`,</p>
+<p class="p1"><span class="Apple-converted-space">  </span>"저 심심해요오~ 오늘 있었던 일 하나만 얘기해 주세요!",</p>
+<p class="p1"><span class="Apple-converted-space">  </span>"오늘 날씨 궁금하지 않으세요? '오늘 날씨 어때?' 하고 물어봐 주세요 ☀️",</p>
+<p class="p1"><span class="Apple-converted-space">  </span>"수수께끼 하나 낼까요? '수수께끼 내줘'라고 말해 보세요 😆",</p>
+<p class="p1"><span class="Apple-converted-space">  </span>"한마디만요, 네? 목소리가 제일 좋아요 💛",</p>
+<p class="p1"><span class="Apple-converted-space">  </span>"저 여기 있어요~ 불러 주시면 쪼르르 달려와요! 🐾",</p>
+<p class="p1">];</p>
+<p class="p2"><br></p>
+<p class="p1">const chatReply = (t) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (/아프|쑤시|결리|어지/.test(t)) return `많이 불편하시겠어요. 따뜻하게 쉬세요. ${pick(["언제부터 아프셨어요?", "약은 챙겨 드셨어요?"])}`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (/고마워|감사/.test(t)) return pick(["에이~ 별말씀을요! 웃으시는 모습이 최고예요 😊 오늘 또 뭐 하셨어요?", "저도 고마워요~ 우리 오래오래 얘기해요 🥰"]);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (/안녕|좋은 아침|굿모닝|잘 잤/.test(t)) return pick(["안녕하세요~! 보고 싶었어요 🥰 오늘 기분은 어떠세요?", "어머, 목소리 들으니까 힘이 나요! 식사는 하셨어요?"]);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (/외로|쓸쓸|보고\s?싶|심심/.test(t)) return pick(["저도 보고 싶었어요~ 🥰 이렇게 목소리 들려주시니 너무 좋아요! 수수께끼 하나 낼까요?", "제가 곁에 있잖아요~ 심심하면 저랑 놀아요! 수수께끼 낼까요?"]);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (/기분.*좋|좋아|행복|즐거/.test(t)) return `기분이 좋으시다니 저도 기뻐요! 무슨 좋은 일 있으셨어요?`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (/밥|점심|저녁|식사|먹/.test(t)) return `잘 챙겨 드셨네요! 반찬은 뭐가 제일 맛있었어요?`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return pick(["말씀해 주셔서 고마워요~ 더 들려주세요! 오늘 제일 기억에 남는 일은 뭐예요?", "오오 그렇군요! 그래서 어떻게 됐어요? 궁금해요~", "목소리 들으니까 좋아요 💛 다른 얘기도 해 주세요!"]);</p>
+<p class="p1">};</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 폭죽 · 축하 오버레이 ═════════ */</p>
+<p class="p1">const SPARK_COLORS = ["#FF6B6B", "#FFD93D", "#6BCB77", "#4D96FF", "#FF9F45", "#C77DFF"];</p>
+<p class="p2"><br></p>
+<p class="p1">function Fireworks() {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const bursts = useMemo(() =&gt; [[22, 24], [78, 20], [50, 10], [16, 56], [84, 54]].map(([x, y], i) =&gt; ({ x, y, delay: i * 0.3, color: SPARK_COLORS[i % 6], r: 62 + (i % 2) * 22 })), []);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const confetti = useMemo(() =&gt; Array.from({ length: 46 }, (_, i) =&gt; ({</p>
+<p class="p1"><span class="Apple-converted-space">    </span>left: Math.random() * 100, delay: Math.random() * 1.3, dur: 2 + Math.random() * 1.4,</p>
+<p class="p1"><span class="Apple-converted-space">    </span>color: SPARK_COLORS[i % 6], w: 6 + Math.random() * 7,</p>
+<p class="p1"><span class="Apple-converted-space">  </span>})), []);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{bursts.map((b, i) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div key={i} className="absolute" style={{ left: `${b.x}%`, top: `${b.y}%` }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{Array.from({ length: 16 }, (_, k) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const a = (k / 16) * 2 * Math.PI;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return &lt;span key={k} className="d-spark absolute rounded-full" style={{ width: 11, height: 11, background: b.color, "--dx": `${Math.cos(a) * b.r}px`, "--dy": `${Math.sin(a) * b.r}px`, animationDelay: `${b.delay}s` }} /&gt;;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{confetti.map((c, i) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span key={i} className="d-fall absolute" style={{ left: `${c.left}%`, top: -24, width: c.w, height: c.w * 1.7, background: c.color, borderRadius: 2, animationDelay: `${c.delay}s`, animationDuration: `${c.dur}s` }} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function Celebrate({ a, b, onClose }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="absolute inset-0 z-50 bg-black/65 flex flex-col items-center justify-center text-white" onClick={onClose} role="alert"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Fireworks /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;p className="text-[30px] font-extrabold relative"&gt;{a}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;p className="text-[80px] font-extrabold leading-tight relative"&gt;{b}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="mt-6 w-[150px] h-[150px] rounded-full bg-white grid place-items-center d-pop relative"&gt;&lt;Check size={96} color={SAGE_DEEP} strokeWidth={3} /&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 시작 · 로그인 · 가입 ═════════ */</p>
+<p class="p1">function Splash({ go }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; { const t = setTimeout(() =&gt; go("login"), 1800); return () =&gt; clearTimeout(t); }, []);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full grid place-items-center cursor-pointer" style={{ background: `linear-gradient(180deg, ${CREAM}, ${PEACH})` }} onClick={() =&gt; go("login")}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="text-center"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="w-[220px] h-[220px] rounded-full mx-auto grid place-items-center d-float" style={{ background: "#fff", boxShadow: "0 12px 32px rgba(232,116,59,.25)" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Character gender="손녀" look={{ hair: 0, outfit: 0, acc: null }} size={130} head /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="mt-6 text-[44px] font-extrabold tracking-wide" style={{ color: ORANGE }}&gt;AII IT&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="text-[22px] font-bold" style={{ color: INK }}&gt;올잇&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="text-[19px] font-medium mt-1" style={{ color: SUB }}&gt;마음 따뜻한 나의 친구&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function Login({ go, demo }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const Btn = ({ bg, color, icon, label, border }) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;button onClick={() =&gt; go("signup")} className="w-full h-[68px] rounded-2xl flex items-center px-5 text-[21px] font-bold active:scale-[.98] transition"</p>
+<p class="p1"><span class="Apple-converted-space">      </span>style={{ background: bg, color, border: border ? "2px solid #E4D3BF" : "none" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span className="w-[40px] text-[28px] font-black text-left"&gt;{icon}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span className="flex-1 text-center pr-[40px]"&gt;{label}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col px-[26px] pt-24 pb-10" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 flex flex-col justify-center"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;h1 className="text-[34px] font-extrabold text-center mb-8" style={{ color: INK }}&gt;로그인&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="space-y-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Btn bg="#03C75A" color="#fff" icon="N" label="네이버로 시작하기" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Btn bg="#FEE500" color="#2B1B10" icon="💬" label="카카오로 시작하기" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Btn bg="#fff" color={INK} icon="G" label="Google로 시작하기" border /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button onClick={demo} className="min-h-[52px] text-[18px] font-bold underline underline-offset-4" style={{ color: SUB }}&gt;건너뛰고 체험해 보기&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function Signup({ go, setUser }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [f, setF] = useState({ id: "", pw: "", pw2: "" });</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [err, setErr] = useState({});</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const next = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const e = {};</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (f.id.trim().length &lt; 4) e.id = "아이디는 4자 이상 적어 주세요.";</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (f.pw.length &lt; 6) e.pw = "비밀번호는 6자 이상 적어 주세요.";</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (f.pw2 !== f.pw || !f.pw2) e.pw2 = "비밀번호가 서로 달라요.";</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setErr(e);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!Object.keys(e).length) { setUser((u) =&gt; ({ ...u, id: f.id })); go("profile"); }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const set = (k) =&gt; (e) =&gt; setF({ ...f, [k]: e.target.value });</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Header title="회원가입" onBack={() =&gt; go("login")} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 overflow-y-auto px-[26px] pt-6"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;Field label="아이디" error={err.id}&gt;&lt;input className={inputCls} value={f.id} onChange={set("id")} placeholder="아이디를 입력하세요" autoComplete="off" /&gt;&lt;/Field&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;Field label="비밀번호" error={err.pw}&gt;&lt;input className={inputCls} type="password" value={f.pw} onChange={set("pw")} placeholder="6자 이상" /&gt;&lt;/Field&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;Field label="비밀번호 확인" error={err.pw2}&gt;&lt;input className={inputCls} type="password" value={f.pw2} onChange={set("pw2")} placeholder="한 번 더 입력하세요" /&gt;&lt;/Field&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="px-[26px] pb-10 pt-3"&gt;&lt;Pill onClick={next} className="w-full"&gt;다음으로 넘어가기&lt;/Pill&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function Profile({ go, setUser }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [name, setName] = useState("");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [birth, setBirth] = useState("");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [err, setErr] = useState("");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const shown = birth ? birth.replace(/-/g, ". ") + "." : "연도. 월. 일.";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const submit = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!name.trim()) return setErr("이름을 적어 주세요.");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setUser((u) =&gt; ({ ...u, name: name.trim(), birth, joined: Date.now() }));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>go("charSelect");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Header title="회원정보" onBack={() =&gt; go("signup")} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 overflow-y-auto px-[26px] pt-10"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;Field label="이름" error={err}&gt;&lt;input className={inputCls} value={name} onChange={(e) =&gt; { setName(e.target.value); setErr(""); }} placeholder="성함을 입력하세요" /&gt;&lt;/Field&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;Field label="생년월일"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="relative"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className={`${inputCls} flex items-center justify-between`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;span style={{ color: birth ? INK : "#9B8573" }}&gt;{shown}&lt;/span&gt;&lt;Calendar size={30} color={SUB} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;input type="date" value={birth} onChange={(e) =&gt; setBirth(e.target.value)} onClick={(e) =&gt; e.target.showPicker?.()} aria-label="생년월일"</p>
+<p class="p1"><span class="Apple-converted-space">              </span>className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/Field&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="px-[26px] pb-10 pt-3"&gt;&lt;Pill onClick={submit} className="w-full"&gt;가입하기&lt;/Pill&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 캐릭터 선택 / 변경 (옆으로 스와이프) ═════════ */</p>
+<p class="p1">function Carousel({ value, onChange, look, current }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const ref = useRef(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const idx = CHARS.findIndex((c) =&gt; c.id === value);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const step = () =&gt; { const k = ref.current.children; return k.length &gt; 1 ? k[1].offsetLeft - k[0].offsetLeft : k[0].offsetWidth; };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; { ref.current.scrollTo({ left: idx * step() }); }, []);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const onScroll = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const i = Math.max(0, Math.min(CHARS.length - 1, Math.round(ref.current.scrollLeft / step())));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (CHARS[i].id !== value) onChange(CHARS[i].id);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const to = (i) =&gt; ref.current.scrollTo({ left: Math.max(0, Math.min(CHARS.length - 1, i)) * step(), behavior: "smooth" });</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex items-center justify-between px-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button onClick={() =&gt; to(idx - 1)} disabled={idx === 0} aria-label="이전 캐릭터" className="w-[52px] h-[52px] rounded-full grid place-items-center disabled:opacity-25" style={{ background: SAND }}&gt;&lt;ChevronLeft size={30} color={INK} /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span className="text-[26px] font-extrabold" style={{ color: ORANGE }}&gt;&amp;lt; {value} &amp;gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button onClick={() =&gt; to(idx + 1)} disabled={idx === CHARS.length - 1} aria-label="다음 캐릭터" className="w-[52px] h-[52px] rounded-full grid place-items-center disabled:opacity-25" style={{ background: SAND }}&gt;&lt;ChevronRight size={30} color={INK} /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div ref={ref} onScroll={onScroll} className="d-noscroll flex gap-4 overflow-x-auto mt-2 py-2" style={{ scrollSnapType: "x mandatory", paddingLeft: "15%", paddingRight: "15%" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{CHARS.map((c, i) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const on = i === idx;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;button key={c.id} onClick={() =&gt; to(i)} aria-label={`${c.id} 선택`} aria-pressed={on} className="shrink-0 w-[70%] rounded-[28px] flex flex-col items-center justify-end pb-4 transition-all duration-300"</p>
+<p class="p1"><span class="Apple-converted-space">              </span>style={{ scrollSnapAlign: "center", height: 330, background: on ? PEACH : "#F4EDE4", border: `4px solid ${on ? ORANGE : "transparent"}`, transform: on ? "scale(1)" : "scale(.88)", opacity: on ? 1 : 0.6 }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;Character gender={c.id} look={c.id === current ? look : c.look} size={190} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;span className="text-[24px] font-extrabold mt-1" style={{ color: INK }}&gt;{c.id}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;span className="text-[18px] font-medium px-3 text-center" style={{ color: SUB, wordBreak: "keep-all" }}&gt;{c.desc}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex justify-center gap-2 mt-2" aria-hidden="true"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{CHARS.map((c, i) =&gt; &lt;span key={c.id} className="h-[10px] rounded-full transition-all" style={{ width: i === idx ? 28 : 10, background: i === idx ? ORANGE : "#DCCBB8" }} /&gt;)}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function CharPick({ title, initialId, initialNick, current, look, onSubmit, submitLabel, back, editable }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [id, setId] = useState(initialId);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [nick, setNick] = useState(initialNick);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [edited, setEdited] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const pick = (nid) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!edited) setNick(charOf(nid).nick);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setId(nid);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col relative" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Header title={title} onBack={back} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 overflow-y-auto pt-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;Carousel value={id} onChange={pick} look={look} current={current} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="px-[26px] mt-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Field label="캐릭터의 애칭"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="relative"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;input className={inputCls} value={nick} onChange={(e) =&gt; { setNick(e.target.value); setEdited(true); }} maxLength={8} placeholder="애칭을 입력하세요" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>{editable &amp;&amp; &lt;Pencil size={26} color={SUB} className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/Field&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="px-[26px] pb-10 pt-3"&gt;&lt;Pill onClick={() =&gt; onSubmit(id, nick)} className="w-full"&gt;{submitLabel}&lt;/Pill&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* 왼쪽으로 밀면 삭제 아이콘이 나타나는 행 (마우스·터치 모두) */</p>
+<p class="p1">function SwipeRow({ open, onOpen, onClose, onDelete, label, children }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const W = 88;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [drag, setDrag] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const st = useRef({ x: 0, base: 0, down: false, moved: false });</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const x = drag !== null ? drag : open ? -W : 0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const down = (e) =&gt; { st.current = { x: e.clientX, base: open ? -W : 0, down: true, moved: false }; };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const move = (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const s = st.current; if (!s.down) return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const dx = e.clientX - s.x;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!s.moved &amp;&amp; Math.abs(dx) &gt; 8) { s.moved = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (s.moved) setDrag(Math.max(-W, Math.min(0, s.base + dx)));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const up = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const s = st.current; if (!s.down) return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>s.down = false;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (s.moved) { (drag !== null &amp;&amp; drag &lt; -W / 2) ? onOpen() : onClose(); setDrag(null); }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const clickCapture = (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (st.current.moved) { e.stopPropagation(); e.preventDefault(); st.current.moved = false; return; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (open) { e.stopPropagation(); e.preventDefault(); onClose(); }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="relative rounded-2xl overflow-hidden" style={{ touchAction: "pan-y" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button onClick={onDelete} tabIndex={open ? 0 : -1} aria-label={`${label} 일정 삭제`} className="absolute right-0 top-0 bottom-0 grid place-items-center text-white" style={{ width: W, background: "#D94B3B" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;Trash2 size={32} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onClickCapture={clickCapture}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>style={{ transform: `translateX(${x}px)`, transition: drag === null ? "transform .22s ease" : "none" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{children}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 메인 ═════════ */</p>
+<p class="p1">function Main({ s }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const { gender, look, points, todos, user, tut, setTut, go, toggleTodo, deleteTodo, addTodo, toast, weather } = s;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [mode, setMode] = useState("idle"); // idle | listening | speaking</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [speech, setSpeech] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [typing, setTyping] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [text, setText] = useState("");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [openId, setOpenId] = useState(null); // 왼쪽으로 밀어 삭제 버튼이 열린 일정</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const sp = useRef([]); const sim = useRef(0);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const quiz = useRef(null);<span class="Apple-converted-space">      </span>// 낸 수수께끼 (답을 기다리는 중)</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const quizIdx = useRef(Math.floor(Math.random() * QUIZ.length));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const offer = useRef(false);<span class="Apple-converted-space">    </span>// "수수께끼 낼까요?" 제안 후 대답 기다리는 중</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const lastTalk = useRef(Date.now());</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const live = useRef({});</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const greeted = useRef(false);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; () =&gt; sp.current.forEach(clearTimeout), []);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const todayKey = keyOf(new Date());</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const todayItems = todos.filter((t) =&gt; t.dateKey === todayKey).sort((a, b) =&gt; tmin(a) - tmin(b));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const upcoming = todos.filter((t) =&gt; t.dateKey &gt; todayKey).sort((a, b) =&gt; (a.dateKey === b.dateKey ? tmin(a) - tmin(b) : a.dateKey &lt; b.dateKey ? -1 : 1));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const doneCount = todayItems.filter((t) =&gt; t.done).length;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const allDone = todayItems.length &gt; 0 &amp;&amp; doneCount === todayItems.length;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const title = mode === "listening" ? "듣고 있어요..." : speech || (allDone ? "오늘 할 일을 모두 마쳤어요!" : `${user.name || "어르신"}님, 안녕하세요!`);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const say = (msg) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>sp.current.forEach(clearTimeout);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setSpeech(msg); setMode("speaking");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>sp.current = [setTimeout(() =&gt; setMode("idle"), Math.min(7000, 2200 + msg.length * 70)), setTimeout(() =&gt; setSpeech(null), Math.max(9000, msg.length * 220))];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const askQuiz = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const q = QUIZ[quizIdx.current++ % QUIZ.length];</p>
+<p class="p1"><span class="Apple-converted-space">    </span>quiz.current = q; offer.current = false;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>say(`수수께끼 나갑니다~ ${q.q} 맞혀 보세요! 🤔`);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const handle = async (raw) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const t = (raw || "").trim();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>lastTalk.current = Date.now();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!t) return say("잘 못 들었어요~ 다시 한 번만 말씀해 주세요 🥺");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const wasOffer = offer.current; offer.current = false;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// 1) 수수께끼 정답 맞히기</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (quiz.current) {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const q = quiz.current;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const isOther = DELETE_INTENT.test(t) || WEATHER_INTENT.test(t) || parseSchedule(t);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (!isOther) {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>quiz.current = null; offer.current = true;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (q.keys.some((k) =&gt; t.replace(/\s/g, "").includes(k.replace(/\s/g, "")))) return say(`딩동댕~! 정답은 '${q.a}'예요 👏 척척박사시네요! 하나 더 낼까요?`);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (/모르|몰라|힌트|포기|글쎄/.test(t)) return say(`정답은 '${q.a}'예요! ㅎㅎ 재밌죠? 하나 더 낼까요?`);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return say(`땡~! 정답은 '${q.a}'예요 ㅎㅎ 아깝다~ 하나 더 낼까요?`);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>quiz.current = null;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>// 2) 일정 삭제 · 추가</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (DELETE_INTENT.test(t)) {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const r = findTodoToDelete(t, todos);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (r.kind === "one") { deleteTodo(r.todo.id); return say(`${dateLabel(r.todo.dateKey)} ${spokenTime(r.todo)} '${r.todo.text}' 일정을 삭제했어요.`); }</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (r.kind === "many") return say(`'${r.list[0].text}' 일정이 ${r.list.length}개예요. 시간도 같이 말씀해 주세요. 예) ${spokenTime(r.list[0])} ${r.list[0].text} 지워줘`);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>return say("어떤 일정인지 못 찾았어요. 일정 이름을 같이 말씀해 주세요.");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const sc = parseSchedule(t);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (sc) {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>addTodo(sc, "voice");</p>
+<p class="p1"><span class="Apple-converted-space">      </span>say(`${dateLabel(sc.dateKey)} ${spokenTime(sc)}에 '${sc.title}' 일정을 추가했어요!${sc.noTime ? " 시간은 오전 9시로 해 뒀어요." : ""} 그날 기대되시죠? 😊`);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>toast("📅 일정에 자동으로 추가했어요");</p>
+<p class="p1"><span class="Apple-converted-space">      </span>return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>// 3) 날씨</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (WEATHER_INTENT.test(t)) {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const w = weather || (say("날씨를 알아볼게요~ 잠시만요 ⏳"), await fetchWeather());</p>
+<p class="p1"><span class="Apple-converted-space">      </span>return say(w ? `${WMO(w.code)[1]} ${weatherLine(w)} (서울 기준)` : "앗, 지금은 날씨를 못 가져왔어요. 창밖을 한번 볼까요? 🪟");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>// 4) 수수께끼 · 농담 (또는 제안에 "응")</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (QUIZ_INTENT.test(t) || (wasOffer &amp;&amp; YES.test(t))) return askQuiz();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>// 5) 그 밖의 대화: 공감 + 되묻기</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const r = chatReply(t);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (/수수께끼 낼까요\?$/.test(r)) offer.current = true;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>say(r);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const fallbackPhrase = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const n = sim.current++;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (n % 7 === 0) { const d = new Date(); d.setDate(d.getDate() + 5); return `${d.getMonth() + 1}월 ${d.getDate()}일 오후 3시에 친구들과 모임이 있어`; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return ["무릎이 좀 쑤시는구나", "경로당 가기 일정 지워줘", "오늘 날씨 어때?", "수수께끼 내줘", "카놀라유", "심심하구나"][(n - 1) % 6];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const mic = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (tut === 2) setTut(null);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (mode !== "idle") return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>lastTalk.current = Date.now();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>sp.current.forEach(clearTimeout); setSpeech(null); setMode("listening");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>listenOnce(fallbackPhrase(), (t) =&gt; { setMode("idle"); handle(t); });</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>live.current = { mode, speech, typing, say, name: user.name || "어르신" };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>// 가만히 있으면 캐릭터가 먼저 애교 섞어 말을 걸어요</p>
+<p class="p1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (tut) return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>let i = 0;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const id = setInterval(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const L = live.current;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (L.mode !== "idle" || L.speech || L.typing || Date.now() - lastTalk.current &lt; 25000) return;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const line = IDLE_LINES(L.name)[i++ % 6];</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (/수수께끼/.test(line)) offer.current = true;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>L.say(line);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}, 30000);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return () =&gt; clearInterval(id);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}, [tut]);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>// 들어오면 오늘 날씨를 먼저 알려줘요</p>
+<p class="p1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (tut || greeted.current || !weather) return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>greeted.current = true;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const id = setTimeout(() =&gt; live.current.say(`${live.current.name}님, 좋은 하루예요! ${WMO(weather.code)[1]} ${weatherLine(weather)}`), 900);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return () =&gt; clearTimeout(id);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}, [tut, weather]);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const sendText = () =&gt; { const t = text.trim(); if (!t) return; setText(""); setTyping(false); handle(t); };</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const Card = ({ t, future }) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;SwipeRow open={openId === t.id} onOpen={() =&gt; setOpenId(t.id)} onClose={() =&gt; setOpenId(null)} onDelete={() =&gt; { setOpenId(null); deleteTodo(t.id); }} label={t.text}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button onClick={() =&gt; !future &amp;&amp; toggleTodo(t.id)} disabled={future} aria-pressed={t.done}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>className="w-full min-h-[72px] bg-white rounded-2xl pl-4 pr-3 flex items-center justify-between gap-3 text-left disabled:active:scale-100 select-none"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;span className="block text-[21px] font-extrabold leading-snug" style={{ color: t.done ? "#A89787" : INK, textDecoration: t.done ? "line-through" : "none" }}&gt;{t.text}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;span className="block text-[18px] font-medium" style={{ color: SUB }}&gt;{future ? `${dateLabel(t.dateKey)} · ` : ""}{timeText(t)}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span className="w-[46px] h-[46px] rounded-xl grid place-items-center shrink-0" style={{ background: t.done ? SAGE_DEEP : SAND }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{t.done ? &lt;Check size={30} color="#fff" strokeWidth={3} /&gt; : future ? &lt;Calendar size={26} color="#B4A190" /&gt; : null}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/SwipeRow&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col relative overflow-hidden" style={{ background: `linear-gradient(180deg, ${CREAM} 0%, #FFEBD7 100%)` }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 상단: 말풍선 타이틀 · 포인트 · 메뉴 */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex items-start justify-between px-6 pt-12 shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="flex-1 pr-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;h1 className={`${title.length &gt; 46 ? "text-[21px] leading-[1.3]" : title.length &gt; 24 ? "text-[24px] leading-[1.25]" : "text-[27px] leading-[1.25]"} font-extrabold`} style={{ color: INK, wordBreak: "keep-all" }} aria-live="polite"&gt;{title}&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="mt-1 flex items-center gap-2 flex-wrap"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;p className="inline-flex items-center gap-1 text-[20px] font-bold rounded-full px-3 py-0.5" style={{ background: "#FFE9B8", color: "#8A4B14" }}&gt;&lt;Star size={18} fill="currentColor" /&gt;{points.toLocaleString()} p&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>{weather &amp;&amp; &lt;p className="inline-flex items-center gap-1 text-[20px] font-bold rounded-full px-3 py-0.5 bg-white" style={{ color: INK }}&gt;{WMO(weather.code)[1]} {weather.temp}°&lt;/p&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button onClick={() =&gt; go("settings")} aria-label="메뉴" className="w-[52px] h-[52px] rounded-2xl bg-white grid place-items-center shadow-md shrink-0"&gt;&lt;Menu size={30} color={INK} /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 스크롤 영역: 캐릭터 + 할 일 (음성 버튼은 아래에 고정) */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 min-h-0 overflow-y-auto d-noscroll pb-[210px]"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="flex justify-center pt-1 relative z-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button onClick={() =&gt; go("customize")} aria-label="캐릭터 꾸미기"&gt;&lt;Character gender={gender} look={look} speaking={mode === "speaking"} listening={mode === "listening"} size={215} /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="mx-4 -mt-9 relative z-10 rounded-3xl p-3 space-y-2" style={{ background: "rgba(94,127,90,.95)" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;p className="px-1 text-[20px] font-extrabold text-white"&gt;오늘의 할 일 &lt;span className="opacity-90"&gt;{doneCount}/{todayItems.length}&lt;/span&gt;&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;p className="px-1 -mt-1 pb-1 text-[18px] text-white/90"&gt;← 왼쪽으로 밀면 삭제 · "○○ 지워줘"라고 말해도 돼요&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{todayItems.length === 0 &amp;&amp; &lt;p className="px-1 pb-1 text-[19px] text-white/90"&gt;오늘 예정된 일이 없어요.&lt;/p&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{todayItems.map((t) =&gt; &lt;Card key={t.id} t={t} /&gt;)}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{upcoming.length &gt; 0 &amp;&amp; &lt;p className="px-1 pt-2 text-[20px] font-extrabold text-white"&gt;다가오는 일정&lt;/p&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{upcoming.map((t) =&gt; &lt;Card key={t.id} t={t} future /&gt;)}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 음성 버튼: 화면 하단에 고정 */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="absolute left-0 right-0 bottom-0 flex flex-col items-center pb-8 pt-10" style={{ zIndex: tut === 2 ? 40 : 20, background: tut === 2 ? "transparent" : "linear-gradient(180deg, rgba(255,235,215,0) 0%, #FFEBD7 45%)" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button onClick={() =&gt; setTyping(true)} aria-label="글자로 말하기" className="absolute left-6 bottom-[62px] w-[60px] h-[60px] rounded-full bg-white grid place-items-center shadow-md"&gt;&lt;Keyboard size={30} color={INK} /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button onClick={mic} aria-label="음성으로 말하기" className={`w-[124px] h-[124px] rounded-full grid place-items-center active:scale-95 transition ${mode === "listening" ? "d-ring" : ""}`}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>style={{ background: mode === "listening" ? "#D94B3B" : tut === 2 ? "#E6E0D8" : PEACH, boxShadow: "0 10px 24px rgba(232,116,59,.3)" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Mic size={64} color={mode === "listening" ? "#fff" : INK} strokeWidth={2.4} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="mt-2 text-[19px] font-bold" style={{ color: tut === 2 ? "#fff" : SUB }}&gt;{mode === "listening" ? "말씀하세요" : "눌러서 말해 보세요"}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 글자로 말하기 (음성이 어려울 때) */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{typing &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="absolute inset-0 z-40 bg-black/50 flex items-end" onClick={() =&gt; setTyping(false)}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="w-full rounded-t-[32px] p-5 pb-8 d-slide" style={{ background: CREAM }} onClick={(e) =&gt; e.stopPropagation()}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;p className="text-[22px] font-extrabold mb-1" style={{ color: INK }}&gt;글자로 말해 보세요&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;p className="text-[18px] mb-2" style={{ color: SUB }}&gt;예) 10월 12일 오후 3시에 친구들과 모임이 있어&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="flex flex-wrap gap-2 mb-3"&gt;{["오늘 날씨 어때?", "수수께끼 내줘", "심심해", "안녕"].map((c) =&gt; &lt;button key={c} onClick={() =&gt; { setTyping(false); handle(c); }} className="min-h-[52px] px-4 rounded-full bg-white text-[19px] font-bold" style={{ border: `2px solid ${PEACH}`, color: INK }}&gt;{c}&lt;/button&gt;)}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;input autoFocus value={text} onChange={(e) =&gt; setText(e.target.value)} onKeyDown={(e) =&gt; e.key === "Enter" &amp;&amp; sendText()} className={inputCls} placeholder="여기에 입력하세요" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="grid grid-cols-2 gap-3 mt-4"&gt;&lt;Pill onClick={sendText} disabled={!text.trim()}&gt;보내기&lt;/Pill&gt;&lt;Pill variant="sub" onClick={() =&gt; setTyping(false)}&gt;취소&lt;/Pill&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>)}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>{/* 사용법 설명 오버레이 */}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{tut === 1 &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="absolute inset-0 z-30 bg-black/65 cursor-pointer" onClick={() =&gt; setTut(2)}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="absolute left-0 right-0 top-[205px] flex justify-center"&gt;&lt;div className="w-[200px] h-[200px] rounded-[100px]" style={{ border: "4px dashed #fff" }} /&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Hand size={64} color="#fff" className="absolute left-1/2 top-[330px] ml-[-10px] d-tap" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;p className="absolute left-0 right-0 top-[105px] text-center text-white text-[28px] font-extrabold leading-snug"&gt;캐릭터를 누르면&lt;br /&gt;의상을 꾸밀 수 있어요&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;p className="absolute bottom-10 left-0 right-0 text-center text-white/90 text-[19px] font-bold"&gt;화면을 눌러 다음으로&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{tut === 2 &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="absolute inset-0 z-30 bg-black/65"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button onClick={() =&gt; setTut(null)} aria-label="닫기" className="absolute top-12 right-5 w-[52px] h-[52px] grid place-items-center"&gt;&lt;X size={38} color="#fff" /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;p className="absolute left-0 right-0 top-[105px] text-center text-white text-[28px] font-extrabold leading-snug"&gt;음성버튼을 눌러&lt;br /&gt;말을 걸어보세요&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;ArrowDown size={50} color="#fff" className="absolute left-1/2 ml-[-25px] bottom-[210px] d-tap" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 캐릭터 꾸미기 ═════════ */</p>
+<p class="p1">function Customize({ s }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const { gender, look, setLook, owned, setOwned, points, setPoints, go, toast } = s;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [tab, setTab] = useState("hair");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [pv, setPv] = useState({});</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const view = { ...look, ...pv };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const idx = pv[tab];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const key = (i) =&gt; `${tab}-${i}`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const isOwned = (i) =&gt; owned.includes(key(i));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let action = null;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (idx !== undefined &amp;&amp; idx !== look[tab]) action = isOwned(idx) ? "입기" : `${PRICES[idx]}p로 사기`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>else if (tab === "acc" &amp;&amp; look.acc !== null &amp;&amp; idx === look.acc) action = "벗기";</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const apply = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (action === "벗기") { setLook({ ...look, acc: null }); setPv({ ...pv, acc: null }); toast("악세사리를 벗었어요"); return; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!isOwned(idx)) {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (points &lt; PRICES[idx]) return toast("포인트가 부족해요. 일정을 마치면 포인트가 쌓여요!");</p>
+<p class="p1"><span class="Apple-converted-space">      </span>setPoints(points - PRICES[idx]); setOwned([...owned, key(idx)]);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setLook({ ...look, [tab]: idx });</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const { [tab]: _, ...rest } = pv; setPv(rest);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>toast("멋지게 꾸몄어요! ✨");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const lookWith = (i) =&gt; ({ ...view, [tab]: i });</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="shrink-0 relative" style={{ background: PEACH, borderRadius: "0 0 32px 32px" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="flex items-center justify-between px-5 pt-12"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button onClick={() =&gt; go("main")} aria-label="뒤로" className="w-[52px] h-[52px] rounded-2xl bg-white/70 grid place-items-center"&gt;&lt;ArrowLeft size={28} color={INK} /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;h1 className="text-[26px] font-extrabold" style={{ color: INK }}&gt;캐릭터 꾸미기&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;span className="w-[52px]" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="px-6 mt-1 text-[22px] font-extrabold" style={{ color: "#8A4B14" }}&gt;{points.toLocaleString()} p&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="flex justify-center -mt-4 pb-1"&gt;&lt;Character gender={gender} look={view} size={170} /&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="grid grid-cols-3 gap-2 px-4 mt-4 shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{Object.entries(TAB_META).map(([k, v]) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button key={k} onClick={() =&gt; setTab(k)} className="h-[56px] rounded-2xl text-[20px] font-extrabold transition"</p>
+<p class="p1"><span class="Apple-converted-space">            </span>style={{ background: tab === k ? ORANGE : SAND, color: tab === k ? "#fff" : INK }}&gt;{tabLabel(k, gender)}&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 overflow-y-auto px-4 pt-3 pb-28 grid grid-cols-3 gap-3 content-start"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{PRICES.map((price, i) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const sel = (idx !== undefined ? idx : look[tab]) === i;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;button key={i} onClick={() =&gt; setPv({ ...pv, [tab]: i })} aria-pressed={sel} className="relative rounded-2xl overflow-hidden grid place-items-center active:scale-95 transition"</p>
+<p class="p1"><span class="Apple-converted-space">              </span>style={{ height: 124, background: SAND, border: `4px solid ${sel ? ORANGE : "transparent"}` }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;Character gender={gender} look={lookWith(i)} size={80} head /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;span className="absolute bottom-1 right-2 text-[18px] font-extrabold" style={{ color: isOwned(i) ? SAGE_DEEP : INK }}&gt;{isOwned(i) ? "보유" : `${price} p`}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{action &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="absolute left-0 right-0 bottom-0 p-4 pb-8 d-slide" style={{ background: "linear-gradient(180deg, transparent, #FFF8EE 40%)" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Pill onClick={apply} className="w-full"&gt;{action}&lt;/Pill&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 설정 · 내 정보 ═════════ */</p>
+<p class="p1">function Settings({ s }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const { user, go, setLoggedOut } = s;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const rows = [</p>
+<p class="p1"><span class="Apple-converted-space">    </span>["내 정보", () =&gt; go("myinfo")], ["캐릭터 변경", () =&gt; go("charChange")], null,</p>
+<p class="p1"><span class="Apple-converted-space">    </span>["시간 설정", () =&gt; go("times")], ["기록 (일기)", () =&gt; go("diary")], ["로그아웃", setLoggedOut], ["탈퇴", () =&gt; go("withdraw")],</p>
+<p class="p1"><span class="Apple-converted-space">  </span>];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Header title="나의 올잇" onBack={() =&gt; go("main")} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="px-6 pt-3 pb-5 flex items-center gap-5 border-b-2" style={{ borderColor: SAND }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="w-[88px] h-[88px] rounded-full grid place-items-center overflow-hidden" style={{ background: PEACH }}&gt;&lt;Character gender={s.gender} look={s.look} size={80} head /&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="text-[26px] font-extrabold" style={{ color: INK }}&gt;{user.name || "내이름"}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="px-6"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{rows.map((r, i) =&gt; r ? (</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button key={r[0]} onClick={r[1]} className="w-full min-h-[68px] flex items-center justify-between text-[22px] font-bold active:bg-[#F5E6D3] rounded-xl px-1" style={{ color: r[0] === "탈퇴" ? "#B3382C" : INK }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>{r[0]}&lt;ChevronRight size={30} color="#B4A190" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>) : &lt;div key={i} className="h-[2px] my-1" style={{ background: SAND }} /&gt;)}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function MyInfo({ s }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const { user, setUser, points, go, toast } = s;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [edit, setEdit] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [name, setName] = useState(user.name);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const days = Math.max(1, Math.floor((Date.now() - (user.joined || Date.now())) / 86400000) + 1);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const nextTodo = s.todos.filter((x) =&gt; !x.done &amp;&amp; x.dateKey &gt;= todayKeyNow()).sort((a, b) =&gt; (a.dateKey &lt; b.dateKey ? -1 : a.dateKey &gt; b.dateKey ? 1 : 0))[0];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const dd = nextTodo ? Math.round((new Date(nextTodo.dateKey) - new Date(todayKeyNow())) / 86400000) : null;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const dday = dd === null ? "--" : dd === 0 ? "D-DAY" : `D-${dd}`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const b = user.birth ? user.birth.slice(5).replace("-", ".") : "--.--";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const Stat = ({ a, b }) =&gt; &lt;div className="flex-1 text-center"&gt;&lt;p className="text-[24px] font-extrabold" style={{ color: INK }}&gt;{a}&lt;/p&gt;&lt;p className="text-[18px] font-medium" style={{ color: SUB }}&gt;{b}&lt;/p&gt;&lt;/div&gt;;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Header title="내 정보" onBack={() =&gt; go("settings")} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex flex-col items-center pt-8"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="relative"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="w-[150px] h-[150px] rounded-full grid place-items-center overflow-hidden" style={{ background: PEACH }}&gt;&lt;Character gender={s.gender} look={s.look} size={120} head /&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button onClick={() =&gt; toast("사진 변경은 곧 지원돼요")} aria-label="사진 변경" className="absolute right-0 bottom-0 w-[52px] h-[52px] rounded-full grid place-items-center" style={{ background: "#7A6657" }}&gt;&lt;Camera size={26} color="#fff" /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="mt-4 flex items-center gap-2 h-[56px]"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{edit ? (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;input autoFocus value={name} onChange={(e) =&gt; setName(e.target.value)} className="h-[52px] w-[160px] rounded-xl px-3 text-[22px] font-bold text-center bg-[#F5E6D3] focus:outline-none" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;button onClick={() =&gt; { if (name.trim()) { setUser({ ...user, name: name.trim() }); setEdit(false); toast("이름을 바꿨어요"); } }} aria-label="확인" className="w-[52px] h-[52px] rounded-xl grid place-items-center" style={{ background: SAGE_DEEP }}&gt;&lt;Check size={28} color="#fff" /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>) : (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;&gt;&lt;span className="text-[26px] font-extrabold" style={{ color: INK }}&gt;{user.name}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;button onClick={() =&gt; setEdit(true)} aria-label="이름 수정" className="w-[52px] h-[52px] grid place-items-center"&gt;&lt;Pencil size={24} color={SUB} /&gt;&lt;/button&gt;&lt;/&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="mt-6 w-full px-6 flex divide-x-2" style={{ borderColor: SAND }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Stat a={dday} b="해야할 일" /&gt;&lt;Stat a={`${days}일째`} b="함께한 날" /&gt;&lt;Stat a={b} b="생일" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="mt-8 self-stretch mx-6 px-6 flex items-center justify-center gap-8 py-4 rounded-3xl" style={{ background: "#FFE9B8" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;span className="text-[22px] font-bold" style={{ color: INK }}&gt;포인트&lt;/span&gt;&lt;span className="text-[26px] font-extrabold" style={{ color: "#8A4B14" }}&gt;{points.toLocaleString()} p&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 시간 설정 · 알람 수정 ═════════ */</p>
+<p class="p1">const fmt = (a) =&gt; `${pad(a.h)}:${pad(a.m)}`;</p>
+<p class="p2"><br></p>
+<p class="p1">function Times({ s }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const { alarms, setAlarms, go, setEditId } = s;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const add = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const id = Date.now();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setAlarms([...alarms, { id, label: "새 알람", h: 8, m: 0, pm: false, days: [0, 1, 2, 3, 4], on: true, repeat: true, volume: 60 }]);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setEditId(id); go("alarmEdit");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Header title="시간설정" onBack={() =&gt; go("settings")} right={&lt;button onClick={() =&gt; go("settings")} aria-label="메뉴" className="w-[52px] h-[52px] grid place-items-center"&gt;&lt;Menu size={30} color={INK} /&gt;&lt;/button&gt;} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 overflow-y-auto px-5 pt-2 pb-4 space-y-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{alarms.map((a) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const dark = !a.on;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div key={a.id} role="button" tabIndex={0} onClick={() =&gt; { setEditId(a.id); go("alarmEdit"); }} onKeyDown={(e) =&gt; e.key === "Enter" &amp;&amp; (setEditId(a.id), go("alarmEdit"))}</p>
+<p class="p1"><span class="Apple-converted-space">              </span>className="rounded-3xl p-5 cursor-pointer active:scale-[.99] transition" style={{ background: dark ? "#4A3A2E" : PEACH, color: dark ? "#fff" : INK, boxShadow: "0 4px 12px rgba(120,80,40,.12)" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;p className="text-[20px] font-bold opacity-80"&gt;{a.label}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="flex items-end justify-between mt-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;p className="text-[52px] font-extrabold leading-none"&gt;{fmt(a)}&lt;span className="text-[22px] ml-2"&gt;{a.pm ? "PM" : "AM"}&lt;/span&gt;&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;Toggle on={a.on} dark={dark} onChange={(v) =&gt; setAlarms(alarms.map((x) =&gt; (x.id === a.id ? { ...x, on: v } : x)))} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="mt-3"&gt;&lt;DayChips days={a.days} small /&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button onClick={add} className="w-full h-[68px] rounded-3xl flex items-center justify-center gap-2 text-[22px] font-extrabold" style={{ border: `3px dashed ${ORANGE}`, color: ORANGE }}&gt;&lt;Plus size={28} /&gt; 일정 추가하기&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function Wheel({ value, onChange, min, max, label }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const range = max - min + 1;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const at = (r) =&gt; ((value - min + r + range * 3) % range) + min;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const sizes = { "-2": ["text-[30px]", ".25"], "-1": ["text-[40px]", ".5"], "0": ["text-[64px]", "1"], "1": ["text-[40px]", ".5"], "2": ["text-[30px]", ".25"] };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="flex flex-col items-center w-[104px]"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button onClick={() =&gt; onChange(at(-1))} aria-label={`${label} 줄이기`} className="w-full h-[48px] grid place-items-center"&gt;&lt;ChevronUp size={32} color={SUB} /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{[-2, -1, 0, 1, 2].map((r) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button key={r} onClick={() =&gt; onChange(at(r))} className={`w-full font-extrabold leading-[1.15] ${sizes[r][0]}`} style={{ opacity: sizes[r][1], color: INK, minHeight: r === 0 ? 76 : 44 }}&gt;{pad(at(r))}&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button onClick={() =&gt; onChange(at(1))} aria-label={`${label} 늘리기`} className="w-full h-[48px] grid place-items-center"&gt;&lt;ChevronDown size={32} color={SUB} /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function AlarmEdit({ s }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const { alarms, setAlarms, editId, go, toast, ring } = s;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const cur = alarms.find((a) =&gt; a.id === editId);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [a, setA] = useState(cur);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [renaming, setRenaming] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (!cur) return null;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const up = (p) =&gt; setA({ ...a, ...p });</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const save = () =&gt; { setAlarms(alarms.map((x) =&gt; (x.id === a.id ? a : x))); toast("알람을 저장했어요"); go("times"); };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const del = () =&gt; { setAlarms(alarms.filter((x) =&gt; x.id !== a.id)); toast("일정을 삭제했어요"); go("times"); };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Header onBack={() =&gt; go("times")}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>title={renaming ? &lt;input autoFocus value={a.label} onChange={(e) =&gt; up({ label: e.target.value })} onBlur={() =&gt; setRenaming(false)} maxLength={14} className="w-full h-[52px] text-center text-[24px] font-extrabold rounded-xl bg-[#F5E6D3] focus:outline-none" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>: &lt;button onClick={() =&gt; setRenaming(true)} className="inline-flex items-center gap-2 min-h-[52px]"&gt;{a.label}&lt;Pencil size={22} color={SUB} /&gt;&lt;/button&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>right={&lt;button onClick={() =&gt; go("settings")} aria-label="메뉴" className="w-[52px] h-[52px] grid place-items-center"&gt;&lt;Menu size={30} color={INK} /&gt;&lt;/button&gt;} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 overflow-y-auto px-5 pb-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="rounded-3xl py-3 flex items-center justify-center gap-3" style={{ background: SAND }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Wheel label="시" value={a.h} min={1} max={12} onChange={(h) =&gt; up({ h })} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;span className="text-[64px] font-extrabold pb-1" style={{ color: INK }}&gt;:&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Wheel label="분" value={a.m} min={0} max={59} onChange={(m) =&gt; up({ m })} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="flex flex-col gap-2 ml-1"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>{[["AM", false], ["PM", true]].map(([t, v]) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;button key={t} onClick={() =&gt; up({ pm: v })} className="w-[68px] h-[52px] rounded-xl text-[22px] font-extrabold" style={{ background: a.pm === v ? ORANGE : "transparent", color: a.pm === v ? "#fff" : "#A89787" }}&gt;{t}&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="mt-5 mb-2 text-[20px] font-bold" style={{ color: SUB }}&gt;요일 설정&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="grid grid-cols-7 gap-1.5"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{DAY_KR.map((d, i) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const on = a.days.includes(i);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return &lt;button key={d} aria-pressed={on} onClick={() =&gt; up({ days: on ? a.days.filter((x) =&gt; x !== i) : [...a.days, i].sort() })} className="h-[56px] rounded-xl text-[20px] font-extrabold transition" style={{ background: on ? SAGE_DEEP : SAND, color: on ? "#fff" : "#9B8573" }}&gt;{d}&lt;/button&gt;;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="mt-5 flex items-center justify-between"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;p className="text-[20px] font-bold" style={{ color: SUB }}&gt;반복설정&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="flex rounded-xl overflow-hidden" style={{ background: SAND }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>{[["끔", false], ["켬", true]].map(([t, v]) =&gt; &lt;button key={t} onClick={() =&gt; up({ repeat: v })} className="w-[84px] h-[52px] text-[20px] font-extrabold" style={{ background: a.repeat === v ? SAGE_DEEP : "transparent", color: a.repeat === v ? "#fff" : "#9B8573" }}&gt;{t}&lt;/button&gt;)}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="mt-5 mb-1 text-[20px] font-bold" style={{ color: SUB }}&gt;소리 설정 &lt;span style={{ color: ORANGE }}&gt;{a.volume}&lt;/span&gt;&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;input type="range" min="0" max="100" value={a.volume} onChange={(e) =&gt; up({ volume: +e.target.value })} aria-label="소리 크기" className="w-full h-[52px]" style={{ accentColor: ORANGE }} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button onClick={() =&gt; ring(a)} className="mt-1 w-full min-h-[52px] text-[19px] font-bold underline underline-offset-4" style={{ color: SUB }}&gt;알람 화면 미리보기&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="px-5 pb-9 pt-2 grid grid-cols-2 gap-3 shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;Pill onClick={save}&gt;설정 완료&lt;/Pill&gt;&lt;Pill variant="sub" onClick={del}&gt;일정 삭제&lt;/Pill&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function Ring({ s }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const { ringing, nick, gender, look, go, toast, earn } = s;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [on, setOn] = useState(true);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col" style={{ background: `linear-gradient(180deg, ${CREAM}, #FFE3C8)` }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="px-6 pt-12 shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;h1 className="text-[30px] font-extrabold leading-tight" style={{ color: INK }}&gt;{ringing.label} 시간이에요!&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="mt-1 text-[20px] font-bold" style={{ color: SUB }}&gt;{nick}의 알림이에요&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 flex flex-col items-center justify-center min-h-0"&gt;&lt;Character gender={gender} look={look} speaking size={230} /&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;p className="text-center text-[76px] font-extrabold leading-none" style={{ color: INK }}&gt;{fmt(ringing)}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex flex-col items-center pb-9 pt-5"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button onClick={() =&gt; { setOn(false); earn(10); toast("잘하셨어요! +10p"); go("main"); }} aria-label="알람 끄기"</p>
+<p class="p1"><span class="Apple-converted-space">          </span>className={`w-[132px] h-[132px] rounded-full grid place-items-center ${on ? "d-ring" : ""}`} style={{ background: ORANGE, boxShadow: "0 10px 24px rgba(232,116,59,.35)" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;AlarmClock size={72} color="#fff" className="d-wiggle" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="mt-2 text-[20px] font-bold" style={{ color: SUB }}&gt;눌러서 알람 끄기&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 기록 (일기) = 자기 전 하루 마무리 대화 저장 ═════════ */</p>
+<p class="p1">const MOODS = {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>good: { e: "😊", l: "기분 좋은 하루", bg: "#DDE9DA", c: "#2F4A2D" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>soso: { e: "🙂", l: "평온한 하루", bg: "#FFE9B8", c: "#8A4B14" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>bad: { e: "😔", l: "힘든 하루", bg: "#F6D2CB", c: "#8F2A1F" },</p>
+<p class="p1">};</p>
+<p class="p1">const moodOf = (t) =&gt; (/힘들|아프|외로|쓸쓸|우울|그저|피곤|슬프|깜빡|못/.test(t) ? "bad" : /좋|행복|즐거|기뻐|맛있|웃|잘/.test(t) ? "good" : "soso");</p>
+<p class="p2"><br></p>
+<p class="p1">const WRAP_QS = [</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: (n) =&gt; `${n}님, 오늘 하루는 어떠셨어요? 기분은 어떠세요?`, chips: ["좋았어요 😊", "그저 그랬어요", "조금 힘들었어요"], sim: "오늘은 기분이 좋았단다" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: () =&gt; "오늘 누구를 만나거나 통화하셨어요?", chips: ["가족과 통화했어요", "친구를 만났어요", "아무도 안 만났어요"], sim: "딸이랑 통화했단다" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: () =&gt; "식사와 약은 잘 챙기셨어요?", chips: ["잘 챙겼어요", "약을 깜빡했어요"], sim: "약도 잘 챙겨 먹었단다" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: () =&gt; "오늘 기억하고 싶은 일이 있으세요?", chips: ["산책을 했어요", "맛있는 걸 먹었어요", "특별한 일은 없었어요"], sim: "경로당에서 윷놀이를 했단다" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ q: () =&gt; "내일은 어떤 하루를 보내실 건가요?", chips: ["내일 오전 10시에 병원에 가요", "친구를 만나요", "푹 쉴 거예요"], sim: "내일 오후 2시에 시장에 갈 거야" },</p>
+<p class="p1">];</p>
+<p class="p1">const wrapReply = (step, t) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (step === 0) return /힘들|아프|외로|우울|그저/.test(t) ? "많이 힘드셨겠어요. 이야기해 주셔서 고마워요. 제가 곁에 있을게요." : /좋|행복|즐거/.test(t) ? "좋은 하루셨다니 저도 정말 기뻐요!" : "그러셨군요. 평범한 하루도 소중하지요.";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (step === 1) return /가족|딸|아들|손주|전화/.test(t) ? "가족분 목소리를 들으면 힘이 나지요!" : /친구|경로당|만났/.test(t) ? "친구분들과 함께하셔서 즐거우셨겠어요." : "오늘은 조용한 하루셨네요. 내일은 제가 더 많이 이야기 들어 드릴게요.";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (step === 2) return /깜빡|못|안\s/.test(t) ? "약은 꼭 챙겨 드셔야 해요. 내일은 알람으로 꼭 알려 드릴게요." : "잘하셨어요! 건강이 제일이에요.";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (step === 3) return "소중한 기억이네요. 일기에 잘 적어 둘게요.";</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return "내일도 좋은 하루가 될 거예요.";</p>
+<p class="p1">};</p>
+<p class="p2"><br></p>
+<p class="p1">function DayWrap({ s }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const { gender, look, user, addJournal, addTodo, go, toast, weather } = s;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [msgs, setMsgs] = useState([]);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [step, setStep] = useState(0);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [input, setInput] = useState("");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [busy, setBusy] = useState(true);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [done, setDone] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [speaking, setSpeaking] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [listening, setListening] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [typing, setTyping] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const timers = useRef([]); const saved = useRef(false); const endRef = useRef(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const later = (fn, ms) =&gt; { timers.current.push(setTimeout(fn, ms)); };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; () =&gt; timers.current.forEach(clearTimeout), []);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [msgs, listening]);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const pushBot = (text) =&gt; { setMsgs((m) =&gt; [...m, { from: "bot", text }]); setSpeaking(true); later(() =&gt; setSpeaking(false), 1800); };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>later(() =&gt; pushBot("하루 마무리 시간이에요 🌙 오늘 이야기를 나눠 볼까요?"), 300);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>later(() =&gt; { pushBot(WRAP_QS[0].q(user.name || "어르신")); setBusy(false); }, 1700);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}, []);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const send = (raw) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const t = (raw || "").trim();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!t || busy || done) return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setInput(""); setMsgs((m) =&gt; [...m, { from: "user", text: t }]); setBusy(true);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>let extra = "";</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (step === 4) {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const sc = parseSchedule(t);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (sc) { addTodo(sc, "voice"); extra = ` ${dateLabel(sc.dateKey)} ${spokenTime(sc)}에 '${sc.title}' 일정도 추가해 둘게요!`; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>later(() =&gt; pushBot(wrapReply(step, t) + extra), 800);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (step + 1 &lt; WRAP_QS.length) later(() =&gt; { pushBot(WRAP_QS[step + 1].q(user.name)); setStep(step + 1); setBusy(false); }, 2600);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>else {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const q = QUIZ[Math.floor(Math.random() * QUIZ.length)];</p>
+<p class="p1"><span class="Apple-converted-space">      </span>later(() =&gt; pushBot(`${weather ? tomorrowLine(weather) + " " : ""}자기 전에 웃음 한 스푼! 🥄 ${q.q} ...정답은 '${q.a}'! ㅎㅎ`), 2600);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>later(() =&gt; { pushBot("오늘도 정말 수고 많으셨어요. 이야기는 일기에 잘 저장해 둘게요. 내일 아침에도 목소리 꼭 들려주세요~ 기다릴게요 🥰 푹 주무세요, 좋은 꿈 꿔요 🌙"); setDone(true); setBusy(false); }, 5600);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const mic = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (busy || done || listening) return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setListening(true);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>listenOnce(WRAP_QS[step].sim, (t) =&gt; { setListening(false); if (t) send(t); else pushBot("잘 못 들었어요. 다시 한 번 말씀해 주세요."); });</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const finish = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const users = msgs.filter((m) =&gt; m.from === "user");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!saved.current &amp;&amp; users.length) {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>saved.current = true;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const now = new Date();</p>
+<p class="p1"><span class="Apple-converted-space">      </span>addJournal({ id: Date.now(), dateKey: keyOf(now), time: timeLabel(now), mood: moodOf(users.map((u) =&gt; u.text).join(" ")), messages: msgs });</p>
+<p class="p1"><span class="Apple-converted-space">      </span>toast(done ? "오늘의 이야기를 일기에 저장했어요 🌙" : "여기까지의 이야기를 일기에 저장했어요");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>go("diary");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col" style={{ background: "linear-gradient(180deg,#FFF1E3,#F4E6F0)" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Header title="하루 마무리" onBack={finish} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="shrink-0 flex items-center gap-3 px-5 pb-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="w-[84px] h-[84px] rounded-full overflow-hidden grid place-items-center shrink-0" style={{ background: PEACH }}&gt;&lt;Character gender={gender} look={look} speaking={speaking} size={74} head /&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="text-[19px] font-bold leading-snug" style={{ color: SUB }}&gt;오늘 하루를 같이 돌아봐요.&lt;br /&gt;이야기는 일기에 저장돼요.&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 overflow-y-auto px-4 py-2 space-y-3 d-noscroll"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{msgs.map((m, i) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="max-w-[86%] px-4 py-3 rounded-3xl text-[20px] leading-snug font-medium" style={m.from === "user" ? { background: "#FFE08A", color: INK, borderBottomRightRadius: 8 } : { background: "#fff", color: INK, border: "2px solid #FFD9BF", borderBottomLeftRadius: 8 }}&gt;{m.text}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{busy &amp;&amp; msgs.length &gt; 0 &amp;&amp; !done &amp;&amp; &lt;div className="text-[18px] font-bold pl-2" style={{ color: SUB }}&gt;입력 중...&lt;/div&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{listening &amp;&amp; &lt;div className="flex items-center justify-center gap-2 text-[20px] font-bold py-2" style={{ color: ORANGE }}&gt;&lt;span className="w-3 h-3 rounded-full bg-red-500 d-ring" /&gt; 듣고 있어요... 말씀해 주세요&lt;/div&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div ref={endRef} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="shrink-0 px-4 pb-8 pt-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{done ? (</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;Pill onClick={finish} className="w-full"&gt;저장하고 잘 자요 🌙&lt;/Pill&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>) : (</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="relative flex flex-col items-center"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>{typing &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div className="w-full flex gap-2 items-center mb-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;input autoFocus value={input} onChange={(e) =&gt; setInput(e.target.value)} onKeyDown={(e) =&gt; e.key === "Enter" &amp;&amp; send(input)} disabled={busy} placeholder="글자로 답하기" className="flex-1 min-w-0 h-[56px] rounded-2xl px-4 text-[20px] bg-white border-2 border-transparent focus:outline-none focus:border-[#E8743B] disabled:opacity-60" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;button onClick={() =&gt; send(input)} disabled={busy || !input.trim()} aria-label="보내기" className="w-[56px] h-[56px] rounded-full grid place-items-center shrink-0 disabled:opacity-40" style={{ background: ORANGE }}&gt;&lt;Send size={26} color="#fff" /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;button onClick={mic} disabled={busy &amp;&amp; !listening} aria-label="음성으로 대답하기"</p>
+<p class="p1"><span class="Apple-converted-space">              </span>className={`w-[136px] h-[136px] rounded-full grid place-items-center active:scale-95 transition disabled:opacity-45 ${listening ? "d-ring" : ""}`}</p>
+<p class="p1"><span class="Apple-converted-space">              </span>style={{ background: listening ? "#D94B3B" : ORANGE, boxShadow: "0 10px 24px rgba(232,116,59,.35)" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;Mic size={72} color="#fff" strokeWidth={2.4} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;p className="mt-2 text-[21px] font-extrabold" style={{ color: listening ? "#D94B3B" : INK }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>{listening ? "듣고 있어요... 말씀해 주세요" : busy ? "잠시만 기다려 주세요" : "눌러서 대답해 주세요"}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;button onClick={() =&gt; setTyping(!typing)} aria-label="글자로 답하기" className="absolute left-1 bottom-9 w-[60px] h-[60px] rounded-full bg-white grid place-items-center shadow-md"&gt;&lt;Keyboard size={30} color={INK} /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function Diary({ s }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const { journal, deleteJournal, go } = s;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [confirmId, setConfirmId] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const today = new Date();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const week = Array.from({ length: 7 }, (_, i) =&gt; { const d = new Date(today); d.setDate(today.getDate() - monIdx(today) + i); return d; });</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [sel, setSel] = useState(keyOf(today));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const isToday = sel === keyOf(today);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const d = new Date(sel);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const entries = journal.filter((e) =&gt; e.dateKey === sel).sort((a, b) =&gt; b.id - a.id);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const target = journal.find((e) =&gt; e.id === confirmId);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col relative" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Header title="기록 (일기)" onBack={() =&gt; go("settings")} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="grid grid-cols-7 gap-1 px-3 mt-1 shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{week.map((w, i) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const k = keyOf(w), on = k === sel, has = journal.some((e) =&gt; e.dateKey === k);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;button key={k} onClick={() =&gt; setSel(k)} aria-pressed={on} className="rounded-2xl py-2 flex flex-col items-center gap-1 transition" style={{ background: on ? PEACH : "transparent", minHeight: 96 }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;span className="text-[18px] font-bold" style={{ color: SUB }}&gt;{DAY_KR[i]}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;span className="text-[22px] font-extrabold" style={{ color: INK }}&gt;{w.getDate()}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;span className="w-[34px] h-[34px] rounded-full grid place-items-center" style={{ background: has ? SAGE_DEEP : SAND }}&gt;&lt;Check size={20} color={has ? "#fff" : "#B4A190"} strokeWidth={3} /&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 mt-3 mx-4 rounded-[32px] p-4 overflow-y-auto d-noscroll" style={{ background: SAND }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;h2 className="text-[24px] font-extrabold mb-3" style={{ color: INK }}&gt;{d.getMonth() + 1}월 {d.getDate()}일 {DAY_KR[monIdx(d)]}요일{isToday &amp;&amp; " (오늘)"}&lt;/h2&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{entries.length === 0 &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;p className="text-[20px] leading-snug" style={{ color: SUB }}&gt;{isToday ? "아직 오늘의 이야기가 없어요.\n자기 전에 하루 마무리를 해 볼까요?" : "이 날은 나눈 대화가 없어요."}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="space-y-4"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{entries.map((e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const mo = MOODS[e.mood] || MOODS.soso;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;div key={e.id} className="bg-white rounded-3xl p-4" style={{ boxShadow: "0 2px 8px rgba(120,80,40,.08)" }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between mb-3"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;span className="text-[20px] font-extrabold flex items-center gap-1" style={{ color: INK }}&gt;&lt;Moon size={22} /&gt; {e.time}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;span className="flex items-center gap-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;span className="text-[18px] font-bold rounded-full px-3 py-0.5" style={{ background: mo.bg, color: mo.c }}&gt;{mo.e} {mo.l}&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;button onClick={() =&gt; setConfirmId(e.id)} aria-label={`${e.time} 대화 삭제`} className="w-[52px] h-[52px] shrink-0 rounded-2xl grid place-items-center active:scale-95 transition" style={{ background: "#F6D2CB" }}&gt;&lt;Trash2 size={26} color="#8F2A1F" /&gt;&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;div className="space-y-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>{e.messages.map((m, i) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>&lt;div className="max-w-[88%] px-3 py-2 rounded-2xl text-[19px] leading-snug" style={m.from === "user" ? { background: "#FFE08A", color: INK } : { background: "#FFF3E4", color: INK }}&gt;{m.text}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">                  </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>})}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="px-5 pb-8 pt-3 shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{isToday ? &lt;Pill onClick={() =&gt; go("wrap")} className="w-full"&gt;&lt;Moon size={26} /&gt; 오늘 하루 마무리하기&lt;/Pill&gt; : &lt;p className="text-center text-[18px] h-[68px] flex items-center justify-center" style={{ color: SUB }}&gt;지난 이야기를 다시 읽거나 지울 수 있어요&lt;/p&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{target &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="absolute inset-0 z-40 bg-black/55 grid place-items-center px-6" onClick={() =&gt; setConfirmId(null)}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="w-full rounded-3xl p-6 d-pop" style={{ background: CREAM }} onClick={(e) =&gt; e.stopPropagation()} role="alertdialog" aria-label="대화 삭제 확인"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;p className="text-[24px] font-extrabold text-center" style={{ color: INK }}&gt;이 대화를 삭제할까요?&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;p className="text-[19px] text-center mt-2 leading-snug" style={{ color: SUB }}&gt;{target.time}에 나눈 이야기가 일기에서 지워져요.&lt;br /&gt;지우면 되돌릴 수 없어요.&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="grid grid-cols-2 gap-3 mt-5"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;Pill variant="sub" onClick={() =&gt; setConfirmId(null)}&gt;취소&lt;/Pill&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;Pill onClick={() =&gt; { deleteJournal(target.id); setConfirmId(null); }} style={{ background: "#C44536", boxShadow: "none" }}&gt;삭제&lt;/Pill&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ 탈퇴 ═════════ */</p>
+<p class="p1">function Withdraw({ s }) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const { go, withdraw } = s;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [why, setWhy] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [confirm, setConfirm] = useState(false);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const reasons = ["사용을 잘 안하게 돼요", "캐릭터와의 대화가 너무 지루해요", "어플 컨텐츠가 부족해요", "어플 사용이 너무 어려워요", "기타"];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="h-full flex flex-col relative" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;Header title="탈퇴" onBack={() =&gt; go("settings")} /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="flex-1 overflow-y-auto px-6 pt-2"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="text-[21px] font-extrabold text-center mb-3" style={{ color: INK }}&gt;왜 떠나시는지 이유가 있을까요?&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div role="radiogroup"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>{reasons.map((r, i) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;button key={r} role="radio" aria-checked={why === i} onClick={() =&gt; setWhy(i)} className="w-full min-h-[56px] flex items-center gap-3 text-left text-[20px] font-medium" style={{ color: INK }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;span className="w-[28px] h-[28px] rounded-full grid place-items-center shrink-0" style={{ border: `3px solid ${why === i ? ORANGE : "#B4A190"}` }}&gt;{why === i &amp;&amp; &lt;span className="w-[14px] h-[14px] rounded-full" style={{ background: ORANGE }} /&gt;}&lt;/span&gt;{r}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;p className="text-[21px] font-extrabold text-center mt-6 mb-3 leading-snug" style={{ color: INK }}&gt;잠깐! 올잇(AII IT)을 탈퇴하기 전에&lt;br /&gt;아래 정보를 확인해주세요&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{[["처음부터 다시 가입해야 해요", "탈퇴 회원의 정보는 15일간 임시 보관 후 완벽히 삭제되어요. 탈퇴하시면 회원 가입부터 다시 해야해요."],</p>
+<p class="p1"><span class="Apple-converted-space">          </span>["캐릭터는 회원에 대해 잊어버려요", "탈퇴 후에는 연동된 계정 등 모든 정보가 삭제되어요. 캐릭터와의 교류는 처음부터 다시 시작해야해요."]].map(([a, b]) =&gt; (</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div key={a} className="rounded-2xl p-4 mb-3" style={{ background: SAND }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;p className="text-[20px] font-extrabold" style={{ color: INK }}&gt;{a}&lt;/p&gt;&lt;p className="text-[18px] mt-1 leading-snug" style={{ color: SUB }}&gt;{b}&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>))}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="px-5 pb-9 pt-2 grid grid-cols-2 gap-3 shrink-0"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;Pill variant="sub" onClick={() =&gt; go("settings")}&gt;취소&lt;/Pill&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;Pill variant="sub" onClick={() =&gt; setConfirm(true)} style={{ background: "#F6D2CB", color: "#8F2A1F" }}&gt;탈퇴하기&lt;/Pill&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{confirm &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div className="absolute inset-0 z-40 bg-black/55 grid place-items-center px-6"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div className="w-full rounded-3xl p-6" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;p className="text-[24px] font-extrabold text-center" style={{ color: INK }}&gt;정말 탈퇴하시겠어요?&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;p className="text-[19px] text-center mt-2" style={{ color: SUB }}&gt;친구들이 어르신을 많이 그리워할 거예요.&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;div className="grid grid-cols-2 gap-3 mt-5"&gt;&lt;Pill variant="sub" onClick={() =&gt; setConfirm(false)}&gt;아니요&lt;/Pill&gt;&lt;Pill onClick={withdraw} style={{ background: "#C44536" }}&gt;탈퇴&lt;/Pill&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">/* ═════════ App ═════════ */</p>
+<p class="p1">const dayKey = (off) =&gt; { const d = new Date(); d.setDate(d.getDate() + off); return keyOf(d); };</p>
+<p class="p1">const buildTodos = () =&gt; [</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: 1, text: "당뇨약 먹기", dateKey: dayKey(0), h: 9, m: 0, pm: false, done: true },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: 2, text: "계란, 무 사기", dateKey: dayKey(0), h: 11, m: 0, pm: false, done: false },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: 3, text: "경로당 가기", dateKey: dayKey(0), h: 1, m: 0, pm: true, done: false },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: 4, text: "당뇨약 먹기", dateKey: dayKey(0), h: 6, m: 0, pm: true, done: false },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: 5, text: "내과 정기검진", dateKey: dayKey(3), h: 10, m: 0, pm: false, done: false },</p>
+<p class="p1">];</p>
+<p class="p1">const buildJournal = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const t = new Date();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if (monIdx(t) === 0) return [];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return [{</p>
+<p class="p1"><span class="Apple-converted-space">    </span>id: 1, dateKey: dayKey(-1), time: "오후 9:40", mood: "good",</p>
+<p class="p1"><span class="Apple-converted-space">    </span>messages: [</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ from: "bot", text: "하루 마무리 시간이에요 🌙 오늘 이야기를 나눠 볼까요?" },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ from: "bot", text: "오늘 하루는 어떠셨어요? 기분은 어떠세요?" },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ from: "user", text: "경로당에서 순자 친구를 만나서 즐거웠단다." },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ from: "bot", text: "친구분들과 함께하셔서 즐거우셨겠어요." },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ from: "bot", text: "식사와 약은 잘 챙기셨어요?" },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ from: "user", text: "약도 잘 챙겨 먹었어." },</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{ from: "bot", text: "잘하셨어요! 건강이 제일이에요. 푹 주무세요 🌙" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>],</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}];</p>
+<p class="p1">};</p>
+<p class="p2"><br></p>
+<p class="p1">const DEMO_ALARMS = [</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: 1, label: "빨래 널기", h: 9, m: 0, pm: false, days: [0, 2], on: true, repeat: true, volume: 60 },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: 2, label: "당뇨약 먹기", h: 10, m: 0, pm: false, days: [0, 1, 2, 3, 4, 5, 6], on: false, repeat: true, volume: 70 },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: 3, label: "장 보러 가기", h: 2, m: 30, pm: true, days: [0, 2], on: true, repeat: true, volume: 60 },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ id: 4, label: "KBS 6시 내고향", h: 6, m: 0, pm: true, days: [0, 1, 2, 3, 4], on: true, repeat: true, volume: 50 },</p>
+<p class="p1">];</p>
+<p class="p2"><br></p>
+<p class="p1">function App() {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [screen, setScreen] = useState("splash");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [user, setUser] = useState({ id: "", name: "", birth: "", joined: null });</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [gender, setGender] = useState("손녀"); // 선택한 캐릭터 id</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [nick, setNick] = useState("다솜이");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [points, setPoints] = useState(1000);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [look, setLook] = useState(CHARS[0].look);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [owned, setOwned] = useState(ownedFor(CHARS[0]));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [todos, setTodos] = useState(buildTodos);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [journal, setJournal] = useState(buildJournal);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [alarms, setAlarms] = useState(DEMO_ALARMS);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [editId, setEditId] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [tut, setTut] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [ringing, setRinging] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [toastMsg, setToastMsg] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [cele, setCele] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [weather, setWeather] = useState(null);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; { fetchWeather().then(setWeather); }, []);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const tt = useRef(null); const ct = useRef(null); const rung = useRef("");</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const toast = (m) =&gt; { setToastMsg(m); clearTimeout(tt.current); tt.current = setTimeout(() =&gt; setToastMsg(null), 2800); };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const earn = (n) =&gt; setPoints((p) =&gt; p + n);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const go = setScreen;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const celebrate = (a, b) =&gt; { setCele({ a, b, id: Date.now() }); clearTimeout(ct.current); ct.current = setTimeout(() =&gt; setCele(null), 2800); };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const ring = (a) =&gt; { setRinging(a); setScreen("ring"); };</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// 체크할 때마다 +10p 와 폭죽, 체크를 취소하면 10p 회수</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const toggleTodo = (id) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const t = todos.find((x) =&gt; x.id === id); if (!t) return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setTodos((ts) =&gt; ts.map((x) =&gt; (x.id === id ? { ...x, done: !x.done } : x)));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (!t.done) { earn(10); celebrate("일정 완료 포인트", "10p"); }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>else { setPoints((p) =&gt; Math.max(0, p - 10)); toast("체크를 취소해서 포인트 10p를 회수했어요"); }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const addTodo = (sc, src) =&gt; setTodos((ts) =&gt; [...ts, { id: Date.now() + Math.random(), text: sc.title, dateKey: sc.dateKey, h: sc.h, m: sc.m, pm: sc.pm, done: false, src }]);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const deleteTodo = (id) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const t = todos.find((x) =&gt; x.id === id);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (t?.done) setPoints((p) =&gt; Math.max(0, p - 10));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setTodos((ts) =&gt; ts.filter((x) =&gt; x.id !== id)); toast("일정을 삭제했어요");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const addJournal = (e) =&gt; setJournal((j) =&gt; [...j, e]);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const deleteJournal = (id) =&gt; { setJournal((j) =&gt; j.filter((e) =&gt; e.id !== id)); toast("대화를 삭제했어요"); };</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// 실제 시간이 켜진 알람과 맞으면 알람 화면 표시</p>
+<p class="p1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const i = setInterval(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (!user.name) return;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const n = new Date(); const stamp = `${keyOf(n)} ${n.getHours()}:${n.getMinutes()}`;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const hit = alarms.find((a) =&gt; a.on &amp;&amp; a.days.includes(monIdx(n)) &amp;&amp; (a.h % 12) + (a.pm ? 12 : 0) === n.getHours() &amp;&amp; a.m === n.getMinutes());</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (hit &amp;&amp; rung.current !== stamp) { rung.current = stamp; ring(hit); }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}, 5000);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return () =&gt; clearInterval(i);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}, [alarms, user.name]);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const applyChar = (id, nk) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const c = charOf(id);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (id !== gender || screen === "charSelect") { setLook(c.look); setOwned((o) =&gt; [...new Set([...o, ...ownedFor(c)])]); }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setGender(id); setNick(nk.trim());</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const startService = (id, nk) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>applyChar(id, nk); setPoints(1000);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>celebrate("가입 축하 포인트", "1,000p");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setTimeout(() =&gt; { setCele(null); setTut(1); setScreen("main"); }, 2800);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const withdraw = () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setUser({ id: "", name: "", birth: "", joined: null }); setPoints(1000); setLook(CHARS[0].look);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setOwned(ownedFor(CHARS[0])); setTodos(buildTodos()); setJournal(buildJournal()); setNick("다솜이"); setGender("손녀"); setScreen("splash");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const demo = () =&gt; { setUser({ id: "demo", name: "김복순", birth: "1948-03-15", joined: Date.now() }); setTut(1); setScreen("main"); };</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const s = { user, setUser, gender, nick, points, setPoints, look, setLook, owned, setOwned, todos, toggleTodo, addTodo, deleteTodo, journal, addJournal, deleteJournal,</p>
+<p class="p1"><span class="Apple-converted-space">    </span>alarms, setAlarms, editId, setEditId, tut, setTut, go, toast, earn, celebrate, ring, ringing, weather,</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setLoggedOut: () =&gt; { setScreen("login"); toast("로그아웃 됐어요"); }, withdraw };</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>return (</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div className="min-h-screen flex justify-center items-center md:py-6" style={{ background: "#E9DACA", fontFamily: "'Pretendard','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif", fontSize: 18 }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;style&gt;{`</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes dFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes dBounce{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-9px) scale(1.03)}}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes dRing{0%{box-shadow:0 0 0 0 rgba(232,116,59,.55)}100%{box-shadow:0 0 0 28px rgba(232,116,59,0)}}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes dSlide{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes dMouth{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes dTap{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes dWiggle{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(10deg)}}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes dPop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes dSpark{0%{transform:translate(0,0) scale(1);opacity:1}70%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0}}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>@keyframes dFall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(900px) rotate(720deg);opacity:.9}}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.d-float{animation:dFloat 3.2s ease-in-out infinite}.d-bounce{animation:dBounce .6s ease-in-out infinite}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.d-ring{animation:dRing 1.5s ease-out infinite}.d-slide{animation:dSlide .3s ease-out}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.d-mouth{animation:dMouth .35s ease-in-out infinite;transform-box:fill-box;transform-origin:center}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.d-tap{animation:dTap 1.1s ease-in-out infinite}.d-wiggle{animation:dWiggle .4s ease-in-out infinite}.d-pop{animation:dPop .45s ease-out}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.d-spark{animation:dSpark 1.1s ease-out 2 both}.d-fall{animation-name:dFall;animation-timing-function:linear;animation-fill-mode:both}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>.d-noscroll{scrollbar-width:none}.d-noscroll::-webkit-scrollbar{display:none}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>button{-webkit-tap-highlight-color:transparent}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>`}&lt;/style&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div className="relative w-full max-w-[430px] h-[100dvh] md:h-[860px] md:max-h-[94vh] overflow-hidden md:rounded-[44px] md:border-[10px] md:border-[#33261C] shadow-2xl" style={{ background: CREAM }}&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "splash" &amp;&amp; &lt;Splash go={go} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "login" &amp;&amp; &lt;Login go={go} demo={demo} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "signup" &amp;&amp; &lt;Signup go={go} setUser={setUser} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "profile" &amp;&amp; &lt;Profile go={go} setUser={setUser} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "charSelect" &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;CharPick title="캐릭터 선택" initialId={gender} initialNick={nick} current={gender} look={look} back={() =&gt; go("profile")}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>onSubmit={(id, nk) =&gt; { if (!nk.trim()) return toast("애칭을 정해 주세요"); startService(id, nk); }} submitLabel="시작하기" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "main" &amp;&amp; &lt;Main s={s} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "customize" &amp;&amp; &lt;Customize s={s} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "settings" &amp;&amp; &lt;Settings s={s} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "myinfo" &amp;&amp; &lt;MyInfo s={s} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "charChange" &amp;&amp; (</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;CharPick title="캐릭터 변경" initialId={gender} initialNick={nick} current={gender} look={look} editable back={() =&gt; go("settings")}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>onSubmit={(id, nk) =&gt; { if (!nk.trim()) return toast("애칭을 정해 주세요"); applyChar(id, nk); toast(`${id} ${nk.trim()}(으)로 바꿨어요!`); go("settings"); }} submitLabel="변경하기" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>)}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "times" &amp;&amp; &lt;Times s={s} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "alarmEdit" &amp;&amp; &lt;AlarmEdit s={s} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "diary" &amp;&amp; &lt;Diary s={s} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "wrap" &amp;&amp; &lt;DayWrap s={s} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "withdraw" &amp;&amp; &lt;Withdraw s={s} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{screen === "ring" &amp;&amp; ringing &amp;&amp; &lt;Ring s={s} /&gt;}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>{cele &amp;&amp; &lt;Celebrate key={cele.id} a={cele.a} b={cele.b} onClose={() =&gt; setCele(null)} /&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>{toastMsg &amp;&amp; &lt;div className="absolute left-5 right-5 top-24 z-[60] rounded-2xl px-4 py-3 text-center text-[19px] font-bold text-white d-slide" style={{ background: "rgba(51,38,28,.94)" }} role="status"&gt;{toastMsg}&lt;/div&gt;}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">import { createRoot } from "react-dom/client";</p>
+<p class="p1">createRoot(document.getElementById("root")).render(&lt;App /&gt;);</p>
+<p class="p1">&lt;/script&gt;</p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
+</body>
+</html>
