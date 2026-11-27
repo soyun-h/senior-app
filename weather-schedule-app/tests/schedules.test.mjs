@@ -131,7 +131,7 @@ test('failed deletion retains data and serialized deletion cannot resurrect remo
  await assert.rejects(repo.delete(''));
 });
 
-test('video toggle converts none/alarm only on action, persists weekly state and never changes completion',async()=>{
+test('notification toggle preserves the selected delivery method, weekly state and completion',async()=>{
  const storage=new MemoryStorage(),repo=new LocalScheduleRepository(storage);
  for(const method of ['none','alarm','video-call'])await repo.create(draft({notificationMethod:method,recurrence:{mode:'weekly',startDate:'2026-11-19',weekdays:[4]}}),method,now);
  await repo.toggleCompletion('none','2026-11-19',now);
@@ -140,11 +140,22 @@ test('video toggle converts none/alarm only on action, persists weekly state and
   const before=(await repo.list()).find(s=>s.id===method);
   await repo.setNotifications(method,true,now+1000);
   let s=(await new LocalScheduleRepository(storage).list()).find(s=>s.id===method);
-  assert.equal(s.notificationMethod,'video-call');assert.equal(s.notificationsEnabled,true);assert.deepEqual(s.completedDates,before.completedDates);assert.deepEqual(s.recurrence,before.recurrence);
+  const delivery=method==='none'?'video-call':method;
+  assert.equal(s.notificationMethod,delivery);assert.equal(s.notificationsEnabled,true);assert.deepEqual(s.completedDates,before.completedDates);assert.deepEqual(s.recurrence,before.recurrence);
   await repo.setNotifications(method,false,now+2000);
   s=(await new LocalScheduleRepository(storage).list()).find(s=>s.id===method);
-  assert.equal(s.notificationMethod,'none');assert.equal(s.notificationsEnabled,false);assert.deepEqual(s.completedDates,before.completedDates);
+  assert.equal(s.notificationMethod,delivery);assert.equal(s.notificationsEnabled,false);assert.deepEqual(s.completedDates,before.completedDates);
  }
+});
+test('alarm confirmation is idempotent and editing moves its occurrence without keeping unrelated completion',async()=>{
+ const repository=new LocalScheduleRepository(new MemoryStorage());
+ await repository.create(draft({notificationMethod:'alarm'}),'alarm',now);
+ await repository.complete('alarm','2026-11-19',now);
+ await repository.complete('alarm','2026-11-19',now);
+ assert.deepEqual((await repository.list())[0].completedDates,['2026-11-19']);
+ await repository.update('alarm',draft({notificationMethod:'alarm',reminderMinutes:5,recurrence:{mode:'once',date:'2026-11-20'}}),now);
+ const changed=(await repository.list())[0];
+ assert.equal(changed.reminderMinutes,5);assert.deepEqual(changed.completedDates,[]);assert.equal(changed.recurrence.date,'2026-11-20');
 });
 test('failed video toggle preserves saved method, enabled flag, completion and unrelated records',async()=>{
  const storage=new MemoryStorage(),repo=new LocalScheduleRepository(storage);

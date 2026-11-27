@@ -35,6 +35,26 @@ export class LocalScheduleRepository implements ScheduleRepository {
         timeZone: 'Asia/Seoul', notificationsEnabled: copy.notificationMethod !== 'none', completedDates: [], createdAt, updatedAt: createdAt }];
     });
   }
+  update(id: string, draft: ScheduleDraft, now = Date.now()): Promise<Schedule[]> {
+    const copy = JSON.parse(JSON.stringify(draft)) as ScheduleDraft;
+    return this.mutate(items => {
+      if (!items.some(schedule => schedule.id === id)) throw new Error('일정을 찾을 수 없어요.');
+      return items.map(schedule => {
+        if (schedule.id !== id) return schedule;
+        validateDraft(copy, now, schedule);
+        const next = { ...schedule, ...copy, title: copy.title.trim(), updatedAt: new Date(now).toISOString(),
+          notificationMethod: copy.notificationMethod === 'none' ? schedule.notificationMethod : copy.notificationMethod,
+          notificationsEnabled: copy.notificationMethod !== 'none' };
+        return { ...next, completedDates: schedule.completedDates.filter(date => onDate(next, date)) };
+      });
+    });
+  }
+  complete(id: string, date: string, now = Date.now()): Promise<Schedule[]> {
+    return this.mutate(items => items.map(schedule => {
+      if (schedule.id !== id || !onDate(schedule, date) || date > dateKeyAt(now) || schedule.completedDates.includes(date)) return schedule;
+      return { ...schedule, completedDates: [...schedule.completedDates, date], updatedAt: new Date(now).toISOString() };
+    }));
+  }
   toggleCompletion(id: string, date: string, now = Date.now()): Promise<Schedule[]> {
     return this.mutate(items => items.map(s => {
       if (s.id!==id) return s;
@@ -50,8 +70,10 @@ export class LocalScheduleRepository implements ScheduleRepository {
     if (!id) return Promise.reject(new Error('삭제할 일정을 확인해 주세요.'));
     return this.mutate(items => items.filter(schedule => schedule.id !== id));
   }
-  /** The list switch selects video-call when on, none when off; other modes remain intact until used. */
   setNotifications(id: string, enabled: boolean, now = Date.now()): Promise<Schedule[]> {
-    return this.mutate(items => items.map(s => s.id===id ? { ...s, notificationMethod:enabled?'video-call':'none', notificationsEnabled:enabled,updatedAt:new Date(now).toISOString() } : s));
+    return this.mutate(items => items.map(s => s.id===id ? {
+      ...s, notificationMethod: enabled && s.notificationMethod === 'none' ? 'video-call' : s.notificationMethod,
+      notificationsEnabled: enabled, updatedAt: new Date(now).toISOString(),
+    } : s));
   }
 }
