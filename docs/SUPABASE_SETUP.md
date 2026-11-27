@@ -6,7 +6,7 @@
 
 1. Supabase Dashboard에서 대상 프로젝트를 열고 **Connect** 또는 **Settings → Data API**에서 Project URL을 확인한다. 기본 주소는 `https://<PROJECT_REF>.supabase.co`다.
 2. **Settings → API Keys → Publishable keys**의 `sb_publishable_` 키를 복사한다.
-3. `weather-schedule-app/.env.example`을 기준으로 `.env.local`에 다음 두 줄을 넣는다. Android APK 및 Pages 정적 파일에 들어가는 값이다.
+3. `src/weather-schedule-app/.env.example`을 기준으로 `.env.local`에 다음 두 줄을 넣는다. Android APK 및 Pages 정적 파일에 들어가는 값이다.
 
 ```dotenv
 EXPO_PUBLIC_SUPABASE_URL=https://PROJECT_REF.supabase.co

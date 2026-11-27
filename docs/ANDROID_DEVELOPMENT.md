@@ -1,8 +1,8 @@
 # 올잇 Android 개발 및 실행
 
-로컬 `dev`는 허소윤의 Expo 앱을 기반으로 한다. 문한나의 캐릭터·대화·녹음과 김가은의 사진 인증·음성 프로토타입을 함께 사용했다. `design`과 `wireframe`의 여섯 원본은 `references/<이름>/<브랜치>/`에 있다.
+로컬 `dev`는 허소윤의 Expo 앱을 기반으로 한다. 문한나의 캐릭터·대화·녹음과 김가은의 사진 인증·음성 프로토타입을 함께 사용했다. `design`과 `wireframe`의 여섯 원본은 `design/individual/<이름>/` 및 `wireframes/<이름>/`에 있다.
 
-`dev`의 병합 커밋에는 지정한 아홉 브랜치의 원본 커밋과 파일이 들어 있다. 충돌한 문한나의 `DialogueAvatar.tsx` 원본은 `references/문한나/members/`에 있다. 화면 연결 수정과 Android 네이티브 구현은 `dev` 작업 폴더의 미스테이징 변경으로 남겨 두었다. 아래 Capacitor 실행 명령은 이 작업 폴더의 전체 상태를 기준으로 한다.
+`dev`의 병합 커밋에는 지정한 아홉 브랜치의 원본 커밋과 파일이 들어 있다. 충돌한 문한나의 `DialogueAvatar.tsx` 원본은 `members/문한나/`에 있다. 화면 연결 수정과 Android 네이티브 구현은 `dev` 작업 폴더의 미스테이징 변경으로 남겨 두었다. 아래 Capacitor 실행 명령은 이 작업 폴더의 전체 상태를 기준으로 한다.
 
 | 원본 `origin` 브랜치 | 통합 위치 |
 | --- | --- |
@@ -14,7 +14,7 @@
 ## Expo Go와 웹
 
 ```bash
-cd weather-schedule-app
+cd src/weather-schedule-app
 npm ci
 cp -n .env.example .env.local
 npm run typecheck
@@ -29,10 +29,10 @@ Expo Go는 앱 화면 확인에 사용할 수 있다. 아래 Android OS 기능�
 
 ## Capacitor APK
 
-필요한 도구는 Node.js 22 이상, JDK 21, Android SDK Platform 36과 Build Tools, Android Platform Tools다. Gradle Wrapper가 Gradle 8.14.3을 사용한다. Android Studio에서 `weather-schedule-app/capacitor-android`를 열어 같은 타깃을 실행할 수 있다. Linux 에뮬레이터의 하드웨어 가속은 `/dev/kvm` 접근이 필요하다. 실기기는 개발자 옵션에서 USB 디버깅을 허용한다.
+필요한 도구는 Node.js 22 이상, JDK 21, Android SDK Platform 36과 Build Tools, Android Platform Tools다. Gradle Wrapper가 Gradle 8.14.3을 사용한다. Android Studio에서 `src/weather-schedule-app/capacitor-android`를 열어 같은 타깃을 실행할 수 있다. Linux 에뮬레이터의 하드웨어 가속은 `/dev/kvm` 접근이 필요하다. 실기기는 개발자 옵션에서 USB 디버깅을 허용한다.
 
 ```bash
-cd weather-schedule-app
+cd src/weather-schedule-app
 export ANDROID_HOME="$HOME/Android/Sdk"
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 export PATH="$ANDROID_HOME/platform-tools:$PATH"
@@ -65,10 +65,10 @@ adb shell am start -n com.allitcare.android.debug/com.allitcare.android.MainActi
 
 | 경로 | 역할 |
 | --- | --- |
-| `weather-schedule-app/App.tsx`, `src/features/schedules`, `src/screens` | 기존 일정 모델과 AsyncStorage 사용, 일정 편집·완료와 네이티브 예약 동기화, 보호자 및 사진 인증 화면 |
-| `weather-schedule-app/src/features/android` | 브리지 타입과 네이티브 기능 호출, 보호자와 사진 기록의 앱 내 저장 |
-| `weather-schedule-app/capacitor-android/app/src/main/java/com/allitcare/android` | `AllitPlugin`, `MainActivity`, 알람 예약·수신기·서비스·확인 화면, 사진 파일 관리 |
-| `weather-schedule-app/capacitor.config.ts`, `app.config.ts`, `scripts/web-policy.mjs` | 웹 내장·GitHub Pages·Live Reload 설정 및 웹 콘텐츠 정책 |
+| `src/weather-schedule-app/App.tsx`, `src/features/schedules`, `src/screens` | 기존 일정 모델과 AsyncStorage 사용, 일정 편집·완료와 네이티브 예약 동기화, 보호자 및 사진 인증 화면 |
+| `src/weather-schedule-app/src/features/android` | 브리지 타입과 네이티브 기능 호출, 보호자와 사진 기록의 앱 내 저장 |
+| `src/weather-schedule-app/capacitor-android/app/src/main/java/com/allitcare/android` | `AllitPlugin`, `MainActivity`, 알람 예약·수신기·서비스·확인 화면, 사진 파일 관리 |
+| `src/weather-schedule-app/capacitor.config.ts`, `app.config.ts`, `scripts/web-policy.mjs` | 웹 내장·GitHub Pages·Live Reload 설정 및 웹 콘텐츠 정책 |
 
 일정과 완료 기록은 기존 AsyncStorage에 저장한다. 보호자와 인증 기록도 같은 저장 기술을 사용한다. Android 예약 정보와 미반영 알람 조작은 앱 전용 SharedPreferences에 보관한다. 반복 일정은 날짜별 완료 여부를 봐서 다음 알람을 예약한다. 사진 파일은 앱 전용 디렉터리에 보관하고, 시스템 카메라와 메시지 앱에 선택한 파일만 `content://` URI로 일시 공유한다.
 
@@ -114,7 +114,7 @@ Google Play 배포 전에는 앱 유형에 맞는 정확한 알람, 전체 화�
 
 Pages를 게시하면 삭제 함수의 `ALLIT_WEB_ORIGIN`에 해당 사이트의 HTTPS origin만 지정한다. Pages 없이 앱을 검증할 때는 비워도 된다. `setup:supabase`에서 `development`를 선택하면 공개 사이트 입력을 생략할 수 있다. 이 경우 기존 Supabase Site URL을 유지한다.
 
-생성된 시험용 APK는 `weather-schedule-app/capacitor-android/app/build/outputs/apk/local-test/`에서 찾을 수 있다.
+생성된 시험용 APK는 `src/weather-schedule-app/capacitor-android/app/build/outputs/apk/local-test/`에서 찾을 수 있다.
 
 - `allit-native-test.apk`는 `com.allitcare.android.regression`이며, 로그인이 없는 별도 기기 전용 시험 빌드다. 알람·카메라·연락처·MMS 작성·음성 서비스를 먼저 확인한다.
 - `allit-supabase-test.apk`는 개발용 Supabase를 연결한 `com.allitcare.android.debug`다. 로그인 버튼과 외부 브라우저를 확인할 수 있다. 앱 복귀와 계정별 데이터 검증은 개발 DB 및 함수 적용과 디버그 Redirect 등록이 끝난 뒤 진행한다.
@@ -122,7 +122,7 @@ Pages를 게시하면 삭제 함수의 `ALLIT_WEB_ORIGIN`에 해당 사이트의
 폰의 개발자 옵션에서 USB 디버깅을 켜고 케이블로 연결한 뒤 화면의 RSA 확인을 승인한다. `adb devices -l`에서 폰의 시리얼을 확인한다.
 
 ```bash
-cd weather-schedule-app/capacitor-android
+cd src/weather-schedule-app/capacitor-android
 adb -s <PHONE_SERIAL> install -r app/build/outputs/apk/local-test/allit-native-test.apk
 adb -s <PHONE_SERIAL> shell am start -n com.allitcare.android.regression/com.allitcare.android.MainActivity
 ```

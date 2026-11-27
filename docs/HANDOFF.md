@@ -39,13 +39,13 @@ Android 에뮬레이터에서 알람, 사진, 연락처 및 MMS 작성 화면을
 | 출처 / 경로 | 확인할 내용 |
 | --- | --- |
 | `origin/허소윤/members` | Expo 앱 기반, 일정·달력·날씨. 일정 화면을 수정하기 전에 원본과 비교할 기준이다. |
-| `origin/문한나/members` | 캐릭터, 대사 엔진, 녹음 음성과 이미지. 충돌했던 원본 `DialogueAvatar.tsx`는 `references/문한나/members/`에도 있다. |
+| `origin/문한나/members` | 캐릭터, 대사 엔진, 녹음 음성과 이미지. 충돌했던 원본 `DialogueAvatar.tsx`는 `members/문한나/`에도 있다. |
 | `origin/김가은/members` | 저장소 루트 웹 프로토타입과 사진 인증·음성 UI의 원본. `node serve.mjs`로 별도 열 수 있다. |
-| `references/<이름>/<design 또는 wireframe>/` | 여섯 원본 디자인·와이어프레임과 경로가 충돌한 일부 자료. |
-| `weather-schedule-app/` | 실제 통합 앱. Expo SDK 58, React Native Web과 Capacitor Android 8, Kotlin·Gradle, Supabase JS SDK. |
-| `weather-schedule-app/src/features/account/` | `client.ts` 공개 설정·세션 어댑터, `oauth.ts` 및 `oauthCallback.ts` PKCE, `Account.tsx` 세션·온보딩·가져오기, `cloudSchedules.ts`, `cloudCare.ts`, `conversations.ts`, `legacyData.ts` 데이터 접근. |
-| `weather-schedule-app/App.tsx`, `src/features/schedules/`, `src/screens/AndroidCareScreen.tsx` | 계정 상태별 진입, 기존 일정과 서버 동기화, 네이티브 알람·카메라·음성 연동 화면. |
-| `weather-schedule-app/capacitor-android/app/src/main/java/com/allitcare/android/` | `AccountAccess.kt` Keystore·계정 범위·외부 브라우저, `AlarmScheduler.kt`·`AlarmService.kt`·`AlarmActivity.kt` 예약과 확인, `AllitPlugin.kt` OS 브리지, `PhotoFiles.kt` 사진 저장·공유. |
+| `design/individual/<이름>/`, `wireframes/<이름>/` | 여섯 원본 디자인·와이어프레임과 경로가 충돌한 일부 자료. |
+| `src/weather-schedule-app/` | 실제 통합 앱. Expo SDK 58, React Native Web과 Capacitor Android 8, Kotlin·Gradle, Supabase JS SDK. |
+| `src/weather-schedule-app/src/features/account/` | `client.ts` 공개 설정·세션 어댑터, `oauth.ts` 및 `oauthCallback.ts` PKCE, `Account.tsx` 세션·온보딩·가져오기, `cloudSchedules.ts`, `cloudCare.ts`, `conversations.ts`, `legacyData.ts` 데이터 접근. |
+| `src/weather-schedule-app/App.tsx`, `src/features/schedules/`, `src/screens/AndroidCareScreen.tsx` | 계정 상태별 진입, 기존 일정과 서버 동기화, 네이티브 알람·카메라·음성 연동 화면. |
+| `src/weather-schedule-app/capacitor-android/app/src/main/java/com/allitcare/android/` | `AccountAccess.kt` Keystore·계정 범위·외부 브라우저, `AlarmScheduler.kt`·`AlarmService.kt`·`AlarmActivity.kt` 예약과 확인, `AllitPlugin.kt` OS 브리지, `PhotoFiles.kt` 사진 저장·공유. |
 | `supabase/migrations/`, `supabase/functions/delete-account/index.ts`, `supabase/tests/` | 순서가 있는 SQL 3개, 계정 삭제 함수, PostgreSQL 정책 검증. |
 
 Supabase는 로그인 계정 자료의 원본이다. 프로필·설정·일정·보호자·대화·사진 메타데이터는 PostgreSQL에, 사진 본체는 비공개 Storage에 둔다. 계정 UUID별 IndexedDB에 조회 캐시와 오프라인 완료·사진·대화 대기열을 남긴다. Android는 예약과 확인 동작을 자체 저장하고 AlarmManager로 실행한다. 기존 기기 데이터는 동의 후 같은 origin에서 감지된 일정·완료·보호자·확정 사진을 현재 계정으로 복사한다. 원본 보존과 중복 방지 규칙은 [데이터 구조](DATA_ARCHITECTURE.md)에 있다.
@@ -125,7 +125,7 @@ npx supabase@3.4.0 functions list --remote="$SUPABASE_PROJECT_REF"
 cd /home/james-kwon/Desktop/senior-app/dev
 ./supabase/tests/run-local-postgres.sh
 deno check --no-lock supabase/functions/delete-account/index.ts
-cd weather-schedule-app
+cd src/weather-schedule-app
 npm run typecheck
 npm run typecheck:server
 node --test --experimental-test-isolation=none tests/*.test.mjs
@@ -139,7 +139,7 @@ node --test --experimental-test-isolation=none tests/*.test.mjs
 - AOSP에서 실제 한국어 STT/TTS 엔진과 언어 서비스가 없어 실출력은 미검증이다. 기존 녹음 음성과 별도의 기능이다. 실기기 OS 권한, 재부팅 복구, 제조사별 정책, 카메라·메시지 앱 차이는 [Android 검증 이력](NATIVE_TEST_REPORT.md)을 참고한다.
 - 최신 회귀는 기존 앱 세션을 보존하려고 `.env`를 비활성화한 임시 `com.allitcare.android.regression` APK로 진행했다. 테스트 APK는 별도 패키지로 설치됐다. 최신 진행 결과는 아래에 기록한다.
 - 에뮬레이터가 호스트 OOM으로 종료된 이력이 있다. 시스템 로그에는 커널이 프로세스를 종료한 기록이 있다. 마지막 회귀에서는 빌드가 끝난 올잇 전용 Gradle 데몬을 정리한 뒤, 기존 AVD 데이터를 유지하고 `-memory 1536 -cores 2 -gpu swiftshader -feature -Vulkan -no-snapshot-load -no-boot-anim`으로 재시작했다. 부팅이 약 3분 이상 걸렸고 초기에 System UI 응답 지연도 있었다.
-- 기존 디버그 APK 경로는 `weather-schedule-app/capacitor-android/app/build/outputs/apk/debug/app-debug.apk`다. 빌드 재현은 [Android 개발](ANDROID_DEVELOPMENT.md)의 Node·JDK 21·SDK 36 설정과 `npm run android:sync`, `./gradlew :app:assembleDebug`를 사용한다. 디버그 앱을 열 때는 아래 명령을 사용한다.
+- 기존 디버그 APK 경로는 `src/weather-schedule-app/capacitor-android/app/build/outputs/apk/debug/app-debug.apk`다. 빌드 재현은 [Android 개발](ANDROID_DEVELOPMENT.md)의 Node·JDK 21·SDK 36 설정과 `npm run android:sync`, `./gradlew :app:assembleDebug`를 사용한다. 디버그 앱을 열 때는 아래 명령을 사용한다.
 
 ```bash
 "$HOME/Android/Sdk/platform-tools/adb" -s emulator-5554 shell am start \

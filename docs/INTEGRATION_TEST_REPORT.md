@@ -57,12 +57,12 @@
 | --- | --- |
 | `supabase/migrations/202611270001_account_data.sql`, `202611270002_profile_onboarding.sql` | 사용자별 관계형 테이블, RLS·복합 FK, 소셜 ID 분리, 실행 기록과 프로필 RPC, 첫 설정 완료 시각, Private JPEG 버킷, 계정 삭제 차단 마커 |
 | `supabase/functions/delete-account/index.ts` | 요청자 인증 토큰 검증, Storage API 배치 삭제, Auth 사용자와 관련 DB 기록 삭제 |
-| `weather-schedule-app/src/features/account/` | 공통 Supabase 클라이언트, PKCE, 로그인·첫 프로필 설정, 카카오 권한 설정, 로컬 자료 감지 및 동의 흐름, 일정·연락처·사진·대화 접근 계층과 재시도 |
-| `weather-schedule-app/src/screens/AndroidCareScreen.tsx`, `App.tsx`, `src/features/schedules/ScheduleProvider.tsx` | 계정 화면, 일정 캐시 선행 복구, 사진·음성 흐름의 비차단 저장, 로그인 상태 화면 제어 |
-| `weather-schedule-app/capacitor-android/`, `src/features/android/bridge.ts` | 시스템 브라우저, 딥링크와 Keystore, 계정별 요청 검사·안드로이드 예약·사진 분리, 원본 사진 복사와 JPEG 압축 |
-| `weather-schedule-app/public/privacy.html`, `scripts/web-policy.mjs` | 개인정보 처리방침 및 동일 인증·삭제 흐름을 쓰는 외부 정적 페이지 생성 |
-| `weather-schedule-app/tsconfig.json` | Pages와 Capacitor가 생성한 파일을 소스 타입 검사에서 제외 |
-| `supabase/tests/`, `weather-schedule-app/tests/oauth-callback.test.mjs`, `tests/legacy-data.test.mjs` | PostgreSQL 정책 및 온보딩 검사, 콜백과 공식 SDK의 PKCE URL 생성 검사, 기존 자료 감지 및 시험·잘못된 사진 제외 검증 |
+| `src/weather-schedule-app/src/features/account/` | 공통 Supabase 클라이언트, PKCE, 로그인·첫 프로필 설정, 카카오 권한 설정, 로컬 자료 감지 및 동의 흐름, 일정·연락처·사진·대화 접근 계층과 재시도 |
+| `src/weather-schedule-app/src/screens/AndroidCareScreen.tsx`, `App.tsx`, `src/features/schedules/ScheduleProvider.tsx` | 계정 화면, 일정 캐시 선행 복구, 사진·음성 흐름의 비차단 저장, 로그인 상태 화면 제어 |
+| `src/weather-schedule-app/capacitor-android/`, `src/features/android/bridge.ts` | 시스템 브라우저, 딥링크와 Keystore, 계정별 요청 검사·안드로이드 예약·사진 분리, 원본 사진 복사와 JPEG 압축 |
+| `src/weather-schedule-app/public/privacy.html`, `scripts/web-policy.mjs` | 개인정보 처리방침 및 동일 인증·삭제 흐름을 쓰는 외부 정적 페이지 생성 |
+| `src/weather-schedule-app/tsconfig.json` | Pages와 Capacitor가 생성한 파일을 소스 타입 검사에서 제외 |
+| `supabase/tests/`, `src/weather-schedule-app/tests/oauth-callback.test.mjs`, `tests/legacy-data.test.mjs` | PostgreSQL 정책 및 온보딩 검사, 콜백과 공식 SDK의 PKCE URL 생성 검사, 기존 자료 감지 및 시험·잘못된 사진 제외 검증 |
 
 ## 로컬 검증 결과
 

@@ -38,7 +38,7 @@ Android는 `applicationId`에 `.oauth`를 붙인 URI를 처리한다. 패키지�
 ## 빌드와 테스트
 
 - 위 로컬 웹 Redirect를 시험하려면 앱 폴더에서 `npx expo start --web --localhost --port 8080`을 실행하고 `http://localhost:8080/`으로 연다. Android에서의 복귀 주소는 로컬 웹 서버를 사용하는 경우에도 앱 패키지의 Deep Link다.
-- Pages GitHub Actions를 운영자가 추가하거나 사용하는 경우 Repository Variables에 `EXPO_PUBLIC_SUPABASE_URL`과 `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`를 등록하고 `npm run build:web:pages` 스텝의 환경변수로 넘긴다. `weather-schedule-app/dist`가 배포 산출물이다. OAuth 비밀값은 공급업체 설정에만 들어간다. 기존 원격 설정은 이번 작업에서 수정하지 않았다.
+- Pages GitHub Actions를 운영자가 추가하거나 사용하는 경우 Repository Variables에 `EXPO_PUBLIC_SUPABASE_URL`과 `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`를 등록하고 `npm run build:web:pages` 스텝의 환경변수로 넘긴다. `src/weather-schedule-app/dist`가 배포 산출물이다. OAuth 비밀값은 공급업체 설정에만 들어간다. 기존 원격 설정은 이번 작업에서 수정하지 않았다.
 - 로컬 Android에서 `npm run android:sync` 후 Gradle APK를 빌드한다. Pages URL을 불러오는 APK는 `npm run build:web:pages && npm run android:pages` 후 빌드한다. Linux 실행은 [ANDROID_DEVELOPMENT.md](ANDROID_DEVELOPMENT.md)를 참고한다.
 - 배포 예정 개인정보 처리방침은 `https://soyun-h.github.io/senior-app/privacy.html`, 외부 삭제 화면은 `https://soyun-h.github.io/senior-app/delete-account.html`이다. 배포 전에 개인정보 처리방침의 운영자, 담당 이메일과 보관 정책을 확정한다.
 - 지정된 기본 Pages 주소는 공개 조회에서 HTTP 404를 반환했다. 로컬 정적 빌드에서 `/senior-app/` 아래의 앱 진입점과 두 페이지를 검증했다. 배포 후 세 URL의 실제 응답과 웹 OAuth 복귀를 다시 확인한다.

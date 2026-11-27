@@ -1,6 +1,6 @@
 # 올잇 출시팀 설정 가이드
 
-출시팀 소유의 Supabase·Google·카카오·GitHub 계정을 사용한다. 개발 프로젝트의 데이터, 테스트 사용자, OAuth 비밀값과 CLI 인증 정보는 이전하지 않는다. 저장소 루트의 `supabase/`가 인프라의 원본이고, `weather-schedule-app/`이 앱이다.
+출시팀 소유의 Supabase·Google·카카오·GitHub 계정을 사용한다. 개발 프로젝트의 데이터, 테스트 사용자, OAuth 비밀값과 CLI 인증 정보는 이전하지 않는다. 저장소 루트의 `supabase/`가 인프라의 원본이고, `src/weather-schedule-app/`이 앱이다.
 
 ## 1. 출시용 Supabase 프로젝트 생성
 
@@ -12,7 +12,7 @@
 ## 2. 인프라 초기화
 
 ```bash
-cd weather-schedule-app
+cd src/weather-schedule-app
 npm ci
 npm run setup:supabase
 ```
@@ -59,7 +59,7 @@ CLI 로그인은 팀의 관리 권한으로 한다. 빌드 단계에서 이 인�
 
 ## 4. 출시 공개 환경변수
 
-로컬은 초기화에서 만든 `weather-schedule-app/.env.release.local`에 아래 공개 항목을 채운다. CI에서는 같은 값을 GitHub **Settings → Secrets and variables → Actions → Variables**에 설정한다. GitHub 변수 방식에서는 공개 키·URL·사이트 주소를 모두 같은 출시 환경에서 지정한다.
+로컬은 초기화에서 만든 `src/weather-schedule-app/.env.release.local`에 아래 공개 항목을 채운다. CI에서는 같은 값을 GitHub **Settings → Secrets and variables → Actions → Variables**에 설정한다. GitHub 변수 방식에서는 공개 키·URL·사이트 주소를 모두 같은 출시 환경에서 지정한다.
 
 | 변수 | 값 |
 | --- | --- |
@@ -82,7 +82,7 @@ node --env-file=.env.development.local --run android:sync
 ## 5. GitHub Pages
 
 1. 출시팀 저장소 **Settings → Pages → Build and deployment → Source → GitHub Actions**를 선택한다. GitHub Free에서는 공개 저장소에 Pages를 배포할 수 있다. [GitHub Pages 공식 문서](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
-2. 위 공개 Actions 변수를 채운다. 출시팀 계정에서 `.github/workflows/release-pages.yml`의 **Release Pages**를 수동 실행한다. 게시 전에 실제 Worker에 사이트 origin으로 서울 격자 날씨를 요청해 CORS와 기상청 응답을 확인한다. Worker의 `ALLOWED_ORIGINS`에는 `/senior-app/`을 뺀 `https://<OWNER>.github.io`를 넣는다. 결과물은 `weather-schedule-app/dist/`이며, 로컬에서는 `npm run build:web:release`로 동일하게 빌드할 수 있다.
+2. 위 공개 Actions 변수를 채운다. 출시팀 계정에서 `.github/workflows/release-pages.yml`의 **Release Pages**를 수동 실행한다. 게시 전에 실제 Worker에 사이트 origin으로 서울 격자 날씨를 요청해 CORS와 기상청 응답을 확인한다. Worker의 `ALLOWED_ORIGINS`에는 `/senior-app/`을 뺀 `https://<OWNER>.github.io`를 넣는다. 결과물은 `src/weather-schedule-app/dist/`이며, 로컬에서는 `npm run build:web:release`로 동일하게 빌드할 수 있다.
 3. 새 Pages 도메인에서 `/`, `privacy.html`, `delete-account.html`이 정상 응답하는지 확인한다. 프로젝트 사이트라면 세 주소가 저장소 하위 경로를 포함해야 한다. [Pages 배포 원본 설정](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
 
 ## 6. Android APK 및 AAB
@@ -90,7 +90,7 @@ node --env-file=.env.development.local --run android:sync
 출시 빌드는 최신 웹 번들을 APK/AAB에 내장한다. 팀의 Android 업로드 키를 프로젝트 외부에 만든다. 기존 앱을 업데이트하는 경우 기존 업로드 키와 패키지 ID를 사용하고 `versionCode`를 올린다.
 
 ```bash
-cd weather-schedule-app
+cd src/weather-schedule-app
 keytool -genkeypair -v -keystore /path/to/team-upload.p12 -storetype PKCS12 \
   -alias allit-upload -keyalg RSA -keysize 2048 -validity 10000
 npm run android:sync:release
@@ -126,10 +126,10 @@ Windows에서는 `gradlew.bat`와 해당 셸의 보안 입력을 사용한다. �
 
 ## 팀 소유 날씨 Worker
 
-`weather-schedule-app/server/wrangler.jsonc`에 Worker, SQLite Durable Object와 마이그레이션을 정의했다. Cloudflare 팀 계정으로 로그인하고 팀 account ID를 명시한다. `<TEAM_PAGES_ORIGIN>`은 경로 없는 HTTPS origin이다.
+`src/weather-schedule-app/server/wrangler.jsonc`에 Worker, SQLite Durable Object와 마이그레이션을 정의했다. Cloudflare 팀 계정으로 로그인하고 팀 account ID를 명시한다. `<TEAM_PAGES_ORIGIN>`은 경로 없는 HTTPS origin이다.
 
 ```bash
-cd weather-schedule-app
+cd src/weather-schedule-app
 export CLOUDFLARE_ACCOUNT_ID='<TEAM_ACCOUNT_ID>'
 npx wrangler@4 login
 npx wrangler@4 deploy --config server/wrangler.jsonc \
