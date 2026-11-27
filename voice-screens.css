@@ -1,0 +1,126 @@
+.voice-frame {
+  container-type: inline-size;
+  width: min(100vw, 430px, calc(100dvh * 360 / 780));
+  aspect-ratio: 360 / 780;
+  position: relative;
+  overflow: hidden;
+  margin: auto;
+  background: #fff;
+}
+
+.voice-screen {
+  --u: calc(100cqw / 360);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: center / 100% 100% no-repeat;
+  color: #111;
+}
+
+.voice-home { background-image: url("./mainhome.assets/reference.png"); }
+.voice-call { background-image: url("./phone.assets/reference.png"); }
+
+.voice-position {
+  position: absolute;
+  left: calc(var(--x) * var(--u));
+  top: calc(var(--y) * var(--u));
+  width: calc(var(--w) * var(--u));
+  height: calc(var(--h) * var(--u));
+}
+
+.voice-art { pointer-events: none; }
+.voice-hotspot { border: 0; padding: 0; border-radius: calc(12 * var(--u)); }
+.voice-hotspot:focus-visible { outline: 3px solid #216b4b; outline-offset: 2px; }
+.voice-hotspot img { width: 100%; height: 100%; }
+
+.voice-caption {
+  color: #111;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  padding-inline: calc(8 * var(--u));
+  font-size: calc(17 * var(--u));
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  border-radius: calc(17 * var(--u));
+}
+
+.voice-caption[data-changed="true"] {
+  background: rgb(243 244 243 / 72%);
+  backdrop-filter: blur(calc(12 * var(--u)));
+}
+
+.voice-home .voice-caption[data-changed="true"] {
+  background: rgb(240 242 242 / 40%) url("./mainhome.assets/mainhomeAvartar대사표시영역.svg") center / 106% 123% no-repeat;
+}
+
+.voice-caption-line {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.voice-caption-line[data-status="true"] {
+  -webkit-line-clamp: 2;
+  margin-bottom: calc(10 * var(--u));
+}
+
+.voice-caption-phase {
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(2 * var(--u));
+  color: #233f35;
+  font-size: calc(11 * var(--u));
+  line-height: 1.2;
+  text-align: center;
+}
+
+.voice-card {
+  text-align: left;
+  padding: calc(11 * var(--u)) calc(12 * var(--u));
+  font-size: calc(13 * var(--u));
+}
+
+.voice-card[data-changed="true"] {
+  background: rgb(225 232 237 / 93%);
+  backdrop-filter: blur(calc(12 * var(--u)));
+  border: 1px solid white;
+  border-radius: calc(20 * var(--u));
+}
+
+.voice-card strong { display: block; color: #43a56f; font-size: calc(24 * var(--u)); line-height: 1.1; }
+.voice-card span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voice-call-name, .voice-call-time {
+  background: #fff;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+.voice-call-name { font-size: calc(28 * var(--u)); font-weight: 700; }
+.voice-call-time { font-size: calc(18 * var(--u)); color: #79869a; }
+.voice-self { object-fit: cover; border-radius: calc(10 * var(--u)); }
+.voice-self-off { background: #e2e8e5; }
+
+.voice-photo {
+  display: grid;
+  align-content: center;
+  gap: calc(14 * var(--u));
+  padding: calc(22 * var(--u));
+  background: #f8fbf9;
+  text-align: center;
+  font-size: calc(17 * var(--u));
+}
+.voice-photo h1 { font-size: calc(24 * var(--u)); font-weight: 700; }
+.voice-photo video, .voice-photo img { width: 100%; max-height: calc(390 * var(--u)); object-fit: contain; border-radius: calc(18 * var(--u)); }
+.voice-photo button {
+  border-radius: calc(14 * var(--u));
+  min-height: calc(46 * var(--u));
+  padding: calc(6 * var(--u));
+  color: #fff;
+  background: #236849;
+}
+.voice-photo button:disabled { opacity: .5; }

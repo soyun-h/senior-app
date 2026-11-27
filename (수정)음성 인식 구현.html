@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFF8EE">
+<title>오느른</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./voice-screens.css">
+<link rel="stylesheet" href="./photo-proof.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<script type="importmap">
+{"imports":{
+  "react":"https://esm.sh/react@18.3.1",
+  "react-dom/client":"https://esm.sh/react-dom@18.3.1/client",
+  "lucide-react":"https://esm.sh/lucide-react@0.453.0?external=react"
+}}
+</script>
+<style>html,body{margin:0;background:#E9DACA}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-type="module">
+import React, { useState, useEffect, useRef, useId, useMemo } from "react";
+import { callIntent, createVoiceSession } from "./voice.mjs";
+import { ArrowUp, Camera, Check, ChevronLeft, SwitchCamera, X, Zap } from "lucide-react";
+
+const CREAM = "#FFF8EE";
+
+const pad = (n) => String(n).padStart(2, "0");
+const keyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const HOUR_WORDS = { 한: 1, 두: 2, 세: 3, 네: 4, 다섯: 5, 여섯: 6, 일곱: 7, 여덟: 8, 아홉: 9, 열한: 11, 열두: 12, 열: 10 };
+const todayKeyNow = () => keyOf(new Date());
+const dateLabel = (k) => {
+  const t = new Date(todayKeyNow()), d = new Date(k);
+  const diff = Math.round((d - t) / 86400000);
+  if (diff === 0) return "오늘";
+  if (diff === 1) return "내일";
+  if (diff === 2) return "모레";
+  return `${d.getMonth() + 1}월 ${d.getDate()}일(${"일월화수목금토"[d.getDay()]})`;
+};
+const spokenTime = (x) => `${x.pm ? "오후" : "오전"} ${x.h}시${x.m ? ` ${x.m}분` : ""}`;
+const tmin = (x) => ((x.h % 12) + (x.pm ? 12 : 0)) * 60 + x.m;
+
+/* "오후 3시", "열두 시", "6시 반" → { h, m, pm, raw } */
+function readTime(str) {
+  const tm = str.match(/(오전|오후|아침|점심|저녁|밤|새벽)?\s*(\d{1,2}|열한|열두|열|한|두|세|네|다섯|여섯|일곱|여덟|아홉)\s*시\s*(반|\d{1,2}\s*분)?/);
+  if (!tm) return null;
+  const hr = /^\d/.test(tm[2]) ? +tm[2] : HOUR_WORDS[tm[2]];
+  const m = tm[3] === "반" ? 30 : tm[3] ? parseInt(tm[3], 10) : 0;
+  const ap = tm[1];
+  let h, pm;
+  if (hr > 12) { pm = true; h = hr - 12; }
+  else if (hr === 0) { pm = false; h = 12; }
+  else { h = hr; pm = ap && /오전|아침|새벽/.test(ap) ? false : ap ? true : hr === 12 || hr <= 6; }
+  return { h, m, pm: !!pm, raw: tm[0] };
+}
+
+/* "경로당 가기 일정 지워줘" → 지울 일정 찾기: { kind: "none" | "one" | "many", todo?, list? } */
+const DELETE_INTENT = /(지워|지우|삭제|취소해|취소 해|취소할|빼\s?줘|빼\s?주|없애)/;
+function findTodoToDelete(raw, todos) {
+  const tm = readTime(raw);
+  const words = raw.replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g, " ").replace(tm ? tm.raw : "", " ")
+    .replace(/(지워|지우|삭제|취소|빼|없애|줘|주세요|해줘|해 줘|해주세요|좀|일정|할 일|할일|오늘|내일|모레|을|를|은|는|이|가|도|에서|에)/g, " ")
+    .split(/\s+/).map((w) => w.trim()).filter((w) => w.length >= 2);
+  const ALIAS = { 병원: ["검진", "진료", "내과", "치과", "병원"], 장보기: ["사기", "장"], 약: ["약"] };
+  const all = words.flatMap((w) => [w, ...(ALIAS[w] || [])]);
+  let c = todos.filter((x) => all.some((w) => x.text.replace(/\s/g, "").includes(w)));
+  if (!c.length) return { kind: "none" };
+  if (tm) { const byTime = c.filter((x) => x.h === tm.h && x.m === tm.m && x.pm === tm.pm); if (byTime.length) c = byTime; }
+  return c.length === 1 ? { kind: "one", todo: c[0] } : { kind: "many", list: c };
+}
+
+/* "10월 12일 오후 3시에 친구들과 모임이 있어" → { dateKey, h, m, pm, title } */
+function parseSchedule(raw) {
+  let rest = raw.replace(/\s+/g, " ").trim();
+  const now = new Date();
+  let date = null, m;
+  if ((m = rest.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/))) {
+    date = new Date(now.getFullYear(), +m[1] - 1, +m[2]);
+    if (keyOf(date) < keyOf(now)) date.setFullYear(date.getFullYear() + 1);
+    rest = rest.replace(m[0], " ");
+  } else if ((m = rest.match(/(오늘|내일|모레|글피)/))) {
+    date = new Date(now); date.setDate(now.getDate() + { 오늘: 0, 내일: 1, 모레: 2, 글피: 3 }[m[1]]);
+    rest = rest.replace(m[0], " ");
+  } else if ((m = rest.match(/(이번\s*주|다음\s*주)?\s*([일월화수목금토])요일/))) {
+    const ti = (("일월화수목금토".indexOf(m[2])) + 6) % 7, mon = new Date(now); mon.setDate(now.getDate() - monIdx(now));
+    date = new Date(mon);
+    if (m[1] && /다음/.test(m[1])) date.setDate(mon.getDate() + 7 + ti);
+    else if (m[1]) date.setDate(mon.getDate() + ti);
+    else { let diff = (ti - monIdx(now) + 7) % 7; date.setTime(now.getTime()); date.setDate(now.getDate() + (diff === 0 ? 7 : diff)); }
+    rest = rest.replace(m[0], " ");
+  }
+  let h = 9, mi = 0, pm = false, noTime = true;
+  const tm = readTime(rest);
+  if (tm) { noTime = false; ({ h, m: mi, pm } = tm); rest = rest.replace(tm.raw, " "); }
+  const intent = /(있|약속|모임|만나|가야|가기|예약|검진|병원|행사|잔치|생신|가요|간다|갈|해야|오기로|오는)/.test(raw);
+  if ((!date && noTime) || !intent) return null;
+  let title = rest.replace(/\s+/g, " ").trim().replace(/^(에는|에|은|는|부터|까지)\s*/, "");
+  title = title.replace(/[.!?~]+$/g, "").replace(/\s*(이|가|은|는)?\s*(있어요?|있단다|있다|있네|있대|있거든|있어서|있습니다|잡혔어요?|잡혀 있어요?|예정이야|예정이에요|예정입니다)$/, "").trim();
+  return { dateKey: keyOf(date || now), h, m: mi, pm, title: title || "새 일정", noTime };
+}
+
+/* ═════════ 티키타카 대화: 날씨 · 수수께끼 · 애교 · 되묻기 ═════════ */
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+const WMO = (c) => (c === 0 ? ["맑음", "☀️"] : c <= 2 ? ["대체로 맑음", "🌤️"] : c === 3 ? ["흐림", "☁️"] : c <= 48 ? ["안개 낀 날씨", "🌫️"] : c <= 67 ? ["비", "🌧️"] : c <= 77 ? ["눈", "❄️"] : c <= 82 ? ["소나기", "🌦️"] : ["천둥번개", "⛈️"]);
+const rainy = (code, pop) => (code >= 51 && code <= 67) || (code >= 80 && code <= 99) || pop >= 60;
+
+/* 오늘·내일 날씨 (Open-Meteo, 서울 기준). 불러오지 못하면 null */
+async function fetchWeather() {
+  try {
+    const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 5000);
+    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.978&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=2&timezone=Asia%2FSeoul", { signal: ctrl.signal });
+    clearTimeout(to);
+    const j = await r.json();
+    return {
+      temp: Math.round(j.current.temperature_2m), code: j.current.weather_code,
+      hi: Math.round(j.daily.temperature_2m_max[0]), lo: Math.round(j.daily.temperature_2m_min[0]), pop: j.daily.precipitation_probability_max[0],
+      tCode: j.daily.weather_code[1], tHi: Math.round(j.daily.temperature_2m_max[1]), tLo: Math.round(j.daily.temperature_2m_min[1]), tPop: j.daily.precipitation_probability_max[1],
+    };
+  } catch { return null; }
+}
+const tipFor = (code, pop, t) => (rainy(code, pop) ? "우산 꼭 챙기세요! ☂️" : t <= 5 ? "많이 추워요. 따뜻하게 입으세요! 🧣" : t >= 28 ? "더워요. 물 자주 드세요! 💧" : t <= 12 ? "쌀쌀하니 겉옷 챙기세요!" : "산책하기 딱 좋은 날씨예요! 🚶");
+const weatherLine = (w) => { const [d] = WMO(w.code); return `오늘은 ${d}, 지금 ${w.temp}도예요. 낮 최고 ${w.hi}도, 아침엔 ${w.lo}도래요. ${tipFor(w.code, w.pop, w.hi)}`; };
+
+const QUIZ = [
+  { q: "바나나가 웃으면 뭐게요?", a: "바나나킥", keys: ["바나나킥", "킥"] },
+  { q: "차가 놀라면 뭐가 될까요?", a: "카놀라유", keys: ["카놀라"] },
+  { q: "고기 먹을 때 꼭 따라오는 개는 뭘까요?", a: "이쑤시개", keys: ["이쑤시개", "쑤시개"] },
+  { q: "오리가 얼면 뭐라고 할까요?", a: "언덕", keys: ["언덕"] },
+  { q: "왕이 넘어지면 뭐게요?", a: "킹콩", keys: ["킹콩"] },
+  { q: "소금이 죽으면 뭐가 될까요?", a: "죽염", keys: ["죽염"] },
+  { q: "개가 사람을 가르치면 뭐게요?", a: "개인교수", keys: ["개인교수", "개인 교수"] },
+];
+const QUIZ_INTENT = /(농담|웃긴|웃겨|재밌는|재미있는|조크|수수께끼|퀴즈|아재|하나 더|장난)/;
+const WEATHER_INTENT = /(날씨|기온|우산|비\s?와|비가|눈\s?와|더워|추워|춥|덥)/;
+const YES = /^(응|네|예|그래|좋아|좋지|해\s?봐|해줘|내\s?봐|그러자|어)/;
+
+const chatReply = (t) => {
+  if (/아프|쑤시|결리|어지/.test(t)) return `많이 불편하시겠어요. 따뜻하게 쉬세요. ${pick(["언제부터 아프셨어요?", "약은 챙겨 드셨어요?"])}`;
+  if (/고마워|감사/.test(t)) return pick(["에이~ 별말씀을요! 웃으시는 모습이 최고예요 😊 오늘 또 뭐 하셨어요?", "저도 고마워요~ 우리 오래오래 얘기해요 🥰"]);
+  if (/안녕|좋은 아침|굿모닝|잘 잤/.test(t)) return pick(["안녕하세요~! 보고 싶었어요 🥰 오늘 기분은 어떠세요?", "어머, 목소리 들으니까 힘이 나요! 식사는 하셨어요?"]);
+  if (/외로|쓸쓸|보고\s?싶|심심/.test(t)) return pick(["저도 보고 싶었어요~ 🥰 이렇게 목소리 들려주시니 너무 좋아요! 수수께끼 하나 낼까요?", "제가 곁에 있잖아요~ 심심하면 저랑 놀아요! 수수께끼 낼까요?"]);
+  if (/기분.*좋|좋아|행복|즐거/.test(t)) return `기분이 좋으시다니 저도 기뻐요! 무슨 좋은 일 있으셨어요?`;
+  if (/밥|점심|저녁|식사|먹/.test(t)) return `잘 챙겨 드셨네요! 반찬은 뭐가 제일 맛있었어요?`;
+  return pick(["말씀해 주셔서 고마워요~ 더 들려주세요! 오늘 제일 기억에 남는 일은 뭐예요?", "오오 그렇군요! 그래서 어떻게 됐어요? 궁금해요~", "목소리 들으니까 좋아요 💛 다른 얘기도 해 주세요!"]);
+};
+
+const HOME_SAMPLE = "오늘의 날씨는 13°C 입니다. 비가 온다고 하니 우산 꼭 챙기세요.";
+const CALL_SAMPLE = "30분 뒤, 당뇨약 드실 시간이에요! 사진으로 인증하시겠어요?";
+const HOME_GREETING = "안녕하세요! 오늘 하루는 어떠세요?";
+
+function voiceBox(x, y, w, h) {
+  return { "--x": x, "--y": y, "--w": w, "--h": h };
+}
+
+function VoiceButton({ box, label, asset, onClick, ...props }) {
+  return (
+    <button type="button" className="voice-position voice-hotspot" style={voiceBox(...box)}
+      aria-label={label} onClick={onClick} {...props}>
+      {asset && <img src={asset} alt="" draggable="false" />}
+    </button>
+  );
+}
+
+function useVoice({ initial, onAnswer, onMiss }) {
+  const [state, setState] = useState({ phase: "idle", line: initial, transcript: "", message: "" });
+  const events = useRef({});
+  events.current = { onAnswer, onMiss };
+  const session = useMemo(() => createVoiceSession({
+    update: (next) => setState((previous) => ({ ...previous, ...next })),
+    onAnswer: (text) => events.current.onAnswer(text),
+    onMiss: (heard) => events.current.onMiss(heard),
+  }), []);
+  useEffect(() => () => session.stop(), [session]);
+  return [state, session];
+}
+
+function VoiceCaption({ voice, box, sample, onClick }) {
+  const labels = {
+    waiting: "음성 입력을 준비하고 있어요",
+    listening: "듣고 있어요",
+    thinking: "말씀하신 내용을 확인하고 있어요",
+  };
+  const status = voice.message || labels[voice.phase];
+  const listening = voice.phase === "listening" || voice.phase === "thinking";
+  const line = voice.message || (listening && voice.transcript) || voice.line;
+  const changed = line !== sample;
+  return (
+    <>
+      <button type="button" className="voice-position voice-hotspot voice-caption"
+        style={voiceBox(...box)} data-changed={changed}
+        aria-label={"음성 대화 시작 또는 다시 듣기. " + line} onClick={onClick}>
+        {changed && <span className="voice-caption-line" data-status={!!status && !voice.message}>{line}</span>}
+        {status && !voice.message && <span className="voice-caption-phase" aria-hidden="true">{status}</span>}
+      </button>
+      <div aria-live="polite" aria-atomic="true" className="voice-note sr-only">
+        {status && <span>{status}</span>}
+        {voice.transcript && <span>{voice.transcript}</span>}
+      </div>
+    </>
+  );
+}
+
+function Main({ todos, deleteTodo, addTodo, toast, weather }) {
+  const quiz = useRef(null);
+  const quizIdx = useRef(Math.floor(Math.random() * QUIZ.length));
+  const offer = useRef(false);
+  const [voice, session] = useVoice({
+    initial: HOME_SAMPLE,
+    onAnswer: handle,
+    onMiss: (heard) => heard ? say("잘 듣지 못했어요. 다시 한 번 말씀해 주세요.") : session.pause(),
+  });
+  const say = (text) => session.say(text);
+  const begin = () => session.say(HOME_GREETING, { display: HOME_SAMPLE });
+  useEffect(() => {
+    session.say(HOME_GREETING, { display: HOME_SAMPLE });
+  }, [session]);
+
+  const cards = todos.filter((item) => item.dateKey === keyOf(new Date()))
+    .sort((a, b) => tmin(a) - tmin(b)).slice(0, 2);
+
+  const askQuiz = () => {
+    const q = QUIZ[quizIdx.current++ % QUIZ.length];
+    quiz.current = q; offer.current = false;
+    say("수수께끼 나갑니다. " + q.q + " 맞혀 보세요!");
+  };
+
+  function handle(raw) {
+    const t = (raw || "").trim();
+    if (!t) return say("잘 못 들었어요~ 다시 한 번만 말씀해 주세요 🥺");
+    const wasOffer = offer.current; offer.current = false;
+
+    // 1) 수수께끼 정답 맞히기
+    if (quiz.current) {
+      const q = quiz.current;
+      const isOther = DELETE_INTENT.test(t) || WEATHER_INTENT.test(t) || parseSchedule(t);
+      if (!isOther) {
+        quiz.current = null; offer.current = true;
+        if (q.keys.some((k) => t.replace(/\s/g, "").includes(k.replace(/\s/g, "")))) return say(`딩동댕~! 정답은 '${q.a}'예요 👏 척척박사시네요! 하나 더 낼까요?`);
+        if (/모르|몰라|힌트|포기|글쎄/.test(t)) return say(`정답은 '${q.a}'예요! ㅎㅎ 재밌죠? 하나 더 낼까요?`);
+        return say(`땡~! 정답은 '${q.a}'예요 ㅎㅎ 아깝다~ 하나 더 낼까요?`);
+      }
+      quiz.current = null;
+    }
+    // 2) 일정 삭제 · 추가
+    if (DELETE_INTENT.test(t)) {
+      const r = findTodoToDelete(t, todos);
+      if (r.kind === "one") { deleteTodo(r.todo.id); return say(`${dateLabel(r.todo.dateKey)} ${spokenTime(r.todo)} '${r.todo.text}' 일정을 삭제했어요.`); }
+      if (r.kind === "many") return say(`'${r.list[0].text}' 일정이 ${r.list.length}개예요. 시간도 같이 말씀해 주세요. 예) ${spokenTime(r.list[0])} ${r.list[0].text} 지워줘`);
+      return say("어떤 일정인지 못 찾았어요. 일정 이름을 같이 말씀해 주세요.");
+    }
+    const sc = parseSchedule(t);
+    if (sc) {
+      addTodo(sc);
+      say(`${dateLabel(sc.dateKey)} ${spokenTime(sc)}에 '${sc.title}' 일정을 추가했어요!${sc.noTime ? " 시간은 오전 9시로 해 뒀어요." : ""} 그날 기대되시죠? 😊`);
+      toast("📅 일정에 자동으로 추가했어요");
+      return;
+    }
+    // 3) 날씨
+    if (WEATHER_INTENT.test(t)) {
+      const w = weather;
+      return say(w ? `${WMO(w.code)[1]} ${weatherLine(w)} (서울 기준)` : "앗, 지금은 날씨를 못 가져왔어요. 창밖을 한번 볼까요? 🪟");
+    }
+    // 4) 수수께끼 · 농담 (또는 제안에 "응")
+    if (QUIZ_INTENT.test(t) || (wasOffer && YES.test(t))) return askQuiz();
+    // 5) 그 밖의 대화: 공감 + 되묻기
+    const r = chatReply(t);
+    if (/수수께끼 낼까요\?$/.test(r)) offer.current = true;
+    say(r);
+  }
+
+  return (
+    <section className="voice-screen voice-home" aria-label="메인 홈" data-phase={voice.phase}>
+      <h1 className="sr-only">오늘의 할 일</h1>
+      {[0, 1].map((i) => {
+        const item = cards[i];
+        const label = item && i === 0 && item.text === "당뇨약 먹기" ? "당뇨약" : item?.text;
+        const clock = item && String(item.h) + ":" + pad(item.m);
+        const state = item?.done ? "완료" : "대기";
+        const matches = i === 0
+          ? clock === "9:00" && label === "당뇨약" && item.done
+          : clock === "10:20" && label === "연속극" && !item.done;
+        return (
+          <article key={i} className="voice-position voice-card"
+            style={voiceBox(i === 0 ? 28 : 183, 138, 149, 74)}
+            data-changed={!matches} aria-label={item ? clock + " " + label + " " + state : "예정된 일이 없어요"}>
+            {!matches && (item ? <><strong>{clock}</strong><span>{label} │ {state}</span></> : <span>예정된 일이 없어요</span>)}
+          </article>
+        );
+      })}
+      <img className="voice-position voice-art" alt="" src="./mainhome.assets/mainhome.defaultavartar.png"
+        style={{ ...voiceBox(34, 263, 302, 402), clipPath: "inset(0 0 28%)" }} />
+      <VoiceCaption voice={voice} box={[29, 555, 302, 84]} sample={HOME_SAMPLE}
+        onClick={() => voice.phase === "error" ? session.restart() : begin()} />
+      <img className="voice-position voice-art" style={voiceBox(35, 641, 65, 66)} alt="" src="./mainhome.assets/mainhomeButtonAlarm.svg" />
+      <VoiceButton box={[152, 650, 55, 56]} label="홈 음성 대화" asset="./mainhome.assets/mainhomeButtonHome.svg" onClick={() => voice.phase === "error" ? session.restart() : begin()} />
+      <img className="voice-position voice-art" style={voiceBox(263, 641, 65, 66)} alt="" src="./mainhome.assets/mainhomeButtonScedule.svg" />
+    </section>
+  );
+}
+
+const PROOF_MISSIONS = [
+  { name: "당뇨약", time: "오전 9:00", message: "9시 당뇨약 복용을 완료했어요!", share: "오전 9:00 당뇨약 복용을 완료했어요!" },
+  { name: "연속극", time: "오전 10:20" },
+  { name: "경로당 가기", time: "오전 11:00" },
+  { name: "아들 방문", time: "오후 06:30" },
+];
+
+const PROOF_NOTES = [
+  "오늘도 건강하게 챙기고 있다는 걸 전해주세요.",
+  "약을 잘 드셨다는 소식이 가족에게는 큰 안심이 돼요.",
+  "가족들이 오늘도 걱정 없이 지낼 수 있도록 알려주세요.",
+  "오늘도 잘 지내고 있다는 반가운 소식을 보내보세요.",
+];
+
+function ProofCamera({ onPhoto, onClose, onResume }) {
+  const video = useRef(null);
+  const liveTrack = useRef(null);
+  const active = useRef(false);
+  const busy = useRef(false);
+  const [facing, setFacing] = useState("environment");
+  const [ready, setReady] = useState(false);
+  const [torch, setTorch] = useState(false);
+  const [message, setMessage] = useState("");
+  const [cameraError, setCameraError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let stream;
+    active.current = true;
+    const preview = video.current;
+    const fail = (error) => {
+      if (cancelled) return;
+      setReady(false);
+      setCameraError(true);
+      setMessage(error?.name === "NotAllowedError"
+        ? "카메라 권한을 허용하거나 사진을 선택해 주세요."
+        : "카메라를 열 수 없어요. 사진을 선택해 주세요.");
+    };
+    async function start() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing === "user" ? { exact: "user" } : { ideal: "environment" } },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        const track = stream.getVideoTracks()[0];
+        liveTrack.current = track;
+        track.addEventListener("ended", fail, { once: true });
+        preview.srcObject = stream;
+        await preview.play();
+        if (!cancelled) setReady(true);
+      } catch (error) {
+        stream?.getTracks().forEach((track) => track.stop());
+        fail(error);
+      }
+    }
+    start();
+    return () => {
+      cancelled = true;
+      active.current = false;
+      liveTrack.current = null;
+      stream?.getTracks().forEach((track) => track.stop());
+      preview.srcObject = null;
+    };
+  }, [facing]);
+
+  const switchCamera = () => {
+    if (busy.current) return;
+    setReady(false);
+    setTorch(false);
+    setMessage("");
+    setCameraError(false);
+    setFacing((current) => current === "environment" ? "user" : "environment");
+  };
+
+  const toggleFlash = async () => {
+    const track = liveTrack.current;
+    if (!ready || !track?.getCapabilities?.().torch) {
+      if (!cameraError) setMessage("이 카메라에서 플래시를 켤 수 없어요.");
+      return;
+    }
+    try {
+      await track.applyConstraints({ advanced: [{ torch: !torch }] });
+      if (liveTrack.current !== track) return;
+      setTorch(!!track.getSettings().torch);
+      setMessage("");
+    } catch {
+      if (liveTrack.current === track) setMessage("플래시 설정을 바꿀 수 없어요.");
+    }
+  };
+
+  const capture = async () => {
+    if (busy.current) return;
+    const source = video.current;
+    if (!ready || !source.videoWidth) {
+      if (!cameraError) setMessage("카메라가 준비되면 다시 눌러주세요.");
+      return;
+    }
+    busy.current = true;
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = source.videoWidth;
+      canvas.height = source.videoHeight;
+      canvas.getContext("2d").drawImage(source, 0, 0);
+      const image = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+      if (!image) throw new Error("Photo encoding failed");
+      if (active.current) onPhoto(new File([image], "mission-proof.jpg", { type: image.type }));
+    } catch {
+      if (active.current) setMessage("사진을 찍지 못했어요. 다시 눌러주세요.");
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  const selectPhoto = async (event) => {
+    const file = event.target.files[0];
+    event.target.value = "";
+    if (!file || busy.current) return;
+    busy.current = true;
+    const url = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+      if (active.current) onPhoto(file);
+    } catch {
+      if (active.current) setMessage("사진을 열 수 없어요. 다른 사진을 선택해 주세요.");
+    } finally {
+      URL.revokeObjectURL(url);
+      busy.current = false;
+    }
+  };
+
+  return (
+    <div className="mission-camera">
+      <video ref={video} autoPlay muted playsInline aria-label="카메라 실시간 미리보기" />
+      <div className="mission-camera-tools">
+        <button type="button" aria-label="카메라 전환" onClick={switchCamera}><SwitchCamera /></button>
+        <button type="button" aria-label="플래시" aria-pressed={torch} onClick={toggleFlash}>{torch ? <Zap fill="currentColor" /> : <Zap />}</button>
+        <button type="button" aria-label="닫기" onClick={onClose}><X /></button>
+      </div>
+      <h1>사진 인증 촬영</h1>
+      <div className="mission-guides"><i /><i /><i /><i /><p>네모 안에 맞춰주세요</p></div>
+      <div className="mission-camera-status">
+        {message && <p role="status">{message}</p>}
+        {!ready && <label className="mission-file">
+          사진 선택
+          <input type="file" accept="image/*" aria-label="사진 선택" onChange={selectPhoto} />
+        </label>}
+      </div>
+      <button type="button" className="mission-shutter" aria-label="사진 촬영" onClick={capture}><span><Camera /></span></button>
+      {onResume && <button type="button" className="mission-resume" onClick={onResume}>이전 사진 사용</button>}
+    </div>
+  );
+}
+
+function ProofBack({ onClick }) {
+  return <button type="button" className="mission-back" aria-label="뒤로가기" onClick={onClick}><ChevronLeft /></button>;
+}
+
+function PhotoProof({ onConfirm, onCancel }) {
+  const historyId = useId();
+  const [step, setStep] = useState("camera");
+  const [photo, setPhoto] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [note, setNote] = useState("");
+  const [message, setMessage] = useState("");
+  const [fallback, setFallback] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const confirmed = useRef(false);
+  const mission = PROOF_MISSIONS[step === "complete" ? history.state?.missionIndex : selected];
+  const shareText = mission?.share ?? (mission ? `${mission.time} ${mission.name} 완료했어요!` : "");
+
+  useEffect(() => {
+    if (!photo) return;
+    const url = URL.createObjectURL(photo);
+    setPhotoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+
+  const showStep = (next) => {
+    if (next === "complete") setNote(PROOF_NOTES[Math.floor(Math.random() * PROOF_NOTES.length)]);
+    setMessage("");
+    setFallback(false);
+    setStep(next);
+  };
+
+  useEffect(() => {
+    const navigate = ({ state }) => showStep(state?.photoProof === historyId ? state.step : "camera");
+    window.addEventListener("popstate", navigate);
+    return () => window.removeEventListener("popstate", navigate);
+  }, [historyId]);
+
+  const advance = (next) => {
+    history.pushState({ ...history.state, photoProof: historyId, step: next, missionIndex: next === "complete" ? selected : null }, "");
+    showStep(next);
+  };
+  const back = () => history.back();
+  const receivePhoto = (file) => {
+    setPhoto(file);
+    advance("review");
+  };
+
+  const register = (event) => {
+    event.preventDefault();
+    if (!mission) {
+      setMessage("인증할 미션을 한 가지 선택해 주세요.");
+      document.querySelector(".mission-options input")?.focus();
+      return;
+    }
+    if (!photo) return;
+    if (!confirmed.current) {
+      confirmed.current = true;
+      onConfirm?.();
+    }
+    advance("complete");
+  };
+
+  const share = async () => {
+    if (sharing) return;
+    const data = { title: "미션 인증 완료", text: shareText, files: [photo] };
+    setSharing(true);
+    try {
+      if (navigator.share && navigator.canShare?.(data)) {
+        await navigator.share(data);
+        return;
+      }
+      setFallback(true);
+    } catch (error) {
+      if (error.name !== "AbortError") setFallback(true);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const copyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setMessage("인증 메시지를 복사했어요.");
+    } catch {
+      setMessage("아래 문구를 길게 누르거나 선택해 복사해 주세요.");
+    }
+  };
+
+  return (
+    <section className={`mission-proof mission-step-${step}`} aria-label="사진 인증">
+      {step === "camera" && <ProofCamera onPhoto={receivePhoto} onClose={() => onCancel(confirmed.current)}
+        onResume={photo ? () => advance("review") : null} />}
+      {step === "review" && (
+        <form className="mission-review" onSubmit={register}>
+          <header><ProofBack onClick={back} /><h1>인증하기</h1></header>
+          <div className="mission-preview">
+            {photoUrl && <img src={photoUrl} alt="인증할 사진" />}
+            <button type="button" className="mission-retake" onClick={back}><Camera />재촬영</button>
+          </div>
+          <fieldset className="mission-options">
+            <legend><Check />무엇을 수행했나요?</legend>
+            <div className="mission-rows">
+              {PROOF_MISSIONS.map(({ name, time }, index) => (
+                <label className="mission-option" key={name}>
+                  <input type="radio" name="proof-mission" checked={selected === index}
+                    onChange={() => { setSelected(index); setMessage(""); }} />
+                  <span className="mission-radio"><Check /></span>
+                  <strong>{name}</strong><span className="mission-time">{time}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          {message && <p className="mission-validation" role="alert">{message}</p>}
+          <button type="submit" className="mission-register">등록하기</button>
+        </form>
+      )}
+      {step === "complete" && mission && (
+        <div className="mission-complete">
+          <ProofBack onClick={back} />
+          <div className="mission-badge" aria-hidden="true"><i /></div>
+          <div className="mission-stack">
+            <span className="mission-sparkles" aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
+            {photoUrl && <img src={photoUrl} alt="인증 완료 사진" />}
+          </div>
+          <h1>인증 완료!</h1>
+          <p className="mission-completed-time">{mission.name} · {mission.time}</p>
+          <section className="mission-family" aria-label="가족 공유">
+            <h2>명숙(큰딸)님에게 공유해보아요</h2>
+            <p>{note}</p>
+            <button className="mission-share" type="button" onClick={share} disabled={sharing}>
+              <span title={`${mission.name} ${mission.time}`}>{mission.message ?? shareText}</span><span><ArrowUp /></span>
+            </button>
+          </section>
+          {fallback && <div className="mission-share-fallback">
+            <p>사진을 저장하고 메시지를 복사해 가족에게 보내세요.</p>
+            <div>
+              <a href={photoUrl} download={photo.name}>사진 저장</a>
+              <button type="button" onClick={copyMessage}>메시지 복사</button>
+              <button type="button" onClick={() => { setFallback(false); setMessage(""); }}>닫기</button>
+            </div>
+            <p role="status">{message}</p>
+            <p>{shareText}</p>
+          </div>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+
+function Ring({ onClose }) {
+  const [camera, setCamera] = useState(true);
+  const [proof, setProof] = useState(false);
+  const prompt = CALL_SAMPLE;
+  const [voice, session] = useVoice({
+    initial: prompt,
+    onAnswer: (text) => {
+      switch (callIntent(text)) {
+        case "accept": session.say("좋아요. 사진 인증 화면을 열게요.", { wait: false, after: openProof }); break;
+        case "decline": session.say("알겠어요. 사진 인증 없이 알림을 마칠게요.", { wait: false }); break;
+        case "repeat": session.say(prompt); break;
+        default: session.say("사진으로 인증하시겠어요? 할게요 또는 나중에 할게요라고 말씀해 주세요.");
+      }
+    },
+    onMiss: () => session.say("잘 듣지 못했어요. " + prompt),
+  });
+  const openProof = () => { session.stop(); setProof(true); };
+  useEffect(() => {
+    session.say(prompt);
+  }, [prompt, session]);
+
+  if (proof) return <PhotoProof onCancel={(completed) => {
+    if (completed) { onClose(); return; }
+    setProof(false);
+    session.say(prompt);
+  }} />;
+
+  return (
+    <section className="voice-screen voice-call" aria-label="일정 전화" data-phase={voice.phase}>
+      <h1 className="sr-only">나비</h1>
+      <img className="voice-position voice-art" alt="" src="./phone.assets/phone.defaultavartar.png"
+        style={{ ...voiceBox(7, 258, 360, 480), clipPath: "inset(0 0 43%)" }} />
+      {camera
+        ? <img className="voice-position voice-self" style={voiceBox(239, 138, 93, 124)} src="./phone.assets/phoneDefaultUser.png" alt="내 화면" />
+        : <span className="voice-position voice-self voice-self-off" style={voiceBox(239, 138, 93, 124)} aria-label="내 화면 꺼짐" />}
+      <VoiceCaption voice={voice} box={[19, 544, 322, 69]} sample={CALL_SAMPLE}
+        onClick={() => voice.phase === "error" ? session.restart() : session.say(prompt)} />
+      <VoiceButton box={[28, 627, 64, 64]} asset="./phone.assets/phone.svg" label="사진 인증 열기" onClick={openProof} />
+      <VoiceButton box={[145, 623, 80, 80]} asset="./phone.assets/phoneredbutton.svg" label="통화 종료" onClick={onClose} />
+      <VoiceButton box={[268, 627, 64, 64]} asset="./phone.assets/phonecamoff.svg"
+        label="내 화면 표시" aria-pressed={camera} onClick={() => setCamera(!camera)} />
+    </section>
+  );
+}
+
+const dayKey = (off) => { const d = new Date(); d.setDate(d.getDate() + off); return keyOf(d); };
+const buildTodos = () => [
+  { id: 1, text: "당뇨약 먹기", dateKey: dayKey(0), h: 9, m: 0, pm: false, done: true },
+  { id: 2, text: "연속극", dateKey: dayKey(0), h: 10, m: 20, pm: false, done: false },
+  { id: 3, text: "경로당 가기", dateKey: dayKey(0), h: 1, m: 0, pm: true, done: false },
+  { id: 4, text: "당뇨약 먹기", dateKey: dayKey(0), h: 6, m: 0, pm: true, done: false },
+  { id: 5, text: "내과 정기검진", dateKey: dayKey(3), h: 10, m: 0, pm: false, done: false },
+];
+const entry = new URLSearchParams(window.location.search).get("screen");
+
+function App() {
+  const [screen, setScreen] = useState(entry === "call" ? "ring" : entry === "photo" ? "photo" : "main");
+  const [todos, setTodos] = useState(buildTodos);
+  const [toastMsg, setToastMsg] = useState(null);
+  const [weather, setWeather] = useState(null);
+  const toastTimer = useRef(null);
+  useEffect(() => { fetchWeather().then(setWeather); }, []);
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
+
+  const toast = (message) => {
+    setToastMsg(message);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastMsg(null), 2800);
+  };
+  const addTodo = (schedule) => {
+    const { title, dateKey, h, m, pm } = schedule;
+    setTodos((items) => [...items, { id: Date.now() + Math.random(), text: title, dateKey, h, m, pm, done: false }]);
+  };
+  const deleteTodo = (id) => {
+    setTodos((items) => items.filter((item) => item.id !== id));
+    toast("일정을 삭제했어요");
+  };
+  const returnHome = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("screen");
+    history.replaceState(history.state, "", url);
+    setScreen("main");
+  };
+
+  return (
+    <div className="min-h-screen flex justify-center items-center md:py-6" style={{ background: "#eef1ef", fontFamily: "'Pretendard','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif", fontSize: 18 }}>
+      <div className="voice-frame" style={{ background: CREAM }}>
+        {screen === "main" && <Main todos={todos} deleteTodo={deleteTodo} addTodo={addTodo} toast={toast} weather={weather} />}
+        {screen === "ring" && <Ring onClose={returnHome} />}
+        {screen === "photo" && <PhotoProof onCancel={returnHome} />}
+        {toastMsg && <div className="absolute left-5 right-5 top-24 z-[60] rounded-2xl px-4 py-3 text-center text-[19px] font-bold text-white" style={{ background: "rgba(51,38,28,.94)" }} role="status">{toastMsg}</div>}
+      </div>
+    </div>
+  );
+}
+
+
+import { createRoot } from "react-dom/client";
+createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
