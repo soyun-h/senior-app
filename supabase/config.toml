@@ -1,0 +1,10 @@
+project_id = "allit"
+
+[db]
+major_version = 17
+
+[db.seed]
+enabled = false
+
+[functions.delete-account]
+verify_jwt = true
