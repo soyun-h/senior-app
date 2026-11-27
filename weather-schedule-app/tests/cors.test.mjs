@@ -6,14 +6,14 @@ import { envelope } from './kma-fixtures.mjs';
 
 const config = JSON.parse(readFileSync(new URL('../server/wrangler.jsonc', import.meta.url), 'utf8'));
 const localhost = 'http://localhost:8081';
-const codespaces = 'https://ideal-lamp-p7w5rxr56pwvfrpv9-8081.app.github.dev';
+const release = 'https://team-release.example';
 function setup(status = 200) {
   let calls = 0;
   const payload = status === 200 ? envelope() : { error: 'WEATHER_UNAVAILABLE' };
   return {
     calls: () => calls, payload,
     env: {
-      ALLOWED_ORIGINS: config.vars.ALLOWED_ORIGINS,
+      ALLOWED_ORIGINS: `${config.vars.ALLOWED_ORIGINS},${release}`,
       WEATHER_GATEWAY: {
         idFromName(name) { assert.equal(name, 'kma-global-v1'); return 'test-id'; },
         get() { return { async fetch() { calls++; return Response.json(payload, { status }); } }; },
@@ -27,12 +27,12 @@ function request(origin, method = 'GET') {
   return new Request('https://api.example/weather?x=60&y=127', { method, headers });
 }
 
-test('configured allowlist contains only existing localhost and the exact requested Codespaces origin', () => {
-  assert.deepEqual(config.vars.ALLOWED_ORIGINS.split(','), [localhost, codespaces]);
+test('default Weather Worker allowlist contains only local origins', () => {
+  assert.deepEqual(config.vars.ALLOWED_ORIGINS.split(','), ['https://localhost', 'http://localhost:8080', localhost, 'http://localhost:8090']);
   assert.ok(!config.vars.ALLOWED_ORIGINS.includes('*'));
 });
-for (const origin of [localhost, codespaces]) {
-  test(`allowed origin ${origin === localhost ? 'localhost' : 'Codespaces'} receives weather with exact CORS headers`, async () => {
+for (const origin of [localhost, release]) {
+  test(`allowed origin ${origin} receives weather with exact CORS headers`, async () => {
     const s = setup();
     const response = await worker.fetch(request(origin), s.env);
     assert.equal(response.status, 200);
@@ -41,7 +41,7 @@ for (const origin of [localhost, codespaces]) {
     assert.deepEqual(await response.json(), s.payload);
     assert.equal(s.calls(), 1);
   });
-  test(`allowed origin ${origin === localhost ? 'localhost' : 'Codespaces'} preflight succeeds without fetching weather`, async () => {
+  test(`allowed origin ${origin} preflight succeeds without fetching weather`, async () => {
     const s = setup();
     const response = await worker.fetch(request(origin, 'OPTIONS'), s.env);
     assert.equal(response.status, 204);
@@ -55,9 +55,9 @@ test('other sites, other Codespaces, suffix lookalikes, schemes, ports and null 
   for (const origin of [
     'https://other.example',
     'https://another-codespace-8081.app.github.dev',
-    `${codespaces}.evil.example`,
-    codespaces.replace('https:', 'http:'),
-    `${codespaces}:8443`,
+    `${release}.evil.example`,
+    release.replace('https:', 'http:'),
+    `${release}:8443`,
     'http://localhost:8082',
     'null',
   ]) {
@@ -71,11 +71,11 @@ test('other sites, other Codespaces, suffix lookalikes, schemes, ports and null 
     }
   }
 });
-test('allowed Codespaces can read sanitized gateway errors rather than a CORS failure', async () => {
+test('the deployed Pages origin can read sanitized gateway errors', async () => {
   const s = setup(503);
-  const response = await worker.fetch(request(codespaces), s.env);
+  const response = await worker.fetch(request(release), s.env);
   assert.equal(response.status, 503);
-  assert.equal(response.headers.get('Access-Control-Allow-Origin'), codespaces);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), release);
   assert.deepEqual(await response.json(), { error: 'WEATHER_UNAVAILABLE' });
 });
 test('native and address-bar requests without Origin remain supported without wildcard headers', async () => {

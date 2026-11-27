@@ -5,7 +5,7 @@
   "workers_dev": true,
   "observability": { "enabled": false },
   "vars": {
-    "ALLOWED_ORIGINS": "http://localhost:8081,https://ideal-lamp-p7w5rxr56pwvfrpv9-8081.app.github.dev",
+    "ALLOWED_ORIGINS": "https://localhost,http://localhost:8080,http://localhost:8081,http://localhost:8090",
     "DAILY_UPSTREAM_LIMIT": "800"
   },
   "durable_objects": { "bindings": [{ "name": "WEATHER_GATEWAY", "class_name": "WeatherGateway" }] },

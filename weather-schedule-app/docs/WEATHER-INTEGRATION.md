@@ -37,7 +37,7 @@ API 이용 신청·승인 후 해당 서비스 최신 활용가이드 및 실제
 `weather-schedule-app/.env.example`을 같은 폴더의 `.env.local`로 복사하면 됩니다. 기존 `.env.local`이 있으면 덮어쓰지 말고 아래 공개 설정만 확인하세요. `.env.local`은 계속 Git에서 제외됩니다.
 
 ```dotenv
-EXPO_PUBLIC_WEATHER_API_URL=https://weather-schedule-kma.hsy030314.workers.dev/weather
+EXPO_PUBLIC_WEATHER_API_URL=https://<TEAM_WORKER>.<TEAM_SUBDOMAIN>.workers.dev/weather
 EXPO_PUBLIC_WEATHER_MODE=live
 ```
 
@@ -51,10 +51,10 @@ EXPO_PUBLIC_WEATHER_MODE=live
 
 Codespace를 새로 만들거나 포트를 바꾸면 미리보기 Origin도 바뀔 수 있습니다.
 브라우저 주소에서 경로·쿼리·마지막 `/`를 제외한 `https://호스트` 부분을 확인하세요.
-현재 허용된 Codespaces Origin은 `https://ideal-lamp-p7w5rxr56pwvfrpv9-8081.app.github.dev`입니다.
+Codespaces를 쓰는 경우 해당 미리보기의 정확한 origin을 환경별 배포 입력으로 전달합니다.
 
-주소가 달라지거나 CORS 403이 발생하면 `server/wrangler.jsonc`의 `vars.ALLOWED_ORIGINS`를 확인합니다.
-기존 `http://localhost:8081`은 유지하고 필요한 새 Origin을 쉼표로 구분해 정확히 추가하세요.
+주소가 달라지거나 CORS 403이 발생하면 실제 배포의 `ALLOWED_ORIGINS`를 확인합니다.
+로컬 기본값은 `server/wrangler.jsonc`에 있으며, 배포할 때 필요한 origin을 쉼표로 구분해 지정합니다.
 `*` 또는 모든 `app.github.dev` 주소를 허용하지 말고, 더 이상 사용하지 않는 Origin은 검토 후 제거하세요.
 실제 서버 허용 목록은 승인된 배포 이후에 반영됩니다. 대시보드에서만 바꾼 값은 다음 Wrangler 배포에서 설정 파일 값으로 덮어써질 수 있습니다.
 이번 안내 정리에서는 서버 허용 목록이나 Cloudflare 설정을 변경하지 않았습니다.
@@ -101,7 +101,7 @@ npx wrangler secret put KMA_SERVICE_KEY --config server/wrangler.jsonc
 `server/.dev.vars`를 로컬 서버 테스트에 쓸 수 있지만 해당 파일은 Git에서 제외됩니다.
 
 5. 서버를 다시 구성할 때 원격 접근·예산·권한을 검토합니다. 현재 저장소는 `workers_dev: true`로 무료 기본 주소를 사용하도록 설정되어 있습니다. 이번 문서 정리에서는 배포하지 않았습니다.
-실제 배포에는 별도 승인과 HTTPS 라우트 설정이 필요합니다. 향후 배포 명령 예: `npx wrangler deploy --config server/wrangler.jsonc`.
+팀 계정 배포 및 HTTPS 주소 설정은 [출시팀 설정 가이드](../../RELEASE_GUIDE.md)를 참고합니다.
 6. 앱의 EXPO_PUBLIC_WEATHER_API_URL을 승인된 서버의 `/weather` 주소로 설정하고 개발 서버/빌드를 다시 만듭니다.
 7. 서울 및 실제 기기에서 기온·격자·원시 관측/예보 시각·LGT와 홈 표시를 대조합니다. 실제 API 성공은 이 단계에서 따로 검증해야 합니다.
 
