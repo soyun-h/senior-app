@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, type AudioSource } from 'expo-audio';
 import { Platform } from 'react-native';
+import { android } from '../android/bridge';
 
 /** waiting: 재생 전(웹 자동 재생이 막힌 경우 포함), speaking: 말하는 중, done: 대사 끝 */
 export type SpeechPhase = 'waiting' | 'speaking' | 'done';
@@ -12,28 +13,25 @@ export function useHomeDialogueAudio(source: AudioSource) {
 
   useEffect(() => {
     let active = true;
-    const play = () => {
-      if (active) player.play();
+    const check = async (autoplay: boolean) => {
+      try {
+        const allowed = !android || (await android.voicePlaybackAllowed()).allowed;
+        if (!active) return;
+        if (!allowed) { player.pause(); setDone(true); }
+        else if (autoplay) player.play();
+      } catch {
+        if (active) setDone(true);
+      }
     };
-    const retryAfterInteraction = (event: Event) => {
-      if (event.isTrusted && !player.playing && player.currentTime === 0) play();
-    };
-
-    if (Platform.OS === 'web') {
-      // Some browsers require interaction before permitting audible autoplay.
-      document.addEventListener('pointerup', retryAfterInteraction, true);
-      document.addEventListener('keydown', retryAfterInteraction, true);
-      play();
-    } else {
-      void setAudioModeAsync({ playsInSilentMode: true }).then(play, play);
-    }
+    const ringer = android?.addListener('voiceOutputChanged', () => void check(false));
+    const resume = android?.addListener('changed', () => void check(false));
+    if (Platform.OS === 'web') void check(true);
+    else void setAudioModeAsync({ playsInSilentMode: false }).then(() => check(true), () => check(true));
 
     return () => {
       active = false;
-      if (Platform.OS === 'web') {
-        document.removeEventListener('pointerup', retryAfterInteraction, true);
-        document.removeEventListener('keydown', retryAfterInteraction, true);
-      }
+      void ringer?.then(listener => listener.remove()).catch(() => {});
+      void resume?.then(listener => listener.remove()).catch(() => {});
       player.pause();
     };
   }, [player]);
@@ -52,8 +50,12 @@ export function useHomeDialogueAudio(source: AudioSource) {
   }, [player, speaking]);
 
   const replay = useCallback(() => {
-    setDone(false);
-    void player.seekTo(0).then(() => player.play(), () => player.play());
+    void (async () => {
+      if (android && !(await android.voicePlaybackAllowed()).allowed) return;
+      setDone(false);
+      await player.seekTo(0);
+      player.play();
+    })().catch(() => {});
   }, [player]);
 
   const phase: SpeechPhase = done ? 'done' : speaking ? 'speaking' : 'waiting';

@@ -7,13 +7,14 @@ const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'
 // 날씨 안내와 하단 내비게이션은 허소윤/members의 구성을 그대로 쓴다.
 test('home keeps the shared weather message and bottom navigation', () => {
   const home = read('src/screens/HomeScreen.tsx');
-  assert.match(home, /<WeatherMessage weather=\{weather\} notice=\{notice\}\/>/);
-  assert.match(home, /<BottomNavigation activeTab="home"\/>/);
+  assert.match(home, /<WeatherMessage weather=\{weather\} notice=\{notice\} displayScale=\{scale\}\/>/);
+  assert.match(home, /<BottomNavigation activeTab="home" onNavigate=\{onNavigate\}/);
   assert.match(home, /<HomeText style=\{styles\.credit\}>\{credit\}<\/HomeText>/);
   assert.doesNotMatch(home, /features\/weather\/presentation/, 'HomeScreen이 날씨 문구를 직접 만들면 안 됩니다');
 
   const message = read('src/components/home/WeatherMessage.tsx');
   assert.match(message, /panel: \{ position: 'absolute', bottom: 90,/);
+  assert.match(message, /bottom: 90 \+ 2 \/ displayScale/);
 });
 
 test('character dialogue sits above the weather message instead of on top of it', () => {
