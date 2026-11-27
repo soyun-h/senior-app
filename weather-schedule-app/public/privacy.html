@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>올잇 개인정보 처리방침</title>
+<style>
+body{margin:0;background:#f2f9f1;color:#003c40;font:18px/1.65 system-ui,sans-serif}main{max-width:46rem;margin:2rem auto;background:#fff;padding:clamp(1.3rem,4vw,2.5rem);border-radius:14px}h1{line-height:1.25}h2{margin-top:1.5rem;font-size:1.28em}a{color:#006954}nav{display:flex;gap:1rem;flex-wrap:wrap}ul{padding-left:1.4rem}
+</style>
+</head>
+<body><main>
+<h1>올잇 개인정보 처리방침</h1>
+<p data-release="introduction">이 문서는 올잇이 제공하는 계정 기반 데모의 처리 방식을 설명합니다. 배포 전에 운영자 명칭, 문의 이메일, 세부 보관 기간을 확인해 반영해야 합니다.</p>
+<h2>수집하는 정보와 목적</h2>
+<ul>
+<li>Google 또는 카카오 로그인 식별자와 제공된 이름을 계정 확인과 초기 프로필에 사용합니다. Google 로그인에서는 인증 제공업체가 이메일을 Supabase Auth에 제공할 수 있습니다. 카카오 로그인에서는 이메일 접근을 요청하지 않습니다.</li>
+<li>사용자가 작성한 이름, 호칭, 캐릭터 선택과 말벗 음성 설정을 저장합니다. 일정, 반복 규칙, 알람 설정, 완료 방식과 실행·확인 시각을 저장해 일정 관리를 제공합니다.</li>
+<li>사용자가 직접 선택하거나 입력한 보호자 이름과 번호를 사진 첨부 메시지 작성에 사용합니다. 전화기의 전체 연락처 목록은 저장하지 않습니다.</li>
+<li>사용자가 음성 인식을 마친 텍스트 또는 입력한 내용과 캐릭터의 답변을 대화 기록으로 저장합니다. 음성 원본 파일은 수집하지 않습니다. 음성 인식과 합성의 처리는 기기에 설치된 Android 제공업체의 설정을 따릅니다.</li>
+<li>사용자가 등록한 인증 사진과 촬영·업로드·메시지 작성 화면 실행 시간을 저장합니다. 사진에 포함된 EXIF는 재인코딩하면서 제거합니다. Android 메시지 앱에서 사용자가 실제로 전송했는지는 수집하지 않습니다.</li>
+<li>사용자가 허용하면 전경 위치를 날씨 격자로 변환해 Cloudflare Worker의 날씨 조회에 사용합니다. 기기의 정밀 위치는 Supabase 계정 기록에 저장하지 않습니다.</li>
+</ul>
+<h2>외부 서비스와 접근</h2>
+<p>Supabase Auth, PostgreSQL과 비공개 Storage는 인증 및 사용자 데이터 저장에 사용합니다. 사용자는 자신의 계정 자료만 읽을 수 있습니다. Google과 카카오는 로그인 화면을 제공합니다. Cloudflare Worker는 날씨 결과 요청을 처리합니다. 본인이 메시지 앱에서 사진을 보내면 해당 메시지 앱과 수신자가 사진을 처리합니다.</p>
+<h2>보관과 삭제</h2>
+<p data-release="retention">출시 서비스의 세부 보관 기간은 운영자가 정합니다.</p>
+<p>계정이 유지되는 동안 기록을 서비스 기능에 사용합니다. 앱에 남은 미동기화 기록은 연결이 복구되면 같은 계정으로 다시 저장합니다. 설정의 회원 탈퇴 또는 아래 외부 삭제 페이지에서 본인 확인 후 계정, 프로필, 일정, 보호자, 대화와 저장된 인증 사진을 삭제할 수 있습니다. 수신자의 메시지와 다른 기기에서 오프라인으로 보관 중인 사본은 해당 기기 또는 앱에서 관리합니다.</p>
+<h2>운영 및 문의</h2>
+<p data-release="operator">운영자 명칭, 개인정보 문의 이메일, 서비스별 상세 보관 정책은 배포 전 운영자가 확정해야 합니다. 계정 삭제는 아래 온라인 절차에서 요청할 수 있습니다.</p>
+<nav aria-label="서비스 링크"><a href="./">올잇으로 돌아가기</a><a href="delete-account.html">계정 및 데이터 삭제</a></nav>
+</main></body></html>
