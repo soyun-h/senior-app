@@ -1,0 +1,57 @@
+name: Release Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    defaults:
+      run:
+        working-directory: src/weather-schedule-app
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      EXPO_PUBLIC_ALLIT_SITE_URL: ${{ vars.EXPO_PUBLIC_ALLIT_SITE_URL }}
+      EXPO_PUBLIC_WEATHER_API_URL: ${{ vars.EXPO_PUBLIC_WEATHER_API_URL }}
+      ALLIT_PUBLIC_OPERATOR: ${{ vars.ALLIT_PUBLIC_OPERATOR }}
+      ALLIT_PUBLIC_PRIVACY_EMAIL: ${{ vars.ALLIT_PUBLIC_PRIVACY_EMAIL }}
+      ALLIT_PUBLIC_RETENTION: ${{ vars.ALLIT_PUBLIC_RETENTION }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/weather-schedule-app/package-lock.json
+      - uses: actions/configure-pages@v5
+      - run: npm ci
+      - run: node scripts/check-pages-weather.mjs
+      - run: npm run build:web:release
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: src/weather-schedule-app/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
