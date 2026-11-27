@@ -18,7 +18,7 @@ jobs:
       pages: read
     defaults:
       run:
-        working-directory: weather-schedule-app
+        working-directory: src/weather-schedule-app
     env:
       EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
@@ -33,14 +33,14 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: weather-schedule-app/package-lock.json
+          cache-dependency-path: src/weather-schedule-app/package-lock.json
       - uses: actions/configure-pages@v5
       - run: npm ci
       - run: node scripts/check-pages-weather.mjs
       - run: npm run build:web:release
       - uses: actions/upload-pages-artifact@v4
         with:
-          path: weather-schedule-app/dist
+          path: src/weather-schedule-app/dist
 
   deploy:
     needs: build

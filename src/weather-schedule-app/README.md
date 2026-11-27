@@ -8,7 +8,7 @@ React Native + Expo SDK 58 + TypeScript. 정식 출시는 Android만 대상으�
 Node.js 24 LTS와 npm을 권장합니다.
 
 ```sh
-cd weather-schedule-app
+cd src/weather-schedule-app
 npm ci
 npm run typecheck
 npm start
@@ -111,7 +111,7 @@ Android 설정과 기존 홈 UI·에셋·전환 로직은 유지합니다.
 
 ```sh
 git clone --single-branch --branch '허소윤/members' https://github.com/soyun-h/senior-app.git
-cd senior-app/weather-schedule-app
+cd senior-app/src/weather-schedule-app
 npm ci
 npm start -- --go
 ```

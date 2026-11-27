@@ -9,7 +9,7 @@ import deployment from './deployment-config.cjs';
 
 const version = '3.4.0';
 const app = fileURLToPath(new URL('..', import.meta.url));
-const source = fileURLToPath(new URL('../../supabase/', import.meta.url));
+const source = fileURLToPath(new URL('../../../supabase/', import.meta.url));
 const args = process.argv.slice(2);
 const planOnly = args.includes('--plan');
 const interactive = process.stdin.isTTY && process.stdout.isTTY;
@@ -34,7 +34,7 @@ function cli(args, { interactive = false } = {}) {
       throw new Error(`Supabase CLI authentication required. Run npx supabase@${version} login, then retry.`);
     }
     if (/DbConfigIpv6Error|IPv6 is not supported|password authentication failed|Database password/i.test(details)) {
-      throw new Error('Database connection failed. See RELEASE_GUIDE.md for the Session pooler and secure password input.');
+      throw new Error('Database connection failed. See docs/RELEASE_GUIDE.md for the Session pooler and secure password input.');
     }
     const code = details.match(/"code"\s*:\s*"([A-Za-z0-9_]+)"/)?.[1];
     throw new Error(`Supabase CLI failed at ${args.slice(0, 2).join(' ')}${code ? ` (${code})` : ''}.`);
@@ -179,7 +179,7 @@ function printOAuth(origin, site, settings) {
 
 async function main() {
   if (args.includes('--help')) {
-    console.log('npm run setup:supabase -- [--plan]\nSee RELEASE_GUIDE.md for environment inputs and permissions.');
+    console.log('npm run setup:supabase -- [--plan]\nSee docs/RELEASE_GUIDE.md for environment inputs and permissions.');
     return;
   }
   if (args.some(arg => arg !== '--plan')) throw new Error('Unknown option. Use --help.');

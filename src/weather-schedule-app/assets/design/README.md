@@ -1,7 +1,7 @@
 # 홈 화면 에셋
 
 사용자가 전달한 home-assets.zip에서 PNG 11개를 추출했습니다.
-- references/: 홈 디자인 참고용 5장. 앱 번들에서 참조하지 않습니다.
+- [홈 디자인 자료](../../../../design/team/home-reference/): 홈 디자인 참고용 5장. 앱 번들에서 참조하지 않습니다.
 - weather-backgrounds/: 실제 배경 5장. snowy..png는 snowy.png로 이름만 정리했습니다.
 - avatar/DefaultAvatar.png: 임시 기본 아바타.
 

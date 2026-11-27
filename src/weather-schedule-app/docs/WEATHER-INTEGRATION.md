@@ -34,7 +34,7 @@ API 이용 신청·승인 후 해당 서비스 최신 활용가이드 및 실제
 기본은 live입니다. URL 미설정 시 '날씨 서버 연결 설정이 필요합니다'를 표시하고 기온을 만들지 않습니다.
 자료가 없을 때의 흐림 이미지는 시각적 fallback이며 실제 날씨가 흐리다는 뜻이 아닙니다.
 
-`weather-schedule-app/.env.example`을 같은 폴더의 `.env.local`로 복사하면 됩니다. 기존 `.env.local`이 있으면 덮어쓰지 말고 아래 공개 설정만 확인하세요. `.env.local`은 계속 Git에서 제외됩니다.
+`src/weather-schedule-app/.env.example`을 같은 폴더의 `.env.local`로 복사하면 됩니다. 기존 `.env.local`이 있으면 덮어쓰지 말고 아래 공개 설정만 확인하세요. `.env.local`은 계속 Git에서 제외됩니다.
 
 ```dotenv
 EXPO_PUBLIC_WEATHER_API_URL=https://<TEAM_WORKER>.<TEAM_SUBDOMAIN>.workers.dev/weather
@@ -101,7 +101,7 @@ npx wrangler secret put KMA_SERVICE_KEY --config server/wrangler.jsonc
 `server/.dev.vars`를 로컬 서버 테스트에 쓸 수 있지만 해당 파일은 Git에서 제외됩니다.
 
 5. 서버를 다시 구성할 때 원격 접근·예산·권한을 검토합니다. 현재 저장소는 `workers_dev: true`로 무료 기본 주소를 사용하도록 설정되어 있습니다. 이번 문서 정리에서는 배포하지 않았습니다.
-팀 계정 배포 및 HTTPS 주소 설정은 [출시팀 설정 가이드](../../RELEASE_GUIDE.md)를 참고합니다.
+팀 계정 배포 및 HTTPS 주소 설정은 [출시팀 설정 가이드](../../../RELEASE_GUIDE.md)를 참고합니다.
 6. 앱의 EXPO_PUBLIC_WEATHER_API_URL을 승인된 서버의 `/weather` 주소로 설정하고 개발 서버/빌드를 다시 만듭니다.
 7. 서울 및 실제 기기에서 기온·격자·원시 관측/예보 시각·LGT와 홈 표시를 대조합니다. 실제 API 성공은 이 단계에서 따로 검증해야 합니다.
 
