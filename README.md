@@ -294,3 +294,13 @@ Expo Go에서 실행한 일정 목록과 원본 Figma 시안을 비교하면서 
 - 카드 탭 시 일정 수정 화면으로 이동
 
 위 항목은 사용성 개선을 위한 검토·논의 내용이며, 구현 완료한 기능으로 기록하지 않았습니다. 실기기에서 기능이 정상 작동하는지 확인한 이후에도, 사용자가 각 상태와 조작의 의미를 이해하기 쉬운지 검토하는 것이 다음 개선 과제로 남았습니다.
+
+## dev 원본 브랜치 통합
+
+- `weather-schedule-app/`은 허소윤의 날씨와 일정, 문한나의 캐릭터와 대사를 연결한 Expo 앱입니다.
+- 루트 `index.html`, CSS, 에셋과 `voice.mjs`는 김가은의 웹 프로토타입입니다. 루트에서 `node serve.mjs`를 실행하면 `http://127.0.0.1:4173`으로 열립니다.
+- `references/`에 세 명의 `design`과 `wireframe` 원본을 각각 보관합니다. 멤버 브랜치에서 경로가 겹친 README와 허소윤의 HTML도 이곳에 있습니다.
+
+로컬 실행 방법은 [ANDROID_DEVELOPMENT.md](ANDROID_DEVELOPMENT.md)에서 확인할 수 있습니다.
+
+출시팀 소유 프로젝트로 Supabase, GitHub Pages 및 Android를 구성하는 절차는 [RELEASE_GUIDE.md](RELEASE_GUIDE.md)에 있습니다.
