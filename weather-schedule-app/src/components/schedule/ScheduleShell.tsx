@@ -7,7 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ReactNode } from 'react';
 import { BottomNavigation } from '../home/BottomNavigation';
 import type { BottomTabId } from '../../navigation/bottomTabs';
-export function ScheduleShell({ children, onNavigate, form = false }: { children: ReactNode; onNavigate: (tab: BottomTabId) => void; form?: boolean }) {
+export function ScheduleShell({ children, onNavigate, form = false, activeTab = 'schedule' }: {
+  children: ReactNode; onNavigate: (tab: BottomTabId) => void; form?: boolean; activeTab?: BottomTabId;
+}) {
   const [fontsLoaded,fontError]=useFonts({
     'SchedulePretendard-Regular':require('../../../assets/fonts/pretendard/Pretendard-Regular.otf'),
     'SchedulePretendard-Medium':require('../../../assets/fonts/pretendard/Pretendard-Medium.otf'),
@@ -20,7 +22,7 @@ export function ScheduleShell({ children, onNavigate, form = false }: { children
     <BlurTargetView ref={blurTarget} style={styles.stage}>
       <Image accessible={false} source={form ? require('../../../assets/schedule/images/background.png') : require('../../../assets/schedule/images/list-background.png')} resizeMode="stretch" style={styles.background}/>
       {fontsLoaded&&children}
-      <BottomNavigation activeTab="schedule" onNavigate={onNavigate} enabledTabs={['schedule', 'home']}/>
+      <BottomNavigation activeTab={activeTab} onNavigate={onNavigate}/>
     </BlurTargetView>
   </SafeAreaView></ScheduleBlurContext.Provider>;
 }
