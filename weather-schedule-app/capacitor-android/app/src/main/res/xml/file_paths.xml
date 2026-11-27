@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path name="proofs" path="proofs/" />
+    <cache-path name="message-drafts" path="message-drafts/" />
+    <external-cache-path name="message-images" path="message-drafts/" />
+    <files-path name="account-proofs" path="account-proofs/" />
+    <cache-path name="account-message-text" path="account-drafts/" />
+    <external-cache-path name="account-message-images" path="account-drafts/" />
+</paths>
