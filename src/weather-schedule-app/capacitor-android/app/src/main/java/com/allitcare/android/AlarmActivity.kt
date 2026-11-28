@@ -67,14 +67,3 @@ class AlarmActivity : Activity() {
         } else if (!keyguard.isKeyguardLocked) open() else finish()
     }
 }
-
-class UpcomingActivity : Activity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) runCatching {
-            AlarmScheduler.openBefore(this, intent.data?.lastPathSegment.orEmpty(), intent.getStringExtra("date").orEmpty())
-        }.onFailure { android.util.Log.e("AllitAlarm", "Could not open the scheduled item", it) }
-        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
-        finish()
-    }
-}

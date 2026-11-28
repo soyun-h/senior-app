@@ -5,7 +5,7 @@ import { useContext, useEffect, useRef, type ComponentRef } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { to24Hour } from '../../features/schedules/selection';
 
-const ROW = 52;
+const ROW = 56;
 const periods = ['오전', '오후'];
 const hours = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
 const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
@@ -43,7 +43,7 @@ function WheelColumn({ label, values, index, onChange, spaced = false }: {
       scroll.current?.scrollTo({ y: latestIndex.current * ROW, animated: false });
     }, 140);
   }
-  return <View style={[styles.column,spaced&&{marginRight:16}]}>
+  return <View style={[styles.column,spaced&&{marginRight:20}]}>
     <View pointerEvents="none" style={[styles.selection,label==='분'&&{left:0}]}/>
     <ScrollView
       ref={scroll}
@@ -97,13 +97,13 @@ export function ScheduleTimeWheel({ hour, minute, onChange }: {
 
 // Values are estimates measured from the supplied 360×895 PNG, not Figma tokens.
 const styles = StyleSheet.create({
-  popup: { height: 196, paddingHorizontal: 10, paddingVertical: 19, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D6D6D6', borderRadius: 12, backgroundColor: '#FFFFFFD9', overflow: 'hidden', boxShadow: '0px 4px 12px #6C9B7410' },
+  popup: { height: 220, paddingHorizontal: 11, paddingTop: 27, paddingBottom: 23, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D6D6D6', borderRadius: 12, backgroundColor: '#FFFFFFD9', overflow: 'hidden', boxShadow: '0px 4px 12px #6C9B7410' },
   column: { flex: 1, height: ROW * 3, overflow: 'hidden' },
-  selection: { position: 'absolute', top: ROW, left: 1, right: 1, height: ROW, borderRadius: 12, backgroundColor: '#E8E8E8' },
+  selection: { position: 'absolute', top: ROW - 1.5, left: 1, right: 1, height: 59, borderRadius: 12, backgroundColor: '#E8E8E8' },
   scroll: { height: ROW * 3 }, scrollContent: { paddingVertical: ROW },
   row: { height: ROW, alignItems: 'center', justifyContent: 'center' },
   value: { fontSize: 30, lineHeight: 40, fontWeight: '500', color: '#C4C4C4' },
   periodValue:{fontSize:25},
   selectedValue: { fontSize: 30, fontWeight: '600', color: '#000' },
-  colon: { width: 16, fontSize: 26, lineHeight: 40, fontWeight: '600', color: '#000', textAlign: 'center' },
+  colon: { width: 20, fontSize: 26, lineHeight: 40, fontWeight: '600', color: '#000', textAlign: 'center' },
 });

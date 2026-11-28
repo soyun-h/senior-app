@@ -5,11 +5,11 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { ScheduleShell } from '../components/schedule/ScheduleShell';
 import { NotificationMethodControl } from '../components/schedule/NotificationMethodControl';
 import { ScheduleAsset } from '../components/schedule/ScheduleAsset';
-import { Choice, RegisterButton, SectionTitle } from '../components/schedule/ScheduleControls';
+import { RegisterButton, SectionTitle } from '../components/schedule/ScheduleControls';
 import { SelectionSurface } from '../components/schedule/SelectionSurface';
 import { ScheduleCalendar } from '../components/schedule/ScheduleCalendar';
 import { ScheduleTimeWheel } from '../components/schedule/ScheduleTimeWheel';
-import { AnchoredPicker } from '../components/schedule/AnchoredPicker';
+import { AnchoredPicker, PICKER_GAP } from '../components/schedule/AnchoredPicker';
 import { classifyTitle, dateKeyAt, type DateKey, type NotificationMethod, type Schedule, type ScheduleDraft, type Weekday } from '../features/schedules/model';
 import { pickerTimeLabel, selectionLabel, type DateSelection } from '../features/schedules/selection';
 import { useSchedules } from '../features/schedules/ScheduleProvider';
@@ -27,7 +27,7 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange,
   const [selection, setSelection] = useState<DateSelection>(() => {
     const nextDate = dateKeyAt(Date.now() + 60_000);
     const startDate = rule?.mode === 'once' ? rule.date : rule?.mode === 'range' ? rule.startDate
-      : initialDate && initialDate >= nextDate ? initialDate : nextDate;
+      : rule?.mode === 'weekly' ? rule.startDate : initialDate && initialDate >= nextDate ? initialDate : nextDate;
     return { startDate, endDate: rule?.mode === 'range' ? rule.endDate : startDate, awaitingEnd: false };
   });
   const [days, setDays] = useState<Weekday[]>(rule?.mode === 'weekly' ? rule.weekdays : []);
@@ -39,7 +39,6 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange,
   });
   const [pickerTime, setPickerTime] = useState(time);
   const [method, setMethod] = useState<NotificationMethod>(existing ? existing.notificationsEnabled ? existing.notificationMethod : 'none' : 'video-call');
-  const [lead, setLead] = useState<ScheduleDraft['reminderMinutes']>(existing?.reminderMinutes ?? 30);
   const [picker, setPicker] = useState<'date' | 'time' | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -52,7 +51,7 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange,
   const timeAnchor = useRef<ComponentRef<typeof View>>(null);
   const [id] = useState(() => globalThis.crypto?.randomUUID?.() ??
     `schedule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`);
-  useEffect(() => setError(undefined), [title, mode, selection, days, time, method, lead]);
+  useEffect(() => setError(undefined), [title, mode, selection, days, time, method]);
   function navigate(tab: BottomTabId) { if (!savingRef.current) onNavigate(tab); }
   function closePicker() { if (picker === 'time') setTime(pickerTime); setPicker(null); }
   function openPicker(kind: 'date' | 'time') {
@@ -62,8 +61,8 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange,
     if (kind === 'date') setSelection(previous => ({ ...previous, awaitingEnd: false }));
     const anchor = kind === 'date' ? dateAnchor : timeAnchor;
     anchor.current?.measureInWindow((_x, y, _width, height) => {
-      const popupHeight = kind === 'date' ? 340 : 196;
-      const excess = Math.max(0, y + height + 4 + popupHeight + 12 - window.height);
+      const popupHeight = kind === 'date' ? 340.5 : 220;
+      const excess = Math.max(0, y + height + PICKER_GAP + popupHeight + 12 - window.height);
       if (excess) scroll.current?.scrollTo({ y: scrollOffset.current + excess, animated: false });
       requestAnimationFrame(() => setPicker(kind));
     });
@@ -77,12 +76,12 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange,
         : selection.startDate === selection.endDate
           ? { mode: 'once', date: selection.startDate }
           : { mode: 'range', startDate: selection.startDate, endDate: selection.endDate };
-      const draft: ScheduleDraft = { title, type: classifyTitle(title), recurrence, ...time, reminderMinutes: lead, notificationMethod: method };
+      const draft: ScheduleDraft = { title, type: existing?.type ?? classifyTitle(title), recurrence, ...time, reminderMinutes: existing?.reminderMinutes ?? 30, notificationMethod: method };
       const items = existing ? await repository.update(existing.id, draft) : await repository.create(draft, id);
       accept(items);
       await onSaved(items);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '일정을 저장하지 못했어요. 다시 시도해 주세요.');
+      setError(e instanceof Error && /입력|선택|날짜|일정 번호/.test(e.message) ? e.message : existing ? '일정을 수정하지 못했어요. 다시 시도해 주세요.' : '일정을 저장하지 못했어요. 다시 시도해 주세요.');
     } finally { savingRef.current = false; setSaving(false); onSavingChange(false); }
   }
   return <ScheduleShell onNavigate={navigate} activeTab={activeTab} form>
@@ -128,16 +127,9 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange,
             <View style={styles.methodIcon}><ScheduleAsset name="bell"/></View>
             <NotificationMethodControl value={method} onChange={setMethod} disabled={saving}/>
           </View>
-          {method !== 'none' && <>
-            <Text style={styles.leadLabel}>몇 분 전에 알려드릴까요?</Text>
-            <View style={styles.leadChoices}>
-              {([5, 10, 30] as const).map(minutes => <Choice key={minutes} label={`${minutes}분 전`}
-                selected={lead === minutes} disabled={saving} onPress={() => setLead(minutes)}/>)}
-            </View>
-          </>}
         </View>
         {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-        <RegisterButton fontSize={18} label={saving ? '저장 중…' : existing ? '변경 저장' : '일정 추가하기'} disabled={saving} onPress={() => void save()}/>
+        <RegisterButton fontSize={18} label={saving ? '저장 중…' : existing ? '수정 완료' : '일정 추가하기'} disabled={saving} onPress={() => void save()}/>
       </ScrollView>
     </KeyboardAvoidingView>
     <AnchoredPicker visible={picker === 'date'} anchor={dateAnchor} onClose={() => setPicker(null)}><ScheduleCalendar selection={selection} onChange={setSelection}/></AnchoredPicker>
@@ -154,7 +146,5 @@ const styles = StyleSheet.create({
   dateRow: { marginTop: 23, height: 40 }, timeRow: { height: 40, marginTop: 9 }, selector: { height: 40, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 11, gap: 9, borderRadius: 10, borderWidth: 1, borderColor: '#D6D6D6', backgroundColor: '#FFFFFF' }, selectorText: { fontSize: 16, lineHeight:20,fontWeight:'500', color: '#006954', flex: 1 },
   weekdays: { height: 34, flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, marginBottom: 9 }, day: { width: 34, height: 34, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderRadius: 10 }, dayText: { fontSize: 16, color: '#666', fontWeight: '600' }, sunday: { color: '#4EA674' }, selectedDayText: { color: '#006954' },
   methodSection: { marginBottom: 39 }, methods: { height: 64, flexDirection: 'row', alignItems: 'center', paddingLeft:17,paddingRight:20.5, backgroundColor: '#FFFFFFDC', borderRadius: 12, boxShadow: '0px 4px 18px #6C9B741A' }, methodIcon:{width:27,height:32,alignItems:'center',justifyContent:'center'},
-  leadLabel: { marginTop: 18, fontSize: 16, color: '#003C40' },
-  leadChoices: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
   error: { color: '#A32727', fontSize: 16, lineHeight: 25, marginBottom: 12 },
 });

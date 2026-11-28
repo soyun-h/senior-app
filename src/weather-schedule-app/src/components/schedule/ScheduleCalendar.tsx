@@ -62,15 +62,16 @@ export function ScheduleCalendar({ selection, onChange, singleDay = false, hasSc
     if (singleDay && !date.startsWith(month)) changeMonth(date.slice(0, 7));
     onChange(dragDateSelection(date, date));
   }
-  return <View testID="schedule-calendar" style={styles.popup}>
+  const layout = singleDay ? styles : pickerStyles;
+  return <View testID="schedule-calendar" style={layout.popup}>
     <BlurView blurTarget={blurTarget} blurMethod="dimezisBlurView" pointerEvents="none" tint="light" intensity={25} style={StyleSheet.absoluteFill}/>
-    <View style={styles.month}>
-      <Pressable accessibilityRole="button" accessibilityLabel="이전 달" onPress={() => move(-1)} style={styles.move}><ScheduleAsset name="month-left"/></Pressable>
+    <View style={layout.month}>
+      <Pressable accessibilityRole="button" accessibilityLabel="이전 달" onPress={() => move(-1)} style={layout.move}><ScheduleAsset name="month-left"/></Pressable>
       <Text accessibilityRole="header" accessibilityLabel={`${year}년 ${number}월`} style={styles.monthText}>{number}월</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="다음 달" onPress={() => move(1)} style={styles.move}><ScheduleAsset name="month-right"/></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="다음 달" onPress={() => move(1)} style={layout.move}><ScheduleAsset name="month-right"/></Pressable>
     </View>
-    <View style={styles.week}>{days.map((day, index) => <View key={day} style={styles.weekday}><Text style={[styles.weekText, index === 0 && styles.sunday]}>{day}</Text></View>)}</View>
-    <View ref={grid} onLayout={event => setGridWidth(event.nativeEvent.layout.width)} collapsable={false} style={[styles.grid, !singleDay && Platform.OS === 'web' && webGestureStyle]}
+    <View style={layout.week}>{days.map((day, index) => <View key={day} style={styles.weekday}><Text style={[styles.weekText, index === 0 && styles.sunday]}>{day}</Text></View>)}</View>
+    <View ref={grid} onLayout={event => setGridWidth(event.nativeEvent.layout.width)} collapsable={false} style={[layout.grid, !singleDay && Platform.OS === 'web' && webGestureStyle]}
       onStartShouldSetResponderCapture={singleDay ? undefined : () => true}
       onResponderGrant={singleDay ? undefined : startGesture}
       onResponderMove={singleDay ? undefined : event => moveGesture(event)}
@@ -81,13 +82,13 @@ export function ScheduleCalendar({ selection, onChange, singleDay = false, hasSc
       {Array.from({length:dates.length/7},(_,row)=>{
         const week=dates.slice(row*7,row*7+7);
         const selected=week.map((date,index)=>date>=selection.startDate&&date<=selection.endDate?index:-1).filter(index=>index>=0);
-        return <View key={week[0]} style={styles.calendarRow}>
-          {!!selected.length&&gridWidth>0&&<View pointerEvents="none" style={[styles.range,{left:selected[0]*gridWidth/7,width:selected.length*gridWidth/7}]}><SelectionSurface width={selected.length*gridWidth/7} height={31.5} variant={selected.length===1?'date':'pill'}/></View>}
+        return <View key={week[0]} style={layout.calendarRow}>
+          {!!selected.length&&gridWidth>0&&<View pointerEvents="none" style={[layout.range,{left:selected[0]*gridWidth/7,width:selected.length*gridWidth/7}]}><SelectionSurface width={selected.length*gridWidth/7} height={singleDay ? 31.5 : 36} variant={selected.length===1?'date':'pill'}/></View>}
           {week.map((date,index)=>{
             const active=date>=selection.startDate&&date<=selection.endDate;
             const marked = hasSchedule?.(date);
             const photographed = hasPhoto?.(date);
-            return <Pressable key={date} accessibilityRole="button" accessibilityLabel={`${date} 날짜${marked ? ', 일정 있음' : ''}${photographed ? ', 인증 사진 있음' : ''}`} accessibilityState={{selected:active}} aria-selected={active} onPress={() => selectDay(date)} style={styles.cell}>
+            return <Pressable key={date} accessibilityRole="button" accessibilityLabel={`${date} 날짜${marked ? ', 일정 있음' : ''}${photographed ? ', 인증 사진 있음' : ''}`} accessibilityState={{selected:active}} aria-selected={active} onPress={() => selectDay(date)} style={layout.cell}>
               <Text style={[styles.dateText,index===0&&styles.sunday,!date.startsWith(month)&&styles.adjacent,active&&styles.activeText]}>{Number(date.slice(8))}</Text>
               {(marked || photographed) && <View pointerEvents="none" style={styles.markers}>
                 {marked && <View style={styles.mark}/>}
@@ -112,4 +113,14 @@ const styles = StyleSheet.create({
   markers: { position: 'absolute', bottom: 5, flexDirection: 'row', alignItems: 'center', gap: 3 },
   mark: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#006954' },
   photoMark: { width: 6, height: 5, borderWidth: 1.5, borderColor: '#694DA2', borderRadius: 1 },
+});
+
+// Layout estimates from the latest 360px reference; keep 4px grid inset for gesture coordinates.
+const pickerStyles = StyleSheet.create({
+  popup: { borderWidth: 1, borderColor: '#D6D6D6', borderRadius: 12, backgroundColor: '#FFFFFFD9', overflow: 'hidden', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8, boxShadow: '0px 4px 12px #6C9B7418' },
+  month: { height: 50, marginHorizontal:-2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  move: { width: 36, height: 50, alignItems: 'center', justifyContent: 'center' },
+  week: { flexDirection: 'row', height: 40 },
+  grid: {paddingTop:4,marginTop:-4}, calendarRow:{flexDirection:'row',height:46.5}, cell: { width: '14.285714%', height: 46.5, alignItems: 'center', justifyContent: 'center' },
+  range: { position: 'absolute', top: 5.25, height:36, borderRadius:10, overflow: 'hidden' },
 });

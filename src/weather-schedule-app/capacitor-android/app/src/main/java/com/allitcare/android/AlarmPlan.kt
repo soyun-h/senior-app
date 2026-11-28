@@ -9,16 +9,14 @@ import java.time.ZoneOffset
 internal val koreaTime = ZoneOffset.ofHours(9)
 internal const val TEST_ID = "native-alarm-diagnostic"
 
-internal data class Occurrence(val id: String, val date: String, val due: Long, val title: String, val lead: Long) {
+internal data class Occurrence(val id: String, val date: String, val due: Long, val title: String) {
     val key: String get() = "$id:$due"
-    val before: Long get() = due - lead
 }
 
 internal class AlarmPlan(val raw: JSONObject) {
     val id = raw.getString("id").also { require(it.matches(Regex("[A-Za-z0-9_-]{1,120}")) && it != TEST_ID) }
     private val title = raw.getString("title").also { require(it.isNotBlank() && it.length <= 80) }
     private val time = LocalTime.of(raw.getInt("hour"), raw.getInt("minute"))
-    private val lead = raw.getInt("reminderMinutes").also { require(it in setOf(5, 10, 30)) } * 60_000L
     private val rule = raw.getJSONObject("recurrence")
     private val mode = rule.getString("mode").also { require(it in setOf("once", "weekly", "range")) }
     private val start = LocalDate.parse(rule.getString(if (mode == "once") "date" else "startDate"))
@@ -42,7 +40,7 @@ internal class AlarmPlan(val raw: JSONObject) {
             if (end != null && day > end) return null
             val due = day.atTime(time).toInstant(koreaTime).toEpochMilli()
             if (due > after && day !in completed && (mode != "weekly" || day.dayOfWeek.value in weekdays)) {
-                return Occurrence(id, day.toString(), due, title, lead)
+                return Occurrence(id, day.toString(), due, title)
             }
             day = day.plusDays(1)
         }

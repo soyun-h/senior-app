@@ -44,7 +44,7 @@ class AlarmService : Service() {
             if (current?.key == intent.getStringExtra("key")) finishCurrent()
         } else if (id != null) {
             val occurrence = Occurrence(id, intent.getStringExtra("date").orEmpty(), intent.getLongExtra("due", 0),
-                intent.getStringExtra("title").orEmpty(), 0)
+                intent.getStringExtra("title").orEmpty())
             if (current == null) play(occurrence)
             else if (current?.key != occurrence.key && queue.none { it.key == occurrence.key }) queue.addLast(occurrence)
         } else if (current == null) stopSelf()

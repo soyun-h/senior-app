@@ -60,6 +60,11 @@ function Allit() {
       if (!actions.length) return;
       const schedules = account ? await account.schedules.cached() ?? await repository.list() : await repository.list();
       for (const action of actions) {
+        // Older installations can still have a queued pre-alert tap.
+        if (action.action === 'before') {
+          await bridge.acknowledge({ accountId, key: action.key });
+          continue;
+        }
         const schedule = schedules.find(item => item.id === action.id && onDate(item, action.date));
         if (action.action === 'photo' && schedule) {
           activePhoto.current = action.key;
@@ -70,9 +75,6 @@ function Allit() {
         if (action.action === 'confirm' && schedule) {
           accept(await repository.complete(schedule.id, action.date));
           setScreen('schedule');
-        } else if (action.action === 'before') {
-          setTarget({ schedule, date: action.date });
-          setScreen('upcoming');
         } else if (action.action === 'photo' && action.id === 'native-alarm-diagnostic') {
           activePhoto.current = action.key;
           setTarget({ date: action.date, action });
@@ -93,7 +95,7 @@ function Allit() {
 
   const back = useCallback(() => {
     if (saving || screen === 'proof' && activePhoto.current) return;
-    setScreen(screen === 'schedule-add' ? editReturn : screen === 'upcoming' ? 'schedule' : screen === 'voice' ? voiceReturn
+    setScreen(screen === 'schedule-add' ? editReturn : screen === 'voice' ? voiceReturn
       : screen === 'guardians' || screen === 'records' || screen === 'account' ? 'settings' : 'home');
   }, [editReturn, saving, screen, voiceReturn]);
   function navigate(tab: BottomTabId) { if (!saving) setScreen(tab); }
@@ -128,7 +130,7 @@ function Allit() {
       activeTab={editReturn} initialDate={editReturn === 'calendar' ? calendarDate : undefined}
       onSaved={async saved => { await sync(saved); setRegistrationNotice(!existing && editReturn === 'schedule'); setScreen(editReturn); }} onNavigate={navigate}/>;
     default: return <AndroidCareScreen key={screen + (target?.action?.key ?? '')} page={screen} status={status}
-      onStatus={setStatus} navigate={navigate} open={open} back={back} onEdit={edit} schedule={target?.schedule} date={target?.date}
+      onStatus={setStatus} navigate={navigate} open={open} back={back} schedule={target?.schedule} date={target?.date}
       fromAlarm={target?.action?.action === 'photo'} onComplete={async () => {
         if (target?.schedule && target.date) accept(await repository.complete(target.schedule.id, target.date, Date.now(), 'photo'));
       }} onDone={async () => {

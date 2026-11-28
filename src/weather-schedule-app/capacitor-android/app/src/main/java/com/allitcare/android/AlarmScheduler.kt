@@ -12,9 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import org.json.JSONArray
-import org.json.JSONObject
 import java.time.Instant
-import java.time.format.DateTimeFormatter
 
 internal object AlarmScheduler {
     private fun store(context: Context) = context.getSharedPreferences("allit-alarm-schedule-v1", Context.MODE_PRIVATE)
@@ -30,8 +28,7 @@ internal object AlarmScheduler {
         val manager = context.getSystemService(NotificationManager::class.java)
         createChannels(manager)
         return manager.areNotificationsEnabled() && (Build.VERSION.SDK_INT < 26 ||
-            manager.getNotificationChannel(AlarmService.CHANNEL).importance != NotificationManager.IMPORTANCE_NONE &&
-            manager.getNotificationChannel(BEFORE_CHANNEL).importance != NotificationManager.IMPORTANCE_NONE)
+            manager.getNotificationChannel(AlarmService.CHANNEL).importance != NotificationManager.IMPORTANCE_NONE)
     }
 
     fun scheduledTimes(context: Context): List<Long> {
@@ -44,6 +41,13 @@ internal object AlarmScheduler {
     @Synchronized
     fun replace(context: Context, raw: String, force: Boolean = false) {
         val previous = plans(context)
+        // Cancel old pre-alert PendingIntents on sync and package-replacement restore.
+        val notifications = context.getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= 26) notifications.deleteNotificationChannel(LEGACY_BEFORE_CHANNEL)
+        for (id in previous.keys + TEST_ID) {
+            cancelTrigger(context, id, "before")
+            notifications.cancel(id, LEGACY_BEFORE_ID)
+        }
         val next = decode(raw)
         val now = System.currentTimeMillis()
         val upcoming = next.mapValues { it.value.next(now) }
@@ -56,7 +60,7 @@ internal object AlarmScheduler {
         val allowed = exact(context) && permitted(context)
         for ((id, plan) in next) {
             if (force || !allowed || !prefs.contains("armed:$id") || previous[id]?.raw?.toString() != plan.raw.toString()) {
-                arm(context, id, upcoming[id].takeIf { allowed }, now)
+                arm(context, id, upcoming[id].takeIf { allowed })
             }
         }
     }
@@ -66,7 +70,7 @@ internal object AlarmScheduler {
         replace(context, store(context).getString("plans", "[]") ?: "[]", force = true)
         val test = diagnostic(context)
         if (test != null && test.due > System.currentTimeMillis() && exact(context) && permitted(context)) {
-            arm(context, TEST_ID, test, System.currentTimeMillis())
+            arm(context, TEST_ID, test)
         } else {
             cancel(context, TEST_ID)
         }
@@ -85,57 +89,56 @@ internal object AlarmScheduler {
         check(exact(context) && permitted(context))
         val due = now + 60_000
         check(store(context).edit().putLong("diagnostic", due).commit())
-        arm(context, TEST_ID, diagnostic(context), now)
+        arm(context, TEST_ID, diagnostic(context))
     }
 
     private fun diagnostic(context: Context): Occurrence? {
         val due = store(context).getLong("diagnostic", 0)
         return if (!BuildConfig.DEBUG || due <= 0) null else Occurrence(TEST_ID,
-            Instant.ofEpochMilli(due).atOffset(koreaTime).toLocalDate().toString(), due, "올잇 시험 알람", 30_000)
+            Instant.ofEpochMilli(due).atOffset(koreaTime).toLocalDate().toString(), due, "올잇 시험 알람")
     }
 
     @Synchronized
-    fun receive(context: Context, id: String, due: Long, before: Boolean): Occurrence? {
+    fun receive(context: Context, id: String, due: Long): Occurrence? {
         val now = System.currentTimeMillis()
-        if (due <= 0 || store(context).getLong("armed:$id", 0) != due || (!before && due > now)) return null
+        if (due <= 0 || store(context).getLong("armed:$id", 0) != due || due > now) return null
         val plan = plans(context)[id]
         val entry = if (id == TEST_ID) diagnostic(context) else plan?.next(due - 1)
         if (entry?.due != due || !permitted(context)) return null
-        if (before) return entry.takeIf { now < due }
         runCatching {
-            arm(context, id, plan?.next(now).takeIf { exact(context) }, now)
+            arm(context, id, plan?.next(now).takeIf { exact(context) })
             if (id == TEST_ID) check(store(context).edit().remove("diagnostic").commit())
         }.onFailure { Log.e("AllitAlarm", "Failed to update the next occurrence", it) }
         return entry
     }
 
-    private fun request(context: Context, id: String, before: Boolean) = Intent(context, AlarmReceiver::class.java).apply {
+    private fun request(context: Context, id: String, phase: String) = Intent(context, AlarmReceiver::class.java).apply {
         data = Uri.Builder().scheme("allit-alarm").authority(context.packageName)
-            .appendPath(if (before) "before" else "due").appendPath(id).build()
+            .appendPath(phase).appendPath(id).build()
+    }
+
+    private fun cancelTrigger(context: Context, id: String, phase: String) {
+        PendingIntent.getBroadcast(context, 0, request(context, id, phase),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_NO_CREATE)?.let {
+            context.getSystemService(AlarmManager::class.java).cancel(it)
+            it.cancel()
+        }
     }
 
     private fun cancel(context: Context, id: String) {
-        val alarms = context.getSystemService(AlarmManager::class.java)
-        for (before in listOf(false, true)) {
-            PendingIntent.getBroadcast(context, 0, request(context, id, before), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_NO_CREATE)?.let {
-                alarms.cancel(it)
-                it.cancel()
-            }
-        }
-        context.getSystemService(NotificationManager::class.java).cancel(id, BEFORE_ID)
+        cancelTrigger(context, id, "due")
         if (store(context).contains("armed:$id")) check(store(context).edit().remove("armed:$id").commit())
     }
 
-    private fun arm(context: Context, id: String, occurrence: Occurrence?, now: Long) {
+    private fun arm(context: Context, id: String, occurrence: Occurrence?) {
         cancel(context, id)
         if (occurrence == null) return
         val alarms = context.getSystemService(AlarmManager::class.java)
-        fun trigger(before: Boolean) = PendingIntent.getBroadcast(context, 0,
-            request(context, id, before).putExtra("due", occurrence.due), PendingIntent.FLAG_IMMUTABLE)
+        val trigger = PendingIntent.getBroadcast(context, 0,
+            request(context, id, "due").putExtra("due", occurrence.due), PendingIntent.FLAG_IMMUTABLE)
         val show = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         try {
-            alarms.setAlarmClock(AlarmManager.AlarmClockInfo(occurrence.due, show), trigger(false))
-            if (occurrence.before > now) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, occurrence.before, trigger(true))
+            alarms.setAlarmClock(AlarmManager.AlarmClockInfo(occurrence.due, show), trigger)
             check(store(context).edit().putLong("armed:$id", occurrence.due).commit())
         } catch (error: Exception) {
             cancel(context, id)
@@ -143,49 +146,28 @@ internal object AlarmScheduler {
         }
     }
 
-    private const val BEFORE_CHANNEL = "allit-upcoming"
-    private const val BEFORE_ID = 2501
+    private const val LEGACY_BEFORE_CHANNEL = "allit-upcoming"
+    private const val LEGACY_BEFORE_ID = 2501
 
     private fun createChannels(manager: NotificationManager) {
         if (Build.VERSION.SDK_INT < 26) return
-        manager.createNotificationChannels(listOf(
-            NotificationChannel(BEFORE_CHANNEL, "일정 사전 알림", NotificationManager.IMPORTANCE_DEFAULT),
+        manager.createNotificationChannel(
             NotificationChannel(AlarmService.CHANNEL, "정각 알람", NotificationManager.IMPORTANCE_HIGH).apply {
                 setSound(null, null)
                 lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             },
-        ))
-    }
-
-    @Suppress("DEPRECATION")
-    fun notifyBefore(context: Context, occurrence: Occurrence) {
-        val manager = context.getSystemService(NotificationManager::class.java)
-        val open = Intent(context, UpcomingActivity::class.java).apply {
-            data = Uri.Builder().scheme("allit-upcoming").authority(context.packageName).appendPath(occurrence.id).build()
-            putExtra("date", occurrence.date)
-        }
-        val intent = PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val at = Instant.ofEpochMilli(occurrence.due).atOffset(koreaTime).format(DateTimeFormatter.ofPattern("HH:mm"))
-        val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, BEFORE_CHANNEL) else Notification.Builder(context)
-        manager.notify(occurrence.id, BEFORE_ID, builder.setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle(occurrence.title).setContentText("$at 예정된 일정이에요.")
-            .setContentIntent(intent).setAutoCancel(true).setVisibility(Notification.VISIBILITY_PRIVATE).build())
-    }
-
-    fun openBefore(context: Context, id: String, date: String) {
-        if (!date.matches(Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}"))) return
-        if (id !in plans(context) && !(BuildConfig.DEBUG && id == TEST_ID)) return
-        AlarmActions.add(context, id, date, "before")
+        )
     }
 }
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val id = intent.data?.lastPathSegment ?: return
-        val before = intent.data?.pathSegments?.firstOrNull() == "before"
+        val path = intent.data?.pathSegments ?: return
+        if (path.size != 2 || path[0] != "due") return
+        val id = path[1]
         runCatching {
-            val occurrence = AlarmScheduler.receive(context, id, intent.getLongExtra("due", 0), before) ?: return
-            if (before) AlarmScheduler.notifyBefore(context, occurrence) else AlarmService.start(context, occurrence)
+            val occurrence = AlarmScheduler.receive(context, id, intent.getLongExtra("due", 0)) ?: return
+            AlarmService.start(context, occurrence)
         }.onFailure { Log.e("AllitAlarm", "Alarm dispatch failed", it) }
     }
 }

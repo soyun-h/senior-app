@@ -8,7 +8,7 @@ import { useReducedMotion } from './useReducedMotion';
 const choices = [
   { id: 'video-call', label: '영상통화', width: 81 },
   { id: 'alarm', label: '알람', width: 52 },
-  { id: 'none', label: '알람 끄기', width: 81 },
+  { id: 'none', label: '알람 없이', width: 81 },
 ] as const;
 // Adapt the reference shared/tokens.css lead (620/36) and trail (190/19) presets.
 // Sample the unit-mass damped spring response over a finite interval, normalizing

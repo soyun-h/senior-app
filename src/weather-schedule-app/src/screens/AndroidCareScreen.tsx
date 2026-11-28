@@ -16,9 +16,9 @@ import type { Conversations } from '../features/account/conversations';
 import type { CharacterId } from '../features/avatar/characterTypes';
 import { testScheduleId } from '../features/account/legacyData';
 
-export type CarePage = 'settings' | 'guardians' | 'proof' | 'records' | 'voice' | 'upcoming' | 'account';
+export type CarePage = 'settings' | 'guardians' | 'proof' | 'records' | 'voice' | 'account';
 const titles: Record<CarePage, string> = {
-  settings: '설정', guardians: '주요 연락처', proof: '인증하기', records: '사진 인증 기록', voice: '말벗', upcoming: '예정된 일정', account: '계정 및 개인정보',
+  settings: '설정', guardians: '주요 연락처', proof: '인증하기', records: '사진 인증 기록', voice: '말벗', account: '계정 및 개인정보',
 };
 const alarmTime = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit',
@@ -35,10 +35,10 @@ function Field({ title, value, onChange, phone = false, maxLength }: { title: st
 }
 function Panel({ children }: { children: ReactNode }) { return <View style={styles.panel}>{children}</View>; }
 
-export function AndroidCareScreen({ page, status, onStatus, navigate, back, open, schedule, date, onComplete, onEdit, onDone, fromAlarm }: {
+export function AndroidCareScreen({ page, status, onStatus, navigate, back, open, schedule, date, onComplete, onDone, fromAlarm }: {
   page: CarePage; status?: NativeStatus; onStatus: (status: NativeStatus) => void;
   navigate: (tab: BottomTabId) => void; back: () => void; open: (screen: CarePage) => void;
-  schedule?: Schedule; date?: string; onComplete: () => Promise<void>; onEdit: (schedule: Schedule) => void;
+  schedule?: Schedule; date?: string; onComplete: () => Promise<void>;
   onDone: () => Promise<void>; fromAlarm: boolean;
 }) {
   const bridge = android;
@@ -251,7 +251,7 @@ export function AndroidCareScreen({ page, status, onStatus, navigate, back, open
         {bridge && status?.debug && <Panel>
           <Button title="시험 알람 예약" disabled={busy} onPress={() => void run(async () => {
             onStatus(await bridge.testAlarm({ cancel: false }));
-            setNotice('30초 후 사전 알림이 오고 1분 후 알람이 울려요. 사진으로 인증하기를 눌러 계속 시험할 수 있어요.');
+            setNotice('1분 후 알람이 울려요. 사진으로 인증하기를 눌러 계속 시험할 수 있어요.');
           })}/>
           <Button title="시험 알람 취소" disabled={busy} onPress={() => void run(async () => { onStatus(await bridge.testAlarm({ cancel: true })); })}/>
           <Button title="시험 카메라 열기" disabled={busy} onPress={() => open('proof')}/>
@@ -282,11 +282,6 @@ export function AndroidCareScreen({ page, status, onStatus, navigate, back, open
           {editing && <Button title="수정 취소" disabled={busy} onPress={() => { setEditing(undefined); setName(''); setPhone(''); }}/>}
         </Panel>
       </>}
-      {page === 'upcoming' && <Panel>
-        <Text style={styles.heading}>{schedule?.title ?? '올잇 시험 알림'}</Text>
-        {schedule && date && <Text style={styles.text}>{formatDate(date)} · {formatTime(schedule.hour, schedule.minute)}</Text>}
-        {schedule && <Button title="일정 수정" onPress={() => onEdit(schedule)}/>}
-      </Panel>}
       {page === 'proof' && !proof && <Panel>
         <Text style={styles.heading}>{schedule?.title ?? testTitle}</Text>
         {!!photo && <Image accessibilityLabel="촬영한 사진 미리보기" source={{ uri: photoSource(photo.uri) }} style={styles.preview}/>}
