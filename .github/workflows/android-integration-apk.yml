@@ -1,0 +1,150 @@
+name: Build integration Android development APK
+
+on:
+  push:
+    branches:
+      - build/integration-8f7c389-apk
+    paths:
+      - .github/workflows/android-integration-apk.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: android-apk-development
+    env:
+      SOURCE_SHA: 8f7c389c8b93502f6276a99c12ae9c7d1b329316
+      APPROVED_DEV_PROJECT_REF: cssoqcwmtpxmolzpptku
+      ALLIT_ANDROID_MODE: local
+      EXPO_NO_DOTENV: '1'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_ALLIT_ACCOUNT_REQUIRED: '1'
+    defaults:
+      run:
+        working-directory: src/weather-schedule-app
+    steps:
+      - name: Check out the pinned integration source
+        uses: actions/checkout@v5
+        with:
+          ref: 8f7c389c8b93502f6276a99c12ae9c7d1b329316
+          persist-credentials: false
+      - name: Verify source commit
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Android SDK packages
+        run: |
+          "${ANDROID_HOME:?}/cmdline-tools/latest/bin/sdkmanager" \
+            'platform-tools' 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Verify the development project and OAuth providers
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.ALLIT_DEV_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.ALLIT_DEV_SUPABASE_PUBLISHABLE_KEY }}
+          DEV_PROJECT_REF: ${{ vars.ALLIT_DEV_SUPABASE_PROJECT_REF }}
+        run: |
+          node --input-type=module <<'JS'
+          const {
+            EXPO_PUBLIC_SUPABASE_URL: url,
+            EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
+            DEV_PROJECT_REF: development,
+            APPROVED_DEV_PROJECT_REF: approved,
+          } = process.env;
+          function fail(message) {
+            console.error(message);
+            process.exit(1);
+          }
+
+          if (!/^[a-z0-9]{20}$/.test(approved || '') ||
+              development !== approved || url !== `https://${development}.supabase.co`) {
+            fail('The Supabase URL and project ref must match the approved development project.');
+          }
+          if (!/^sb_publishable_[A-Za-z0-9_-]+$/.test(key || '')) {
+            fail('A Supabase publishable key is required.');
+          }
+
+          try {
+            const response = await fetch(new URL('/auth/v1/settings', url), {
+              headers: { apikey: key },
+              redirect: 'error',
+              signal: AbortSignal.timeout(15000),
+            });
+            if (!response.ok) fail('Development Supabase Auth rejected the configuration.');
+            const { external } = await response.json();
+            if (external?.google !== true || external?.kakao !== true) {
+              fail('Google and Kakao must be enabled on development Supabase.');
+            }
+          } catch {
+            fail('Could not verify development Supabase Auth.');
+          }
+          console.log('Development Supabase and OAuth providers verified.');
+          JS
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Embed the account-enabled web bundle in Capacitor
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.ALLIT_DEV_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.ALLIT_DEV_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run android:sync
+      - name: Build and validate the signed debug APK
+        working-directory: src/weather-schedule-app/capacitor-android
+        run: |
+          ./gradlew --no-daemon :app:assembleDebug
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/apksigner" verify --verbose "$apk"
+          badging=$("$tools/aapt" dump badging "$apk")
+          grep -F "package: name='com.allitcare.android.debug'" <<< "$badging"
+          cp "$apk" "$RUNNER_TEMP/allit-integration-8f7c389-debug.apk"
+      - name: Verify the development configuration inside the APK
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.ALLIT_DEV_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.ALLIT_DEV_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import re
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          dev_url = os.environ["EXPO_PUBLIC_SUPABASE_URL"].encode()
+          dev_key = os.environ["EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"].encode()
+          approved_host = (os.environ["APPROVED_DEV_PROJECT_REF"] + ".supabase.co").encode()
+          if dev_url != b"https://" + approved_host or not dev_key:
+              raise SystemExit("Development Supabase settings are missing or do not match the approved project.")
+          apk = Path(os.environ["RUNNER_TEMP"]) / "allit-integration-8f7c389-debug.apk"
+          with ZipFile(apk) as archive:
+              index = archive.read("assets/public/index.html")
+              config = archive.read("assets/capacitor.config.json")
+              bundles = [
+                  archive.read(name) for name in archive.namelist()
+                  if name.startswith("assets/public/_expo/static/js/") and name.endswith(".js")
+              ]
+
+          server = json.loads(config).get("server", {})
+          if server.get("url") or server.get("hostname") != "localhost" or server.get("androidScheme") != "https":
+              raise SystemExit("APK must load the embedded web bundle at https://localhost.")
+          host_pattern = rb"(?<![a-z0-9.-])(?:[a-z0-9-]+\.)+supabase\.co(?![a-z0-9.-])"
+          hosts = {host for content in [index, *bundles] for host in re.findall(host_pattern, content.lower())}
+          if (dev_url not in index or not any(dev_url in bundle for bundle in bundles)
+                  or not any(dev_key in bundle for bundle in bundles)
+                  or hosts != {approved_host}):
+              raise SystemExit("APK does not contain the approved development Supabase configuration.")
+          print("Embedded development Supabase configuration verified.")
+          PYTHON
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: allit-integration-8f7c389-debug
+          path: ${{ runner.temp }}/allit-integration-8f7c389-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
