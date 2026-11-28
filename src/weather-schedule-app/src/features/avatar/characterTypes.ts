@@ -54,6 +54,8 @@ export interface LineContext {
   weather?: WeatherLike | null;
   medTaken?: boolean;
   name?: string;
+  /** 기억 메모 (characterGuide.ts의 buildMemorySummaryPrompt로 만든 것). 없으면 첫 통화로 본다 */
+  memory?: string;
 }
 
 export interface CharacterReply {

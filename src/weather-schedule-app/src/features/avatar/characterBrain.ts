@@ -5,6 +5,7 @@
 import type {
   CallState, CharacterAction, CharacterConfig, CharacterDef, CharacterReply, LineContext, WeatherLike,
 } from './characterTypes.ts';
+import { guideRulesText, memoryText, personaCardText } from './characterGuide.ts';
 
 export const STATES: CallState[] = ['CALL_INCOMING', 'GREETING', 'LISTENING', 'TALKING', 'AUTH_SUCCESS', 'AUTH_FAIL'];
 export const ACTIONS: CharacterAction[] = ['none', 'nod', 'laugh', 'shy', 'worry', 'cheer', 'encourage'];
@@ -121,12 +122,19 @@ export function buildSystemPrompt(config: CharacterConfig, char: CharacterDef, c
     '말투 예시:',
     ...['GREETING', 'AUTH_SUCCESS'].map(s => '- ' + fill(char.stateLines[s][0], c)),
     ...['smalltalk', 'health'].map(k => '- ' + fill(char.replyLines[k][0], c)),
+    '',
+    personaCardText(char.id).split('\n').map(line => fill(line, c)).join('\n'),
+    '',
     ctx.medTaken
       ? '상황: 어르신은 오늘 약을 이미 드셨고 사진 인증도 끝났다. 사진을 다시 부탁하지 않고 편하게 안부를 나눈다.'
       : `상황: ${ctx.alarmLabel || '약'} 드실 시간이라 영상통화 중이다. 자연스럽게 약을 권하고, 드셨다고 하면 '약 사진' 버튼으로 보여 달라고 한다.`,
     w ? `오늘 날씨: ${skyPhrase(w)} ${tempOf(w)}도. 필요하면 날씨 이야기를 해도 된다.` : '',
     '반드시 지킬 규칙:',
     ...config.commonRules.map(r => '- ' + r),
+    '',
+    guideRulesText(),
+    '',
+    memoryText(ctx.memory),
     '',
     '출력: JSON 한 개만 출력한다.',
     `{"text": "소리 내어 말할 대사", "action": "${ACTIONS.join('|')} 중 하나", "end": false}`,
