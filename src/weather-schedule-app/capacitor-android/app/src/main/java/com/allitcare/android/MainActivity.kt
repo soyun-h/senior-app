@@ -33,6 +33,7 @@ class MainActivity : BridgeActivity() {
     override fun load() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) || config.isUsingLegacyBridge ||
             (config.serverUrl != null && pagesOrigin() == null && !(BuildConfig.DEBUG && config.serverUrl == LIVE))) {
+            if (BuildConfig.DEBUG) android.util.Log.w("AllitBridge", "WEBVIEW_CONFIGURATION_UNSUPPORTED")
             setContentView(TextView(this).apply { text = "Android System WebView를 업데이트한 뒤 올잇을 다시 열어 주세요."; textSize = 20f })
             return
         }

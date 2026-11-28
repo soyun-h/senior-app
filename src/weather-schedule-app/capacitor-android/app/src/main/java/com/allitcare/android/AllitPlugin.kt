@@ -52,10 +52,17 @@ class AllitPlugin : Plugin() {
         ContextCompat.registerReceiver(context, ringerModes, IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION),
             ContextCompat.RECEIVER_EXPORTED)
         observingRinger = true
+        if (BuildConfig.DEBUG) android.util.Log.i("AllitBridge", "PLUGIN_LOADED")
     }
 
     private fun checkedScope(call: PluginCall, run: () -> Unit) = checked(call) {
-        AccountAccess.checkScope(context, call.getString("accountId"))
+        try {
+            AccountAccess.checkScope(context, call.getString("accountId"))
+        } catch (_: IllegalStateException) {
+            if (BuildConfig.DEBUG) android.util.Log.w("AllitBridge", "${call.methodName}: ACCOUNT_SCOPE_MISMATCH")
+            call.reject("Android 계정 정보가 일치하지 않아요. 다시 로그인해 주세요.", "ACCOUNT_SCOPE_MISMATCH")
+            return@checked
+        }
         run()
     }
 
@@ -63,11 +70,13 @@ class AllitPlugin : Plugin() {
         activity.runOnUiThread {
             val page = bridge.webView.url?.let(Uri::parse)
             if (page == null || (activity as? MainActivity)?.allowedPage(page) != true) {
-                call.reject("허용된 올잇 화면에서만 사용할 수 있어요.")
+                if (BuildConfig.DEBUG) android.util.Log.w("AllitBridge", "${call.methodName}: ORIGIN_REJECTED")
+                call.reject("허용된 올잇 화면에서만 사용할 수 있어요.", "ORIGIN_REJECTED")
                 return@runOnUiThread
             }
             try { run() }
             catch (error: Exception) {
+                if (BuildConfig.DEBUG) android.util.Log.w("AllitBridge", "${call.methodName}: ${error.javaClass.simpleName}")
                 if (error is IllegalStateException && !error.message.isNullOrBlank()) call.reject(error.message)
                 else call.reject("휴대전화 기능을 실행하지 못했어요. 설정을 확인해 주세요.", error)
             }
@@ -83,6 +92,13 @@ class AllitPlugin : Plugin() {
     }
 
     @PluginMethod fun status(call: PluginCall) = checked(call) { call.resolve(state()) }
+
+    @PluginMethod fun diagnostics(call: PluginCall) = checked(call) {
+        check(BuildConfig.DEBUG)
+        val matches = runCatching { AccountAccess.checkScope(context, call.getString("accountId")) }.isSuccess
+        android.util.Log.i("AllitBridge", "DIAGNOSTICS: originAllowed=true accountMatches=$matches")
+        call.resolve(JSObject().put("originAllowed", true).put("accountMatches", matches))
+    }
 
     @PluginMethod fun authGet(call: PluginCall) = checked(call) {
         call.resolve(JSObject().put("value", AccountAccess.get(context, call.getString("key").orEmpty())))
@@ -125,8 +141,12 @@ class AllitPlugin : Plugin() {
                 enabled.put(schedule)
             }
         }
-        AlarmScheduler.replace(context, enabled.toString())
-        call.resolve(state())
+        val reservations = JSONArray()
+        for ((occurrence, outcome) in AlarmScheduler.replace(context, enabled.toString(), force = call.getBoolean("force", false) == true)) {
+            reservations.put(JSObject().put("id", occurrence.id).put("date", occurrence.date)
+                .put("due", occurrence.due).put("outcome", outcome))
+        }
+        call.resolve(state().put("reservations", reservations))
     }
 
     @PluginMethod fun requestNotifications(call: PluginCall) = checked(call) {
@@ -136,7 +156,6 @@ class AllitPlugin : Plugin() {
     }
 
     @PermissionCallback private fun notificationPermission(call: PluginCall) = checked(call) {
-        AlarmScheduler.restore(context)
         call.resolve(state())
     }
 

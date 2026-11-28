@@ -35,8 +35,8 @@ function Field({ title, value, onChange, phone = false, maxLength }: { title: st
 }
 function Panel({ children }: { children: ReactNode }) { return <View style={styles.panel}>{children}</View>; }
 
-export function AndroidCareScreen({ page, status, onStatus, navigate, back, open, schedule, date, onComplete, onDone, fromAlarm }: {
-  page: CarePage; status?: NativeStatus; onStatus: (status: NativeStatus) => void;
+export function AndroidCareScreen({ page, status, onStatus, nativeError, navigate, back, open, schedule, date, onComplete, onDone, fromAlarm }: {
+  page: CarePage; nativeError?: string; status?: NativeStatus; onStatus: (status: NativeStatus) => void;
   navigate: (tab: BottomTabId) => void; back: () => void; open: (screen: CarePage) => void;
   schedule?: Schedule; date?: string; onComplete: () => Promise<void>;
   onDone: () => Promise<void>; fromAlarm: boolean;
@@ -51,6 +51,7 @@ export function AndroidCareScreen({ page, status, onStatus, navigate, back, open
   const [guardiansKnown, setGuardiansKnown] = useState(false);
   const [primary, setPrimary] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  const [diagnostic, setDiagnostic] = useState('');
   const [busy, setBusy] = useState(false);
   const working = useRef(false);
   const [name, setName] = useState('');
@@ -247,6 +248,14 @@ export function AndroidCareScreen({ page, status, onStatus, navigate, back, open
       </View>
       {notice && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
       {page === 'settings' && <>
+        {!!nativeError && <Text accessibilityRole="alert" style={styles.notice}>{nativeError}</Text>}
+        {bridge && status?.debug && <Panel>
+          <Button title="Android 연결 진단" disabled={busy} onPress={() => void run(async () => {
+            const result = await bridge.diagnostics({ accountId });
+            setDiagnostic(`브리지 연결됨 · Origin 허용 · 계정 범위 ${result.accountMatches ? '일치' : '불일치'}`);
+          })}/>
+          {!!diagnostic && <Text style={styles.text}>{diagnostic}</Text>}
+        </Panel>}
         {!!status?.nextAlarmAt && <Text style={styles.text}>다음 알람 {alarmTime.format(status.nextAlarmAt)}</Text>}
         {bridge && status?.debug && <Panel>
           <Button title="시험 알람 예약" disabled={busy} onPress={() => void run(async () => {

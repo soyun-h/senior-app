@@ -17,7 +17,7 @@ import type { BottomTabId } from '../navigation/bottomTabs';
 
 const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
 export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange, existing, initialDate, activeTab = 'schedule' }: {
-  onBack: () => void; onSaved: (items: Schedule[]) => Promise<void>; onNavigate: (tab: BottomTabId) => void;
+  onBack: () => void; onSaved: (schedule: Schedule | undefined) => Promise<void>; onNavigate: (tab: BottomTabId) => void;
   onSavingChange: (busy: boolean) => void; existing?: Schedule; initialDate?: DateKey; activeTab?: BottomTabId;
 }) {
   const { repository, accept } = useSchedules();
@@ -77,9 +77,10 @@ export function ScheduleAddScreen({ onBack, onSaved, onNavigate, onSavingChange,
           ? { mode: 'once', date: selection.startDate }
           : { mode: 'range', startDate: selection.startDate, endDate: selection.endDate };
       const draft: ScheduleDraft = { title, type: existing?.type ?? classifyTitle(title), recurrence, ...time, reminderMinutes: existing?.reminderMinutes ?? 30, notificationMethod: method };
-      const items = existing ? await repository.update(existing.id, draft) : await repository.create(draft, id);
+      const savedId = existing?.id ?? id;
+      const items = existing ? await repository.update(savedId, draft) : await repository.create(draft, savedId);
       accept(items);
-      await onSaved(items);
+      await onSaved(items.find(item => item.id === savedId));
     } catch (e) {
       setError(e instanceof Error && /입력|선택|날짜|일정 번호/.test(e.message) ? e.message : existing ? '일정을 수정하지 못했어요. 다시 시도해 주세요.' : '일정을 저장하지 못했어요. 다시 시도해 주세요.');
     } finally { savingRef.current = false; setSaving(false); onSavingChange(false); }

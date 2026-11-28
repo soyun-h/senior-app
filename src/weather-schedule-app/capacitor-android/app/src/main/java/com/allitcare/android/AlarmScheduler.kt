@@ -14,6 +14,8 @@ import android.util.Log
 import org.json.JSONArray
 import java.time.Instant
 
+internal data class AlarmReservation(val occurrence: Occurrence, val outcome: String)
+
 internal object AlarmScheduler {
     private fun store(context: Context) = context.getSharedPreferences("allit-alarm-schedule-v1", Context.MODE_PRIVATE)
     private fun plans(context: Context) = decode(store(context).getString("plans", "[]") ?: "[]")
@@ -39,7 +41,7 @@ internal object AlarmScheduler {
     }
 
     @Synchronized
-    fun replace(context: Context, raw: String, force: Boolean = false) {
+    fun replace(context: Context, raw: String, force: Boolean = false): List<AlarmReservation> {
         val previous = plans(context)
         // Cancel old pre-alert PendingIntents on sync and package-replacement restore.
         val notifications = context.getSystemService(NotificationManager::class.java)
@@ -58,9 +60,22 @@ internal object AlarmScheduler {
             AlarmService.cancelSchedule(id)
         }
         val allowed = exact(context) && permitted(context)
-        for ((id, plan) in next) {
-            if (force || !allowed || !prefs.contains("armed:$id") || previous[id]?.raw?.toString() != plan.raw.toString()) {
-                arm(context, id, upcoming[id].takeIf { allowed })
+        return next.mapNotNull { (id, plan) ->
+            val occurrence = upcoming[id]
+            val armed = occurrence != null && store(context).getLong("armed:$id", 0) == occurrence.due &&
+                existingTrigger(context, id, "due") != null
+            val result = runCatching {
+                if (force || !allowed || !armed || previous[id]?.raw?.toString() != plan.raw.toString()) {
+                    arm(context, id, occurrence.takeIf { allowed })
+                }
+            }
+            if (result.isFailure) Log.w("AllitAlarm", "Schedule reservation failed: ${result.exceptionOrNull()?.javaClass?.simpleName}")
+            occurrence?.let {
+                AlarmReservation(it, when {
+                    result.isFailure -> "failed"
+                    !allowed -> "blocked"
+                    else -> "scheduled"
+                })
             }
         }
     }
@@ -117,9 +132,12 @@ internal object AlarmScheduler {
             .appendPath(phase).appendPath(id).build()
     }
 
-    private fun cancelTrigger(context: Context, id: String, phase: String) {
+    private fun existingTrigger(context: Context, id: String, phase: String) =
         PendingIntent.getBroadcast(context, 0, request(context, id, phase),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_NO_CREATE)?.let {
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_NO_CREATE)
+
+    private fun cancelTrigger(context: Context, id: String, phase: String) {
+        existingTrigger(context, id, phase)?.let {
             context.getSystemService(AlarmManager::class.java).cancel(it)
             it.cancel()
         }
@@ -174,6 +192,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
 class AlarmRestoreReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // On return from permission settings, the WebView syncs the current account's schedule.
+        if (intent.action == AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED) return
         runCatching { AlarmScheduler.restore(context) }.onFailure { Log.e("AllitAlarm", "Alarm restore failed", it) }
     }
 }

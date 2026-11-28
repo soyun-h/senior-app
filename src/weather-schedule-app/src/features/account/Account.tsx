@@ -94,6 +94,7 @@ export function AccountGate({ children }: { children: ReactNode }) {
     }).catch(error => { if (mounted) { setWaiting(false); setNotice(error.message); } });
     const auth = client.auth.onAuthStateChange((_event, value) => { if (mounted) setSession(value); });
     const native = android?.addListener('changed', resume);
+    void native?.catch(() => {});
     void client.auth.getSession().then(async result => {
       if (!mounted) return;
       let current = result.data.session;
@@ -109,7 +110,7 @@ export function AccountGate({ children }: { children: ReactNode }) {
     }).catch(() => { if (mounted) setNotice('저장된 로그인 정보를 읽지 못했어요.'); })
       .finally(() => { if (mounted) setReady(true); });
     window.addEventListener('online', online);
-    return () => { mounted = false; auth.data.subscription.unsubscribe(); window.removeEventListener('online', online); void native?.then(listener => listener.remove()); };
+    return () => { mounted = false; auth.data.subscription.unsubscribe(); window.removeEventListener('online', online); void native?.then(listener => listener.remove()).catch(() => {}); };
   }, []);
 
   const id = session && singleProvider(session) ? session.user.id : undefined;
@@ -120,7 +121,13 @@ export function AccountGate({ children }: { children: ReactNode }) {
     setScopeFailed(false);
     void Promise.resolve(android?.accountScope({ id })).then(() => {
       if (mounted) setScope(scopeKey);
-    }).catch(() => { if (mounted) { setScopeFailed(true); setNotice('Android 계정 저장소를 열지 못했어요.'); } });
+    }).catch(error => {
+      if (!mounted) return;
+      setScopeFailed(true);
+      const code = error?.code === 'ORIGIN_REJECTED' ? ' (ORIGIN_REJECTED)'
+        : error instanceof Error && error.message.includes('PLUGIN_UNAVAILABLE') ? ' (PLUGIN_UNAVAILABLE)' : '';
+      setNotice(`Android 계정 저장소를 열지 못했어요.${code}`);
+    });
     return () => { mounted = false; };
   }, [id, ready, scopeKey, retryScope]);
 
@@ -227,7 +234,8 @@ function SignedIn({ session, children, onSignOut }: { session: Session; children
     resume();
     window.addEventListener('online', resume);
     const native = android?.addListener('changed', resume);
-    return () => { live = false; window.removeEventListener('online', resume); void native?.then(listener => listener.remove()); };
+    void native?.catch(() => {});
+    return () => { live = false; window.removeEventListener('online', resume); void native?.then(listener => listener.remove()).catch(() => {}); };
   }, [client, id, profileKey, retry]);
 
   useEffect(() => {
